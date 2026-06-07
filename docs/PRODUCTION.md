@@ -2,6 +2,8 @@
 
 Registro operacional do deploy Render (Jun/2026). Detalhes de deploy: [`RENDER.md`](RENDER.md).
 
+**Antes do 1º cliente pagante:** ler [`TENANCY_AND_SCALE.md`](TENANCY_AND_SCALE.md) (ambiente prod vs onboarding de salão).
+
 ## Piloto atual vs recomendado
 
 | Aspecto | Piloto atual (Jun/2026) | Recomendado antes de clientes pagantes |

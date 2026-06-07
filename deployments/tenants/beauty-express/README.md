@@ -1,6 +1,8 @@
 # Tenant dedicado — Beauty Express
 
-Deploy **isolado** para um cliente enterprise: banco e WhatsApp próprios, **sem fork de código**.
+Deploy **isolado** para cliente **enterprise**: banco e WhatsApp próprios, **sem fork de código**.
+
+> **Não é o padrão para salões SMB.** Para escala (200+ salões no mesmo prod), use SaaS compartilhado — [`docs/TENANCY_AND_SCALE.md`](../../docs/TENANCY_AND_SCALE.md).
 
 ## Uso
 

@@ -1,5 +1,8 @@
 # Multi-tenant SaaS — um deploy, vários salões (organization_id + RLS)
 
+> **1 Render + 1 Supabase prod + N organizations.** Novo salão pagante = nova org no banco, **não** novo deploy.  
+> Playbook: [`docs/TENANCY_AND_SCALE.md`](../../docs/TENANCY_AND_SCALE.md)
+
 ## Hosting produção (Render + Supabase)
 
 | Componente | Onde |
@@ -25,6 +28,9 @@ Templates produção (não commitar secrets):
 
 ## Onboarding de novo salão
 
+Checklist completo: [`docs/TENANCY_AND_SCALE.md`](../../docs/TENANCY_AND_SCALE.md) § Onboarding.
+
+Resumo:
 1. Criar org via API (`POST /api/v1/organizations/`, `vertical=salon`)
 2. Seed KB: `python scripts/seed_datalake.py --org <UUID> --ensure-org`
 3. Cadastrar serviços/profissionais no catálogo

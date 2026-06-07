@@ -10,7 +10,7 @@
 | Deploy compartilhado | `deployments/multi-tenant/` | SaaS multi-tenant |
 | Cliente dedicado | `deployments/tenants/{slug}/` | só `.env` + branding |
 
-**Não** duplicar código por salão cliente — usar `organization_id` + RLS.
+**Não** duplicar código por salão cliente — usar `organization_id` + RLS. Ver [`docs/TENANCY_AND_SCALE.md`](TENANCY_AND_SCALE.md).
 
 ## Mapa módulos → pacotes
 
@@ -46,7 +46,7 @@ start_flowia.bat tenants\beauty-express
 | Ambiente | Como |
 |----------|------|
 | Local | `start_flowia.bat` |
-| SaaS multi-tenant | [`render.yaml`](../render.yaml) + [`docs/RENDER.md`](RENDER.md) |
+| SaaS multi-tenant | [`render.yaml`](../render.yaml) + [`docs/TENANCY_AND_SCALE.md`](../docs/TENANCY_AND_SCALE.md) |
 | Tenant dedicado | `deployments/tenants/{slug}/` + mesmo binário |
 
 ## Entrypoints

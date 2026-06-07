@@ -67,6 +67,16 @@ flowchart TB
 - `super_admin` pode operar cross-tenant; `org_admin` não pode trocar tenant
 - Credenciais WhatsApp por org: `organizations.whatsapp_phone_id`, `whatsapp_access_token`
 
+### Ambiente vs cliente (não confundir)
+
+| Conceito | O que é | Escala 200+ salões |
+|----------|---------|-------------------|
+| **Ambiente** | dev / staging / **prod FlowIA** (Render + Supabase prod) | Poucos ambientes |
+| **Cliente (salão)** | 1 row em `organizations` + dados com `organization_id` | **N orgs**, mesmo Render/Supabase |
+| **Isolamento** | RLS + JWT + `validated_tenant_context` | **RLS permanece** — não remove ao crescer |
+
+**Padrão comercial:** 1 Render + 1 Supabase prod + N organizations. **Enterprise:** Supabase dedicado por contrato — [`docs/TENANCY_AND_SCALE.md`](docs/TENANCY_AND_SCALE.md).
+
 ## 3. Personas e RBAC
 
 | Persona | Role JWT | O que vê |
@@ -819,6 +829,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | Blueprint IaC | [`render.yaml`](render.yaml) |
 | Guia deploy | [`docs/RENDER.md`](docs/RENDER.md) |
 | Rollback / URLs | [`docs/PRODUCTION.md`](docs/PRODUCTION.md) |
+| Tenancy & escala | [`docs/TENANCY_AND_SCALE.md`](docs/TENANCY_AND_SCALE.md) |
 | Env API prod | [`deployments/multi-tenant/.env.production.example`](deployments/multi-tenant/.env.production.example) |
 
 Checklist: [`docs/STAGING.md`](docs/STAGING.md)
@@ -873,7 +884,7 @@ Org demo: `22222222-2222-2222-2222-222222222222` (Beauty Express)
 | Decisão | Escolha | Motivo |
 |---------|---------|--------|
 | Auth dashboard | JWT FastAPI cookie HttpOnly | Controle total; frontend não usa Supabase Auth |
-| Multi-tenant | organization_id + RLS | Escala ~10 orgs sem duplicar codebase |
+| Multi-tenant | organization_id + RLS | Centenas de orgs no mesmo Supabase; pooler/worker conforme carga — ver [`docs/TENANCY_AND_SCALE.md`](docs/TENANCY_AND_SCALE.md) |
 | Checkpointer | PostgresSaver prod / MemorySaver testes | Persistência conversas sem Redis extra |
 | Data Lake | Medallion micro-escala Supabase | Sem Databricks; Bronze/Silver/Gold lógico |
 | WhatsApp org | Credenciais por organization | White-label real por cliente |
@@ -913,6 +924,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | [`docs/STAGING.md`](docs/STAGING.md) | Deploy checklist |
 | [`docs/RENDER.md`](docs/RENDER.md) | Deploy API + dashboard no Render |
 | [`docs/PRODUCTION.md`](docs/PRODUCTION.md) | URLs prod, smoke, rollback |
+| [`docs/TENANCY_AND_SCALE.md`](docs/TENANCY_AND_SCALE.md) | Multi-tenant, onboarding salão, escala 200+ |
 | [`docs/DOC_AUDIT_2026-06.md`](docs/DOC_AUDIT_2026-06.md) | Auditoria documentação (Jun/2026) |
 | [`docs/data-lake.md`](docs/data-lake.md) | Pipeline Medallion |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Futuro estratégico |
@@ -973,6 +985,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | Novo fluxo usuário | §6 Fluxos |
 | Refactor pacote grande | §10 Estrutura, §39 Dívida |
 | Feature fora MVP | §7 Fora do MVP, §36 Roadmap |
+| Tenancy / onboarding / escala | §2, [`docs/TENANCY_AND_SCALE.md`](docs/TENANCY_AND_SCALE.md) |
 | Nova skill Cursor | §38 Cursor, `AGENTS.md`, opcional `01-global-standards.mdc` |
 
 ### Ao fechar PR significativo
@@ -990,6 +1003,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.1 | Jun/2026 | 3 skills on-demand (security-audit, performance-optimization, feature-flag-override) + registro em §38 |
 | 1.2 | Jun/2026 | Purge automático webhook_message_dedup (APScheduler, retention 7 dias) |
 | 1.3 | Jun/2026 | Deploy Render (API + Static Site), cookie SameSite cross-subdomain, scripts smoke ops, auditoria docs |
+| 1.4 | Jun/2026 | Playbook tenancy & escala (`docs/TENANCY_AND_SCALE.md`); ambiente vs cliente; ADR multi-tenant 200+ orgs |
 
 ---
 

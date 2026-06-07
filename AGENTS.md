@@ -69,4 +69,4 @@ Regras em [`.cursor/rules/`](.cursor/rules/) · Skills em [`.cursor/skills/`](.c
 
 Skills carregam sob demanda via `@nome` no chat (`disable-model-invocation: true`).
 
-Docs: [`CLAUDE.md`](CLAUDE.md) · [`docs/README.md`](docs/README.md) · [`ROADMAP`](docs/ROADMAP.md) · [`PRODUCTION`](docs/PRODUCTION.md)
+Docs: [`CLAUDE.md`](CLAUDE.md) · [`docs/TENANCY_AND_SCALE.md`](docs/TENANCY_AND_SCALE.md) · [`docs/README.md`](docs/README.md) · [`ROADMAP`](docs/ROADMAP.md) · [`PRODUCTION`](docs/PRODUCTION.md)

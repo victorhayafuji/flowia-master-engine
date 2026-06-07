@@ -2,7 +2,7 @@
 
 Checklist para publicar uma instância piloto do FlowIA Salão multi-tenant.
 
-**Hosting produção:** Render (API Web Service + Dashboard Static Site) + Supabase. Guia: [`docs/RENDER.md`](RENDER.md).
+**Hosting produção:** Render (API Web Service + Dashboard Static Site) + Supabase. Guia: [`docs/RENDER.md`](RENDER.md). Tenancy: [`docs/TENANCY_AND_SCALE.md`](TENANCY_AND_SCALE.md).
 
 ## Pré-requisitos
 

@@ -101,6 +101,11 @@
 3. Criar `docs/WHATSAPP_SETUP.md` quando credenciais Meta estiverem disponíveis
 4. Corrigir dívida triage → scheduling no código (CLAUDE §39)
 
+## Follow-up Jun/2026 — tenancy
+
+- [x] [`docs/TENANCY_AND_SCALE.md`](TENANCY_AND_SCALE.md) — playbook multi-tenant, onboarding, escala 200+, tier enterprise
+- [x] CLAUDE §2, §34, §37, ADR, v1.4
+
 ---
 
 *Auditoria executada Jun/2026 — correções aplicadas no mesmo PR/sessão.*

@@ -14,7 +14,7 @@ Plataforma SaaS multi-tenant para salões de beleza: dashboard administrativo, a
 | API | https://flowia-api.onrender.com |
 | Health | https://flowia-api.onrender.com/health |
 
-Deploy: [`docs/RENDER.md`](docs/RENDER.md) · Ops: [`docs/PRODUCTION.md`](docs/PRODUCTION.md)
+Deploy: [`docs/RENDER.md`](docs/RENDER.md) · Ops: [`docs/PRODUCTION.md`](docs/PRODUCTION.md) · **Tenancy & escala:** [`docs/TENANCY_AND_SCALE.md`](docs/TENANCY_AND_SCALE.md)
 
 ## Quick start (local)
 
@@ -43,8 +43,9 @@ FastAPI · LangGraph · Gemini · Supabase (PostgreSQL + RLS) · React 18 · Vit
 | [**CLAUDE.md**](CLAUDE.md) | Handbook completo — fonte da verdade |
 | [AGENTS.md](AGENTS.md) | Guia Cursor (comandos, rules, skills) |
 | [docs/README.md](docs/README.md) | Índice temático |
-| [docs/RENDER.md](docs/RENDER.md) | Deploy Render + Supabase |
 | [docs/PRODUCTION.md](docs/PRODUCTION.md) | URLs, smoke, rollback |
+| [docs/TENANCY_AND_SCALE.md](docs/TENANCY_AND_SCALE.md) | Multi-tenant, onboarding, escala 200+ |
+| [docs/RENDER.md](docs/RENDER.md) | Deploy Render + Supabase |
 
 ## Testes
 

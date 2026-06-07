@@ -8,6 +8,7 @@
 | Documento | Quando usar |
 |-----------|-------------|
 | [**CLAUDE.md**](../CLAUDE.md) | **Sempre** — contexto completo de negócio, arquitetura, segurança, IA e ops |
+| [**TENANCY_AND_SCALE.md**](TENANCY_AND_SCALE.md) | **Novo salão pagante**, isolamento RLS, escala 200+, tier enterprise |
 | [AGENTS.md](../AGENTS.md) | Operação Cursor: comandos, rules, skills |
 | [README.md](../README.md) | Quick start para humanos |
 
@@ -17,6 +18,7 @@
 |-----------|-----------|-------------|
 | Arquitetura | [ARCHITECTURE.md](ARCHITECTURE.md) | Detalhe técnico (CLAUDE prevalece) |
 | Negócio MVP | [SALON_BUSINESS_AUDIT.md](SALON_BUSINESS_AUDIT.md) | Personas, regras, matriz funcional |
+| Tenancy & escala | [TENANCY_AND_SCALE.md](TENANCY_AND_SCALE.md) | Onboarding salão, RLS, 200+ orgs, enterprise |
 | Monorepo | [MONOREPO.md](MONOREPO.md) | Produto por diretório, deploys |
 | Boundaries | [PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md) | Grafo de dependências |
 | Data Lake | [data-lake.md](data-lake.md) | Pipeline Medallion |
