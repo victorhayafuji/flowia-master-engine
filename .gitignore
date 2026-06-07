@@ -17,6 +17,7 @@ ENV/
 .env
 .env.local
 .env.production
+.cursor/mcp.json
 
 # IDE
 .vscode/
