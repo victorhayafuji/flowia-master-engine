@@ -6,8 +6,8 @@ Checklist para publicar uma instância piloto do FlowIA Salão multi-tenant.
 
 ## Pré-requisitos
 
-- Projeto Supabase criado (prod separado do dev)
-- Migrations aplicadas: `supabase db push` ou SQL Editor em `supabase/migrations/`
+- Projeto Supabase criado — **recomendado** prod separado do dev; piloto atual compartilha projeto local (ver [`PRODUCTION.md`](PRODUCTION.md))
+- Migrations aplicadas: `supabase db push`, `python scripts/apply_migrations.py` ou SQL Editor em `supabase/migrations/`
 - Extensão **pgvector** habilitada (Data Lake / RAG)
 - Secrets prod novos: `python scripts/generate_prod_secrets.py` (stdout — não commitar)
 - Templates: `deployments/multi-tenant/.env.production.example`
@@ -26,7 +26,7 @@ python scripts/seed_salon.py   # opcional — dados demo
 |----------|-------------------|
 | `CHECKPOINTER_BACKEND` | `auto` (Postgres via `SUPABASE_DB_URL`) |
 | `SCHEDULER_ENABLED` | `true` (lembretes stub + no-show) |
-| `COOKIE_SECURE` | `true` (HTTPS) |
+| `COOKIE_SECURE` | `true` (HTTPS; cookie `SameSite=None` em prod Render) |
 | `ALLOWED_ORIGINS` | URL HTTPS exata do dashboard Render |
 | `ALLOWED_HOSTS` | hostname da API Render |
 | `WEBHOOK_DEDUP_RETENTION_DAYS` | `7` |
@@ -61,4 +61,4 @@ Se `.env` foi exposto: [`docs/SECRET_ROTATION.md`](SECRET_ROTATION.md).
 
 ## WhatsApp (pendente)
 
-Outbound/inbound real requer credenciais Meta Business API. Até lá, lembretes rodam em modo stub (log + status `sent` no banco).
+Outbound/inbound real requer credenciais Meta Business API. Webhook prod: `https://flowia-api.onrender.com/api/v1/whatsapp`. Doc de setup: futuro (`WHATSAPP_SETUP.md`). Até lá, lembretes rodam em modo stub (log + status `sent` no banco).

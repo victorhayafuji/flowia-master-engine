@@ -1,5 +1,5 @@
 # packages/lakehouse
 
-**Atual:** `src/analytics/lakehouse_service.py`, `lakehouse_governance.py`, rotas em `src/analytics/router.py`
+Pipeline Medallion (Bronze → Silver → Gold), OCR Gemini, busca semântica RAG, governance SQL.
 
-Pipeline medallion e busca semântica RAG.
+- Router: `router.py` · Fachada: `service.py`

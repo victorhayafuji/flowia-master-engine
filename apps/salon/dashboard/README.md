@@ -1,50 +1,45 @@
-# React + TypeScript + Vite
+# FlowIA Salon Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SPA React (Vite 5 + TypeScript + Tailwind 4) — painel administrativo do produto salão.
 
-Currently, two official plugins are available:
+**Handbook:** [`CLAUDE.md`](../../../CLAUDE.md) §28–31
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Rotas
 
-## Expanding the ESLint configuration
+| Path | Página | Acesso |
+|------|--------|--------|
+| `/login` | Login | público |
+| `/` | Overview | autenticado |
+| `/agenda` | Agenda | autenticado |
+| `/patients` | Clientes | autenticado |
+| `/catalog` | Catálogo | autenticado |
+| `/admin/data-lake` | Data Lake | super_admin + DEV |
+| `/admin/chat-test` | Chat Test | super_admin + DEV |
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Env (build-time)
 
-- Configure the top-level `parserOptions` property like this:
+| Variável | Local | Produção Render |
+|----------|-------|-----------------|
+| `VITE_API_URL` | `http://localhost:8000/api/v1` | `https://flowia-api.onrender.com/api/v1` |
+| `VITE_SUPABASE_URL` | projeto Supabase | projeto Supabase |
+| `VITE_SUPABASE_KEY` | anon key | anon key |
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+Lê `.env` da **raiz do monorepo**. Template build prod: [`deployments/multi-tenant/render-dashboard.env.example`](../../../deployments/multi-tenant/render-dashboard.env.example)
+
+## Comandos
+
+```bash
+cd apps/salon/dashboard
+npm install
+npm run dev          # http://localhost:5173
+npm test && npm run lint && npm run build
+npm run test:e2e     # Playwright
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Auth
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+Cookie JWT HttpOnly da API — **não** usa Supabase Auth no browser. Client: `@/shared/lib/api`.
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+## Deploy
+
+Render Static Site — root `apps/salon/dashboard`, publish `dist`. SPA rewrite: `render.yaml` + `public/_redirects`.

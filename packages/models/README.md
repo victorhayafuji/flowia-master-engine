@@ -1,5 +1,5 @@
 # packages/models
 
-**Atual:** `src/models/`
+Enums (`Vertical`, status) e schemas Pydantic compartilhados.
 
-Enums (`Vertical`), schemas compartilhados.
+Sem dependências de outros pacotes FlowIA — apenas stdlib/Pydantic.

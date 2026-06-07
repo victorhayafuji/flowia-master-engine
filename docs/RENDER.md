@@ -15,7 +15,7 @@ Blueprint IaC: [`render.yaml`](../render.yaml) na raiz do repo.
 ## 1. Pré-requisitos
 
 1. Repositório Git no GitHub/GitLab/Bitbucket (Render exige Git para deploy contínuo).
-2. Projeto **Supabase de produção** separado do dev.
+2. Projeto **Supabase de produção** — recomendado separado do dev; piloto Jun/2026 usa o mesmo projeto (ver [`PRODUCTION.md`](PRODUCTION.md)).
 3. Conta Render com workspace selecionado.
 4. Secrets novos — **nunca** reutilizar dev ([`SECRET_ROTATION.md`](SECRET_ROTATION.md)).
 
@@ -118,10 +118,11 @@ Após obter URL final do Static Site, **atualizar `ALLOWED_ORIGINS`** na API.
 
 ## 5. Smoke produção
 
-Automático (health + dashboard HTTP):
+Automático (health + dashboard HTTP + agente RAG):
 
 ```powershell
 venv\Scripts\python.exe scripts\smoke_prod.py --api-url https://flowia-api.onrender.com --dashboard-url https://flowia-dashboard.onrender.com
+venv\Scripts\python.exe scripts\smoke_agent.py --api-url https://flowia-api.onrender.com/api/v1
 ```
 
 Manual:
@@ -143,7 +144,7 @@ Checklist completo: [`STAGING.md`](STAGING.md) · Rollback: [`PRODUCTION.md`](PR
 | Problema | Ação |
 |----------|------|
 | Deploy API quebrado | Render → flowia-api → **Rollback** deploy anterior |
-| CORS / login | Conferir `ALLOWED_ORIGINS` = URL exata HTTPS do dashboard |
+| CORS / login | Conferir `ALLOWED_ORIGINS` = URL exata HTTPS do dashboard; `COOKIE_SECURE=true` (SameSite=None) |
 | Scheduler duplicado | Manter **1 instância** Web Service |
 | Cold start (free tier) | Upgrade para Starter ou plano always-on |
 
@@ -151,14 +152,17 @@ Checklist completo: [`STAGING.md`](STAGING.md) · Rollback: [`PRODUCTION.md`](PR
 
 ## 7. Render MCP (opcional)
 
-Para deploy via Cursor: configurar MCP Render com `Authorization: Bearer <RENDER_API_KEY>` em `.cursor/mcp.json`. Sem auth, usar Dashboard ou Blueprint.
+Copie [`.cursor/mcp.json.example`](../.cursor/mcp.json.example) para `.cursor/mcp.json` (gitignored) ou `~/.cursor/mcp.json`. Preencha `Authorization: Bearer <RENDER_API_KEY>`. Sem auth, usar Dashboard ou Blueprint.
 
 ---
 
-## URLs de produção (preencher após deploy)
+## URLs de produção
+
+Registro canônico: [`PRODUCTION.md`](PRODUCTION.md).
 
 | Serviço | URL |
 |---------|-----|
-| API | `https://____________.onrender.com` |
-| Dashboard | `https://____________.onrender.com` |
-| Supabase | `https://____________.supabase.co` |
+| API | https://flowia-api.onrender.com |
+| Dashboard | https://flowia-dashboard.onrender.com |
+| Supabase (piloto) | https://vwhsivwoiiicydanypmo.supabase.co |
+| Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/whatsapp |

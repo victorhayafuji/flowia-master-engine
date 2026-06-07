@@ -23,6 +23,7 @@
 | Ops / Deploy | [STAGING.md](STAGING.md) | Checklist staging |
 | Render | [RENDER.md](RENDER.md) | Deploy API + dashboard no Render |
 | Produção | [PRODUCTION.md](PRODUCTION.md) | URLs, smoke, rollback |
+| Auditoria docs | [DOC_AUDIT_2026-06.md](DOC_AUDIT_2026-06.md) | Gaps documentação (Jun/2026) |
 | Segurança | [SECRET_ROTATION.md](SECRET_ROTATION.md) | Rotação de credentials |
 | Futuro | [ROADMAP.md](ROADMAP.md) | Capítulos 2+ (não MVP) |
 | Histórico | [archive/PLAN.md](archive/PLAN.md) | Plano de implementação executado |
@@ -31,4 +32,4 @@
 
 - Rules: [`.cursor/rules/`](../.cursor/rules/)
 - Skills: [`.cursor/skills/`](../.cursor/skills/)
-- MCP Supabase: [`.cursor/mcp.json`](../.cursor/mcp.json) (read-only)
+- MCP: copiar [`.cursor/mcp.json.example`](../.cursor/mcp.json.example) → `.cursor/mcp.json` (gitignored) — Supabase read-only + Render ops

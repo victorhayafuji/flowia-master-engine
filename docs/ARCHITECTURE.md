@@ -12,6 +12,25 @@ flowchart LR
     WhatsApp[WhatsApp API] -->|webhook| API
 ```
 
+### Hosting produção (Render)
+
+```mermaid
+flowchart LR
+    User[Browser] --> StaticSite[Render Static Site flowia-dashboard]
+    StaticSite -->|VITE_API_URL| WebService[Render Web Service flowia-api]
+    WebService --> Supabase[(Supabase)]
+    WebService --> Gemini[Gemini]
+    Meta[Meta WhatsApp] -->|webhook| WebService
+```
+
+| Componente | Onde | URL piloto |
+|------------|------|------------|
+| API | Render Web Service | https://flowia-api.onrender.com |
+| Dashboard | Render Static Site | https://flowia-dashboard.onrender.com |
+| Banco | Supabase | https://vwhsivwoiiicydanypmo.supabase.co |
+
+Blueprint: [`render.yaml`](../render.yaml). Ops: [`docs/RENDER.md`](RENDER.md), [`docs/PRODUCTION.md`](PRODUCTION.md).
+
 O sistema tem três pilares:
 
 1. **Backend FastAPI** — API REST, agentes LangGraph, webhooks WhatsApp
@@ -55,7 +74,8 @@ Registrados em [`apps/salon/api/app_factory.py`](../apps/salon/api/app_factory.p
 
 **Decisão:** FastAPI JWT via cookie HttpOnly é a única fonte de autenticação do dashboard.
 
-- Login: `POST /api/v1/auth/login` → cookie `session_token`
+- Login: `POST /api/v1/auth/login` (`username`, `password`) → cookie `session_token`
+- Produção Render: `COOKIE_SECURE=true` → cookie `SameSite=None` + `Secure` (API e dashboard em subdomínios distintos)
 - Sessão: `GET /api/v1/auth/me` decodifica o JWT
 - O frontend **não** chama `supabase.auth.signInWithPassword`
 - Supabase Auth é usado apenas no backend para validar credenciais

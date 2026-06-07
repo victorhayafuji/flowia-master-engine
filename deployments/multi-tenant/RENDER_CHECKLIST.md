@@ -2,7 +2,25 @@
 
 Use após push do repo para GitHub/GitLab. Blueprint: [`render.yaml`](../../render.yaml).
 
-## Pré-flight
+## Status Jun/2026 — concluído
+
+Deploy piloto realizado via Blueprint + Render MCP.
+
+- [x] Repo GitHub conectado ao Render
+- [x] Serviços `flowia-api` + `flowia-dashboard` no ar
+- [x] Env vars preenchidas (sync off)
+- [x] 13 migrations aplicadas (`apply_migrations.py`)
+- [x] CORS + cookie cross-subdomain (`SameSite=None`)
+- [x] SPA rewrite `/* → /index.html`
+- [x] Smoke automático (`smoke_prod.py`, `smoke_agent.py`)
+- [ ] Smoke manual browser: CRUD cliente + agendamento (pendente)
+- [ ] Supabase prod separado do dev (pendente — antes de clientes reais)
+
+URLs: [`docs/PRODUCTION.md`](../../docs/PRODUCTION.md)
+
+---
+
+## Pré-flight (referência para novo deploy)
 
 - [ ] Repo Git remoto conectado ao Render
 - [ ] `python scripts/generate_prod_secrets.py` — secrets no painel Render (sync off)
@@ -58,7 +76,7 @@ Registrar URLs em [`docs/PRODUCTION.md`](../../docs/PRODUCTION.md).
 
 ## Render MCP (Cursor)
 
-Adicionar ao `.cursor/mcp.json`:
+Copie [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example) para `.cursor/mcp.json` (gitignored):
 
 ```json
 "render": {

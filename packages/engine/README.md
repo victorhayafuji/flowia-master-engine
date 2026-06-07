@@ -1,5 +1,6 @@
 # packages/engine
 
-**Atual:** `src/chat/` (engine.py, metrics.py, tools.py, service.py, router.py)
+LangGraph master engine, token tracking, chat routers, checkpointer, prompts registry.
 
-LangGraph master engine, token tracking, chat routers.
+- Grafo: `engine.py` · Checkpointer: `checkpointer.py`
+- Chat test: `chat_router.py` · Métricas: `metrics_router.py`

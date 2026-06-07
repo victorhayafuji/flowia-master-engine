@@ -1,3 +1,5 @@
+> **AVISO:** Documento de **marketing/vendas** da FlowIA agência — **não** é documentação do produto salão (`PRODUCT_LINE=salon`). Não indexar no RAG do agente de salão nem tratar como fonte de verdade técnica. Produto: [`CLAUDE.md`](../CLAUDE.md).
+
 # FlowIA - Base de Conhecimento e Vendas
 
 ## 1. Quem somos

@@ -33,12 +33,21 @@ PRODUCT_LINE=salon
 ## Comandos
 
 ```bash
-# Deploy padrão (multi-tenant)
+# Local (Windows)
 start_flowia.bat
-
-# Instância dedicada demo
 start_flowia.bat tenants\beauty-express
+
+# Produção Render — Blueprint
+# render.yaml na raiz; guia: docs/RENDER.md
 ```
+
+## Deploy produção
+
+| Ambiente | Como |
+|----------|------|
+| Local | `start_flowia.bat` |
+| SaaS multi-tenant | [`render.yaml`](../render.yaml) + [`docs/RENDER.md`](RENDER.md) |
+| Tenant dedicado | `deployments/tenants/{slug}/` + mesmo binário |
 
 ## Entrypoints
 

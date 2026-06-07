@@ -1,5 +1,6 @@
 # packages/auth_core
 
-**Atual:** `src/core/`, `src/auth/`
+Config, tenant context, JWT, Supabase handler, dependencies, rate limiter.
 
-Config, tenant context, JWT, Supabase handler, dependencies.
+- Router auth: `auth_router.py` (`/api/v1/auth/*`)
+- Settings: `config.py` — ver [`CLAUDE.md`](../../CLAUDE.md) §33

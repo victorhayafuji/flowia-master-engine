@@ -20,7 +20,7 @@ Execute este checklist se o arquivo `.env` foi compartilhado, commitado por enga
 1. Atualize o `.env` na raiz do projeto com os novos valores.
 2. Reinicie backend e frontend (`start_flowia.bat` ou uvicorn + `npm run dev`).
 3. Todos os usuários precisarão fazer login novamente (JWT antigo invalida).
-4. Atualize secrets no ambiente de produção (Vercel, Railway, etc.) se já deployado.
+4. Atualize secrets no **Render Dashboard** → serviço `flowia-api` / `flowia-dashboard` → Environment (sync off). Redeploy após alterar `VITE_*` no Static Site.
 5. Revogue as chaves antigas nos painéis (Google, Supabase, Meta) — não apenas substitua.
 
 ## Gerar novos valores localmente
@@ -43,5 +43,5 @@ python scripts/check_env.py
 
 - `.env` está no `.gitignore` — nunca faça `git add .env`
 - Use `.env.example` apenas com placeholders
-- Em produção, use secrets do provedor (GitHub Secrets, Vercel Env, etc.)
+- Em produção, use Render Environment (sync off) — nunca commitar secrets
 - `VITE_DEV_EMAIL` / `VITE_DEV_PASSWORD` são **apenas para desenvolvimento local**

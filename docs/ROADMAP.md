@@ -20,6 +20,8 @@ Este documento centraliza o planejamento estratégico e a arquitetura futura do 
 ### 🔵 Fase 5: Expansão Omnichannel (BLOQUEADO — aguardando API WhatsApp)
 - **Foco:** Voz e integrações de canais externos (ex: WhatsApp e Slack).
 - **Bloqueio:** Credenciais Meta/WhatsApp Business API ainda não disponíveis.
+- **Infra pronta:** Webhook prod `https://flowia-api.onrender.com/api/v1/whatsapp` — código em `packages/integrations/webhook/`.
+- **Próximo passo:** Configurar Meta Business API + campos `organizations.whatsapp_*` por tenant. Doc de setup: futuro (`WHATSAPP_SETUP.md`).
 
 ---
 

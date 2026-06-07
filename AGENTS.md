@@ -36,7 +36,9 @@ cd apps/salon/dashboard && npm run dev && npm test && npm run lint && npm run bu
 python scripts/check_env.py
 python scripts/generate_prod_secrets.py   # stdout — secrets prod
 python scripts/apply_migrations.py        # supabase db push alternativo
-python scripts/smoke_prod.py --api-url https://API.onrender.com
+python scripts/list_db_migrations.py      # verificar migrations aplicadas
+python scripts/smoke_prod.py --api-url https://flowia-api.onrender.com --dashboard-url https://flowia-dashboard.onrender.com
+python scripts/smoke_agent.py --api-url https://flowia-api.onrender.com/api/v1
 start_flowia.bat   # Windows: backend + frontend
 ```
 
@@ -44,7 +46,7 @@ Testes: `CHECKPOINTER_BACKEND=memory` (ver `tests/conftest.py`).
 
 ## Cursor
 
-Regras em [`.cursor/rules/`](.cursor/rules/) · Skills em [`.cursor/skills/`](.cursor/skills/) · MCP Supabase read-only.
+Regras em [`.cursor/rules/`](.cursor/rules/) · Skills em [`.cursor/skills/`](.cursor/skills/) · MCP: copiar [`.cursor/mcp.json.example`](.cursor/mcp.json.example) → `.cursor/mcp.json` (gitignored) — Supabase read-only + Render ops.
 
 | Regra | Quando |
 |-------|--------|
@@ -67,4 +69,4 @@ Regras em [`.cursor/rules/`](.cursor/rules/) · Skills em [`.cursor/skills/`](.c
 
 Skills carregam sob demanda via `@nome` no chat (`disable-model-invocation: true`).
 
-Docs: [`CLAUDE.md`](CLAUDE.md) · [`docs/README.md`](docs/README.md) · [`ROADMAP`](docs/ROADMAP.md)
+Docs: [`CLAUDE.md`](CLAUDE.md) · [`docs/README.md`](docs/README.md) · [`ROADMAP`](docs/ROADMAP.md) · [`PRODUCTION`](docs/PRODUCTION.md)

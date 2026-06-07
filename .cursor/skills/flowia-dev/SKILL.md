@@ -52,5 +52,16 @@ Build requer: `VITE_SUPABASE_URL`, `VITE_SUPABASE_KEY`, `VITE_API_URL=http://loc
 ## CI & migrações
 
 - CI: `.github/workflows/ci.yml` — ruff + pytest (cov ≥30%), lint + vitest + build
-- Migrações: `supabase db push` ou SQL Editor em `supabase/migrations/`
+- Migrações: `supabase db push`, `python scripts/apply_migrations.py` ou SQL Editor
+- Verificar: `python scripts/list_db_migrations.py`
 - Windows multi-tenant: `start_flowia.bat tenants\beauty-express`
+
+## Smoke produção
+
+```powershell
+venv\Scripts\python.exe scripts\smoke_prod.py --api-url https://flowia-api.onrender.com --dashboard-url https://flowia-dashboard.onrender.com
+venv\Scripts\python.exe scripts\smoke_agent.py --api-url https://flowia-api.onrender.com/api/v1
+venv\Scripts\python.exe scripts\test_rag_chat.py
+```
+
+Ops: [`docs/PRODUCTION.md`](../../docs/PRODUCTION.md) · Deploy: [`docs/RENDER.md`](../../docs/RENDER.md)

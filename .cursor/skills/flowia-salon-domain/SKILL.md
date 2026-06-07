@@ -10,9 +10,10 @@ disable-model-invocation: true
 
 FastAPI JWT via cookie HttpOnly — única auth do dashboard.
 
-- Login: `POST /api/v1/auth/login` → cookie `session_token`
+- Login: `POST /api/v1/auth/login` — body usa **`username`** (valor = email cadastrado) + `password` → cookie `session_token`
+- Produção Render: `COOKIE_SECURE=true` → `SameSite=None` + `Secure` (API e dashboard em subdomínios `*.onrender.com` distintos)
+- Frontend: `loginWithCredentials()` + `navigate("/")` sem reload; `AuthContext` — **não** Supabase Auth no browser
 - Sessão: `GET /api/v1/auth/me`
-- Frontend: `AuthContext` — **não** Supabase Auth no browser
 - Backend valida credenciais via Supabase Auth internamente
 
 ## Multi-tenant
@@ -30,6 +31,7 @@ FastAPI JWT via cookie HttpOnly — única auth do dashboard.
 ## WhatsApp
 
 - Inbound: webhook em `packages/integrations` — org via `organizations.whatsapp_phone_id`
+- URL prod (futuro): `https://flowia-api.onrender.com/api/v1/whatsapp`
 - Outbound: `packages/integrations/webhook/whatsapp.py` (Meta Graph API v21)
 - Credenciais por org: `whatsapp_phone_id`, `whatsapp_access_token`
 

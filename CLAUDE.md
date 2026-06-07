@@ -326,7 +326,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 
 | Método | Path | Auth | Descrição |
 |--------|------|------|-----------|
-| POST | `/login` | — | Login → cookie `session_token` HttpOnly |
+| POST | `/login` | — | Login (`username`, `password`) → cookie `session_token` HttpOnly |
 | POST | `/logout` | — | Limpa cookie |
 | GET | `/me` | auth | Sessão + org + role |
 | POST | `/change-password` | auth | Troca senha |
@@ -348,6 +348,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 |--------|------|-----------|
 | POST | `/` | Criar cliente |
 | GET | `/` | Listar clientes |
+| DELETE | `/{patient_id}` | Desativar cliente (soft delete) |
 
 ### Organizations — `apps/salon/domain/catalog/router.py` (prefix `/organizations`)
 
@@ -356,7 +357,9 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | POST | `/` | Criar org (super_admin) |
 | GET | `/` | Listar orgs |
 | POST/GET | `/services` | CRUD catálogo serviços |
+| DELETE | `/services/{service_id}` | Desativar serviço (soft delete) |
 | POST/GET | `/professionals` | CRUD profissionais |
+| DELETE | `/professionals/{professional_id}` | Desativar profissional (soft delete) |
 
 ### Lakehouse — `packages/lakehouse/router.py`
 
@@ -477,7 +480,7 @@ service_catalog 1──N appointments (via service_id)
 
 ## 15. Migrações Supabase
 
-Aplicar em ordem via `supabase db push` ou SQL Editor.
+Aplicar em ordem via `supabase db push`, SQL Editor ou `python scripts/apply_migrations.py` (via `SUPABASE_DB_URL`). Verificar estado: `python scripts/list_db_migrations.py`.
 
 | Arquivo | Conteúdo |
 |---------|----------|
@@ -511,18 +514,20 @@ sequenceDiagram
   participant API as FastAPI
   participant SupaAuth as Supabase Auth
 
-  Browser->>API: POST /api/v1/auth/login (email, password)
+  Browser->>API: POST /api/v1/auth/login (username, password)
   API->>SupaAuth: valida credenciais (backend only)
   SupaAuth-->>API: OK
   API->>API: emite JWT (DASHBOARD_JWT_SECRET)
-  API-->>Browser: Set-Cookie session_token HttpOnly
+  API-->>Browser: Set-Cookie session_token HttpOnly Secure
   Browser->>API: GET /api/v1/auth/me + Cookie
   API-->>Browser: user, role, org_id
 ```
 
 - Frontend **nunca** chama `supabase.auth.signInWithPassword`
-- `AuthContext` consulta `/auth/me` no mount
-- Produção: `COOKIE_SECURE=true` (HTTPS)
+- Body do login usa campo **`username`** (valor = email do usuário cadastrado)
+- `AuthContext` consulta `/auth/me` no mount; login via `loginWithCredentials()` + `navigate("/")` sem reload completo
+- Produção Render: API e dashboard em subdomínios distintos (`*.onrender.com`) → `COOKIE_SECURE=true` + cookie **`SameSite=None`** (requer `Secure`; ver `_session_cookie_samesite()` em `auth_router.py`)
+- Local: `COOKIE_SECURE=false` → `SameSite=Lax`
 - Expiração: `ACCESS_TOKEN_EXPIRE_MINUTES` (default 1440)
 
 ## 17. Isolamento multi-tenant
@@ -749,7 +754,6 @@ src/
 
 - Base URL: `VITE_API_URL` (default `http://localhost:8000/api/v1`)
 - Envia cookie credentials + header `x-organization-id` quando org selecionada
-- **Débito:** AuthContext importa `../lib/api` diretamente — consolidar paths
 
 ## 31. Design system: Neo-Swiss Brutalism
 
@@ -802,7 +806,8 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `SCHEDULER_ENABLED` | Opcional | true em prod, false em CI |
 | `WEBHOOK_DEDUP_RETENTION_DAYS` | Opcional | TTL purge dedup WhatsApp (default 7) |
 | `COOKIE_SECURE` | Prod | true com HTTPS |
-| `ALLOWED_ORIGINS` | Prod | URL dashboard produção |
+| `ALLOWED_ORIGINS` | Prod | URL dashboard produção (CORS) |
+| `ALLOWED_HOSTS` | Prod | Hostname da API (`TrustedHostMiddleware`) |
 | `DEV_*` / `VITE_DEV_*` | Dev only | Login rápido local — **nunca produção** |
 
 ## 34. Deploy e staging
@@ -823,7 +828,7 @@ Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 3. Render API: `uvicorn main:app --host 0.0.0.0 --port $PORT`, health `/health`, scale=1
 4. Render Static Site: `apps/salon/dashboard`, `VITE_API_URL=https://API.onrender.com/api/v1`
 5. `ALLOWED_ORIGINS` = URL dashboard; `COOKIE_SECURE=true`, `SCHEDULER_ENABLED=true`
-6. Smoke: `python scripts/smoke_prod.py` + login manual
+6. Smoke: `python scripts/smoke_prod.py` + `python scripts/smoke_agent.py` + login manual
 
 **Deploy templates:**
 
@@ -839,7 +844,11 @@ Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 | `scripts/check_env.py` | Valida .env sem expor valores |
 | `scripts/generate_prod_secrets.py` | Gera JWT/API key/WhatsApp verify (stdout) |
 | `scripts/smoke_prod.py` | Smoke `/health` + dashboard HTTP em prod |
+| `scripts/smoke_agent.py` | Smoke LangGraph/RAG via `/chat/test` em prod |
+| `scripts/test_rag_chat.py` | Teste RAG local ou prod (queries KB) |
 | `scripts/apply_migrations.py` | Aplica migrations SQL via `SUPABASE_DB_URL` |
+| `scripts/list_db_migrations.py` | Lista migrations aplicadas no banco |
+| `scripts/mark_migration_applied.py` | Marca migration como aplicada (reparo histórico) |
 | `scripts/create_platform_admin.py` | Cria super_admin plataforma |
 | `scripts/setup_dev_env.py` | Cria admin dev |
 | `scripts/create_salon_user.py` | Cria org_admin salão |
@@ -882,7 +891,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | 2 — Sales Analytics | **Futuro** | SG-Vendas, faturamento — **isolado do chatbot** |
 | 3 — Workspace Analítico | Concluído | Data Lake UI, SQL editor |
 | 4 — Agendamento Multi-Tenant | Concluído | RLS, lembretes, no-show |
-| 5 — Omnichannel WhatsApp | Bloqueado | Aguardando credenciais Meta API |
+| 5 — Omnichannel WhatsApp | Bloqueado | Webhook prod pronto: `https://flowia-api.onrender.com/api/v1/whatsapp`; aguardando credenciais Meta API (doc setup futuro) |
 
 **Fase 2 salão:** pagamento, convênios — não implementar agora.
 
@@ -902,6 +911,9 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | [`docs/PACKAGE_BOUNDARIES.md`](docs/PACKAGE_BOUNDARIES.md) | Boundaries pacotes |
 | [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md) | Rotação secrets |
 | [`docs/STAGING.md`](docs/STAGING.md) | Deploy checklist |
+| [`docs/RENDER.md`](docs/RENDER.md) | Deploy API + dashboard no Render |
+| [`docs/PRODUCTION.md`](docs/PRODUCTION.md) | URLs prod, smoke, rollback |
+| [`docs/DOC_AUDIT_2026-06.md`](docs/DOC_AUDIT_2026-06.md) | Auditoria documentação (Jun/2026) |
 | [`docs/data-lake.md`](docs/data-lake.md) | Pipeline Medallion |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Futuro estratégico |
 | [`docs/archive/PLAN.md`](docs/archive/PLAN.md) | Histórico executado |
@@ -912,7 +924,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 - **Rules** — `.cursor/rules/01-global-standards.mdc` (always) + 02–05 por glob
 - **Skills domínio (`flowia-*`)** — dev, monorepo, salon-domain, security, data-lake
 - **Skills on-demand** — security-audit, performance-optimization, feature-flag-override
-- **MCP** — Supabase read-only (`.cursor/mcp.json`)
+- **MCP** — Supabase read-only + Render ops; template [`.cursor/mcp.json.example`](.cursor/mcp.json.example) (não commitar `.cursor/mcp.json`)
 
 Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocation: true`).
 
@@ -940,6 +952,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | Webhook dedup | in-memory dict | **Resolvido** — tabela `webhook_message_dedup` |
 | Booking race | read-then-write | **Resolvido** — constraint EXCLUDE no DB |
 | Handoff → leads | session_store | **Resolvido** — `patients.handoff_*` |
+| Triage → scheduling | `packages/engine/engine.py` | **Aberto** — triage mantém `receptionist` em vez de `scheduling`; booking via chat inconsistente em prod |
 | Anamnese / NPS | Cap 4 pilar 3 | **DEFERIDO** — schema only |
 
 ## 40. Manutenção da fonte da verdade
@@ -976,6 +989,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.0 | Jun/2026 | Criação como fonte da verdade — consolida ARCHITECTURE, SALON_BUSINESS_AUDIT, MONOREPO, STAGING, SECRET_ROTATION, data-lake |
 | 1.1 | Jun/2026 | 3 skills on-demand (security-audit, performance-optimization, feature-flag-override) + registro em §38 |
 | 1.2 | Jun/2026 | Purge automático webhook_message_dedup (APScheduler, retention 7 dias) |
+| 1.3 | Jun/2026 | Deploy Render (API + Static Site), cookie SameSite cross-subdomain, scripts smoke ops, auditoria docs |
 
 ---
 

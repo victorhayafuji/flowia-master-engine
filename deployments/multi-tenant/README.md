@@ -6,7 +6,9 @@
 |------------|------|
 | API | Render Web Service — [`render.yaml`](../../render.yaml) |
 | Dashboard | Render Static Site — root `apps/salon/dashboard` |
-| Banco | Supabase prod (projeto separado do dev) |
+| Banco | Supabase — **recomendado** projeto separado do dev |
+
+**Piloto Jun/2026:** mesmo Supabase do dev local — ver [`docs/PRODUCTION.md`](../../docs/PRODUCTION.md).
 
 Guia completo: [`docs/RENDER.md`](../../docs/RENDER.md)
 
@@ -33,6 +35,7 @@ Templates produção (não commitar secrets):
 ```bash
 supabase link --project-ref <PROD_REF>
 supabase db push
+# ou: python scripts/apply_migrations.py
 ```
 
 13 migrations em [`supabase/migrations/`](../../supabase/migrations/) — ordem em [`CLAUDE.md`](../../CLAUDE.md) §15.
