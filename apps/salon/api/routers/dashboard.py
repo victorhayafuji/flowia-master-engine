@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -9,10 +10,32 @@ router = APIRouter(tags=["Salon Dashboard"])
 
 # Statuses that count as "still going to happen" for the operational board.
 _OPEN_STATUSES = ("pending", "confirmed", "arrived", "in_progress")
+_DEFAULT_TZ = "America/Sao_Paulo"
 
 
-def _day_bounds():
-    tz = timezone(timedelta(hours=-3))
+def _get_org_timezone(org_id: str | None) -> str:
+    if not org_id or org_id == "ALL":
+        return _DEFAULT_TZ
+    try:
+        res = (
+            db.client.table("organizations")
+            .select("timezone")
+            .eq("id", org_id)
+            .maybe_single()
+            .execute()
+        )
+        row = (res.data if res else None) or {}
+        return row.get("timezone") or _DEFAULT_TZ
+    except Exception:
+        return _DEFAULT_TZ
+
+
+def _day_bounds(org_id: str | None = None):
+    tzname = _get_org_timezone(org_id)
+    try:
+        tz = ZoneInfo(tzname)
+    except Exception:
+        tz = ZoneInfo(_DEFAULT_TZ)
     now = datetime.now(tz)
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_today = now.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -25,12 +48,15 @@ async def get_dashboard_stats(
     prof_scope: str | None = Depends(professional_scope),
 ):
     try:
-        query_patients = db.client.table("patients").select("*", count="exact")
-        if org_id and org_id != "ALL":
-            query_patients = query_patients.eq("organization_id", org_id)
-        res_patients = query_patients.limit(1).execute()
+        patients_count = 0
+        if not prof_scope:
+            query_patients = db.client.table("patients").select("*", count="exact")
+            if org_id and org_id != "ALL":
+                query_patients = query_patients.eq("organization_id", org_id)
+            res_patients = query_patients.limit(1).execute()
+            patients_count = res_patients.count or 0
 
-        now, today, end_today = _day_bounds()
+        now, today, end_today = _day_bounds(org_id)
 
         query_today = db.client.table("appointments").select("id", count="exact")
         if org_id and org_id != "ALL":
@@ -56,7 +82,7 @@ async def get_dashboard_stats(
         return {
             "status": "success",
             "data": {
-                "patients": res_patients.count or 0,
+                "patients": patients_count,
                 "appointmentsToday": res_today.count or 0,
                 "upcoming": res_upcoming.data,
             },
@@ -72,7 +98,7 @@ async def get_today_board(
 ):
     """Operational board for today: who attends, what, when, and current status."""
     try:
-        now, today, end_today = _day_bounds()
+        now, today, end_today = _day_bounds(org_id)
 
         prof_query = db.client.table("professionals").select("id, name").eq("is_active", True)
         if org_id and org_id != "ALL":
