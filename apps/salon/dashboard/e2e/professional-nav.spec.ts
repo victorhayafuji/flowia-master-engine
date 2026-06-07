@@ -11,4 +11,14 @@ test.describe('Professional role — scoped navigation', () => {
     await expect(page.getByRole('link', { name: 'Catálogo' })).toHaveCount(0)
     await expect(page.getByText('Salão ativo')).toHaveCount(0)
   })
+
+  test('redirects direct URL access away from clients and catalog', async ({ page }) => {
+    await loginAsProfessional(page)
+
+    await page.goto('/patients')
+    await expect(page).toHaveURL('/')
+
+    await page.goto('/catalog')
+    await expect(page).toHaveURL('/')
+  })
 })

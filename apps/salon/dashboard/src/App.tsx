@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { AuthProvider } from "@/features/auth/AuthContext"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 import { AdminDevRoute } from "./components/AdminDevRoute"
+import { OrgAdminRoute } from "./components/OrgAdminRoute"
 import { Layout } from "./components/Layout"
 import { Login } from "./pages/Login"
 
@@ -32,16 +33,18 @@ function App() {
                   <Agenda />
                 </Suspense>
               } />
-              <Route path="/patients" element={
-                <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
-                  <Patients />
-                </Suspense>
-              } />
-              <Route path="/catalog" element={
-                <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
-                  <Catalog />
-                </Suspense>
-              } />
+              <Route element={<OrgAdminRoute />}>
+                <Route path="/patients" element={
+                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                    <Patients />
+                  </Suspense>
+                } />
+                <Route path="/catalog" element={
+                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                    <Catalog />
+                  </Suspense>
+                } />
+              </Route>
               <Route path="/data-lake" element={<Navigate to="/admin/data-lake" replace />} />
               <Route path="/chat-test" element={<Navigate to="/admin/chat-test" replace />} />
 

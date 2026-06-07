@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { format } from "date-fns"
 import { useAuth } from "@/features/auth/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -17,11 +17,28 @@ export function Agenda() {
 
   const professionals = agenda.options.professionals
   const teamDay = agenda.days[teamDayIndex] ?? agenda.days[0]
+  const isProfessionalUser = user?.role === "professional" && !!user.professional_id
+
+  const visibleProfessionals = useMemo(() => {
+    if (isProfessionalUser && user?.professional_id) {
+      return professionals.filter((p) => p.id === user.professional_id)
+    }
+    return professionals
+  }, [professionals, isProfessionalUser, user?.professional_id])
+
+  useEffect(() => {
+    if (isProfessionalUser && user?.professional_id) {
+      setFilterProfessionalId(user.professional_id)
+    }
+  }, [isProfessionalUser, user?.professional_id])
 
   const visibleAppointments = useMemo(() => {
+    if (isProfessionalUser && user?.professional_id) {
+      return agenda.appointments.filter((a) => a.professional_id === user.professional_id)
+    }
     if (!filterProfessionalId) return agenda.appointments
     return agenda.appointments.filter((a) => a.professional_id === filterProfessionalId)
-  }, [agenda.appointments, filterProfessionalId])
+  }, [agenda.appointments, filterProfessionalId, isProfessionalUser, user?.professional_id])
 
   return (
     <div className="page-shell">
@@ -57,7 +74,7 @@ export function Agenda() {
 
       {!agenda.loading && (
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          {view === "week" && (
+          {view === "week" && !isProfessionalUser && (
             <label className="flex items-center gap-2 text-xs font-bold uppercase">
               Profissional:
               <select
@@ -66,7 +83,7 @@ export function Agenda() {
                 className="border-2 border-[var(--border)] bg-[var(--surface)] px-2 py-1 font-mono text-xs"
               >
                 <option value="">Todos</option>
-                {professionals.map((p) => (
+                {visibleProfessionals.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -107,8 +124,8 @@ export function Agenda() {
           ) : (
             <TeamDayView
               day={teamDay}
-              appointments={agenda.appointments}
-              professionals={professionals}
+              appointments={visibleAppointments}
+              professionals={visibleProfessionals}
               onEdit={agenda.openEdit}
             />
           )}
