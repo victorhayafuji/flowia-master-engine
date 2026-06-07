@@ -99,7 +99,7 @@ Integração com o **Data Warehouse Executivo** para consultas estratégicas via
 4. **Operação de Equipe & Disponibilidade Real:**
    - Motor de disponibilidade lê dados reais do profissional (`working_hours`, `break_times`, `appointment_buffer_minutes`, `schedule_blocks`) no fuso da organização — fim dos horários hardcoded.
    - Elegibilidade serviço↔profissional em M:N (`service_professionals`); fallback para todos os profissionais ativos quando vazio.
-   - Agenda com duas visões: **Semana** (colunas por dia) e **Equipe** (colunas por profissional, cards por duração).
+   - Agenda com duas visões: **Operacional** (timeline/Gantt por profissional — default) e **Semana** (grade 5 dias de **um** profissional; visão da equipe na Operacional).
    - **Overview operacional** (`GET /dashboard/today-board`): atendimentos por profissional, status e horário de fim estimado.
    - Login de funcionário via role `professional` (JWT com `professional_id`, nav e queries reduzidas à própria agenda).
    - **Stub de pagamentos:** schema `appointment_payments` + pacote `packages/integrations/payments` (NoOp, `enabled=false`); execução deferida para Fase 2.

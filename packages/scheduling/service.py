@@ -265,10 +265,11 @@ class SchedulingService:
     async def reschedule_appointment(
         self,
         appointment_id: UUID,
-        new_scheduled_at: datetime,
+        new_scheduled_at: datetime | None = None,
+        duration_minutes: int | None = None,
         organization_id: str | None = None,
     ) -> dict[str, Any]:
-        """Reagenda mantendo duração e profissional; valida conflitos."""
+        """Reagenda horário e/ou duração; valida conflitos por profissional."""
         query = self.db.client.table("appointments").select("*").eq("id", str(appointment_id))
         if organization_id and organization_id != "ALL":
             query = query.eq("organization_id", organization_id)
@@ -278,17 +279,22 @@ class SchedulingService:
             raise ResourceNotFoundError(f"Agendamento {appointment_id} não encontrado.")
 
         row = existing.data
+        target_scheduled_at = new_scheduled_at or datetime.fromisoformat(
+            row["scheduled_at"].replace("Z", "+00:00")
+        )
+        target_duration = duration_minutes if duration_minutes is not None else row["duration_minutes"]
+
         appointment = AppointmentBase(
             patient_id=row["patient_id"],
             professional_id=row["professional_id"],
             service_id=row["service_id"],
-            scheduled_at=new_scheduled_at,
-            duration_minutes=row["duration_minutes"],
+            scheduled_at=target_scheduled_at,
+            duration_minutes=target_duration,
             status=AppointmentStatus(row.get("status", "confirmed")),
         )
 
-        start_of_day = datetime.combine(new_scheduled_at.date(), datetime.min.time()).isoformat()
-        end_of_day = datetime.combine(new_scheduled_at.date(), datetime.max.time()).isoformat()
+        start_of_day = datetime.combine(target_scheduled_at.date(), datetime.min.time()).isoformat()
+        end_of_day = datetime.combine(target_scheduled_at.date(), datetime.max.time()).isoformat()
         conflicts = (
             self.db.client.table("appointments")
             .select("id, scheduled_at, duration_minutes")
@@ -301,11 +307,11 @@ class SchedulingService:
         )
 
         appt_time_utc = (
-            new_scheduled_at.astimezone(timezone.utc).replace(tzinfo=None)
-            if new_scheduled_at.tzinfo
-            else new_scheduled_at
+            target_scheduled_at.astimezone(timezone.utc).replace(tzinfo=None)
+            if target_scheduled_at.tzinfo
+            else target_scheduled_at
         )
-        end_time_utc = appt_time_utc + timedelta(minutes=appointment.duration_minutes)
+        end_time_utc = appt_time_utc + timedelta(minutes=target_duration)
 
         for c in conflicts.data or []:
             existing_start = datetime.fromisoformat(
@@ -315,9 +321,19 @@ class SchedulingService:
             if (appt_time_utc < existing_end) and (end_time_utc > existing_start):
                 raise DoubleBookingError("O profissional já tem um agendamento conflitante neste horário.")
 
+        update_payload: dict[str, Any] = {}
+        if new_scheduled_at is not None:
+            update_payload["scheduled_at"] = target_scheduled_at.isoformat()
+        if duration_minutes is not None:
+            update_payload["duration_minutes"] = target_duration
+
+        if not update_payload:
+            from packages.auth_core.exceptions import BusinessLogicError
+            raise BusinessLogicError("Nada para atualizar.")
+
         result = (
             self.db.client.table("appointments")
-            .update({"scheduled_at": new_scheduled_at.isoformat()})
+            .update(update_payload)
             .eq("id", str(appointment_id))
             .execute()
         )

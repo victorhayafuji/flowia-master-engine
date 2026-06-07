@@ -2,6 +2,7 @@ import { useState } from "react"
 import { format } from "date-fns"
 import type { DragEndEvent } from "@dnd-kit/core"
 import { api } from "@/shared/lib/api"
+import { resolveSlotDatetime } from "../lib/agendaDropTarget"
 import type { Appointment } from "../types"
 import type { NewApptFormData } from "../components/AgendaModals"
 
@@ -22,7 +23,8 @@ export function useAgendaDnD(
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    const newDate = String(over.id)
+    const newDate = resolveSlotDatetime(event)
+    if (!newDate) return
     let previous: Appointment[] = []
     setAppointments((prev) => {
       previous = prev
@@ -183,6 +185,50 @@ export function useAgendaActions(
     setEditTime(`${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`)
   }
 
+  const handleCalendarUpdate = async (
+    appointmentId: string,
+    updates: { scheduled_at?: string; duration_minutes?: number },
+  ) => {
+    let previous: Appointment[] = []
+    setAppointments((prev) => {
+      previous = prev
+      return prev.map((appt) =>
+        appt.id === appointmentId
+          ? {
+              ...appt,
+              ...(updates.scheduled_at ? { scheduled_at: updates.scheduled_at } : {}),
+              ...(updates.duration_minutes !== undefined
+                ? { duration_minutes: updates.duration_minutes }
+                : {}),
+            }
+          : appt,
+      )
+    })
+    try {
+      await api.post(`/scheduling/calendar/${appointmentId}`, updates, orgHeader)
+    } catch (err) {
+      setAppointments(previous)
+      const message = err instanceof Error ? err.message : "Erro ao atualizar agendamento."
+      alert(message)
+      throw err
+    }
+  }
+
+  const handleCalendarMove = async (appointmentId: string, scheduledAt: string) => {
+    await handleCalendarUpdate(appointmentId, { scheduled_at: scheduledAt })
+  }
+
+  const handleCalendarResize = async (
+    appointmentId: string,
+    scheduledAt: string,
+    durationMinutes: number,
+  ) => {
+    await handleCalendarUpdate(appointmentId, {
+      scheduled_at: scheduledAt,
+      duration_minutes: durationMinutes,
+    })
+  }
+
   return {
     editingAppt,
     setEditingAppt,
@@ -201,6 +247,8 @@ export function useAgendaActions(
     handleEditSave,
     handleCreateSubmit,
     openEdit,
+    handleCalendarMove,
+    handleCalendarResize,
   }
 }
 

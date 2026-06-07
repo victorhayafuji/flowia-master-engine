@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -169,6 +170,47 @@ async def test_update_appointment_status_success(scheduling_service, mock_schedu
 
     result = await scheduling_service.update_appointment_status(uuid4(), AppointmentStatus.CONFIRMED)
     assert result["status"] == "confirmed"
+
+
+@pytest.mark.asyncio
+async def test_reschedule_appointment_updates_duration(scheduling_service, mock_scheduling_db):
+    appointment_id = uuid4()
+    professional_id = uuid4()
+    scheduled_at = datetime(2026, 6, 10, 14, 0, tzinfo=timezone.utc)
+
+    existing_row = {
+        "id": str(appointment_id),
+        "patient_id": str(uuid4()),
+        "professional_id": str(professional_id),
+        "service_id": str(uuid4()),
+        "scheduled_at": scheduled_at.isoformat(),
+        "duration_minutes": 30,
+        "status": "confirmed",
+    }
+
+    fetch_table = MagicMock()
+    fetch_table.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = (
+        _mock_response(existing_row)
+    )
+
+    conflict_table = MagicMock()
+    conflict_table.select.return_value.eq.return_value.gte.return_value.lte.return_value.neq.return_value.neq.return_value.execute.return_value = (
+        _mock_response([])
+    )
+
+    update_table = MagicMock()
+    update_table.update.return_value.eq.return_value.execute.return_value = _mock_response(
+        [{"id": str(appointment_id), "duration_minutes": 60}]
+    )
+
+    mock_scheduling_db.client.table.side_effect = [fetch_table, conflict_table, update_table]
+
+    result = await scheduling_service.reschedule_appointment(
+        appointment_id,
+        duration_minutes=60,
+        organization_id="org-1",
+    )
+    assert result["duration_minutes"] == 60
 
 
 @pytest.mark.asyncio

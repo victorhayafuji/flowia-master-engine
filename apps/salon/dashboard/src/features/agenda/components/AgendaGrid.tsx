@@ -4,12 +4,12 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
-  closestCenter,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
 } from "@dnd-kit/core"
+import { slotOnlyCollisionDetection } from "../lib/agendaDropTarget"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import type { Appointment } from "../types"
@@ -31,7 +31,12 @@ export function AgendaGrid({ days, appointments, activeAppt, onDragStart, onDrag
   )
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={slotOnlyCollisionDetection}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
       <div className="border-4 border-[var(--border)] bg-[var(--surface)] shadow-[8px_8px_0px_0px_var(--border)] min-w-[1000px]">
           <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr] border-b-4 border-[var(--border)]">
             <div className="p-4 border-r-2 border-[var(--border)] bg-[var(--background)] flex items-center justify-center">
@@ -89,7 +94,7 @@ export function AgendaGrid({ days, appointments, activeAppt, onDragStart, onDrag
 }
 
 function DroppableSlot({ id, children }: { id: string; children: React.ReactNode }) {
-  const { isOver, setNodeRef } = useDroppable({ id })
+  const { isOver, setNodeRef } = useDroppable({ id, data: { type: "slot", datetime: id } })
   return (
     <div
       ref={setNodeRef}

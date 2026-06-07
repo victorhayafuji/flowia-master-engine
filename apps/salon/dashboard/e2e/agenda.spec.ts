@@ -21,6 +21,7 @@ test.describe('Audit #3 — create appointment', () => {
 
     await loginAsOrgAdmin(page, state)
     await page.goto('/agenda')
+    await page.getByRole('button', { name: 'Semana' }).click()
 
     await page.getByRole('button', { name: 'Novo Agendamento' }).click()
     await page.locator('select').nth(0).selectOption('p1')
