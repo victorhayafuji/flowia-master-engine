@@ -23,13 +23,18 @@ export function useAgendaDnD(
     if (!over || active.id === over.id) return
 
     const newDate = String(over.id)
-    setAppointments((prev) =>
-      prev.map((appt) => (appt.id === active.id ? { ...appt, scheduled_at: newDate } : appt)),
-    )
+    let previous: Appointment[] = []
+    setAppointments((prev) => {
+      previous = prev
+      return prev.map((appt) => (appt.id === active.id ? { ...appt, scheduled_at: newDate } : appt))
+    })
     try {
       await api.post(`/scheduling/calendar/${active.id}`, { scheduled_at: newDate }, orgHeader)
     } catch (err) {
-      console.error("Erro ao atualizar data:", err)
+      // Revert optimistic move and surface the conflict (e.g. 409 double booking).
+      setAppointments(previous)
+      const message = err instanceof Error ? err.message : "Erro ao reagendar."
+      alert(message)
     }
   }
 

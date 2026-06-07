@@ -108,6 +108,7 @@ def _register_routers(app: FastAPI) -> None:
     from packages.auth_core.auth_router import router as auth_router
     from packages.engine.chat_router import router as chat_router
     from packages.engine.metrics_router import router as metrics_router
+    from packages.integrations.payments.router import router as payments_router
     from packages.integrations.webhook.router import router as webhook_router
     from packages.lakehouse.router import router as lakehouse_router
     from packages.scheduling.router import router as scheduling_router
@@ -122,6 +123,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(scheduling_router, prefix=api)
     app.include_router(patient_router, prefix=api)
     app.include_router(organization_router, prefix=api)
+    app.include_router(payments_router, prefix=api)
 
 
 def create_salon_app() -> FastAPI:

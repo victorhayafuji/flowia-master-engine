@@ -155,8 +155,18 @@ function DraggableAppointment({
           </button>
         )}
       </div>
-      <div className="text-[10px] font-bold uppercase px-1 py-0.5 bg-[var(--border)] text-[var(--background)] self-start mt-auto">
-        {appointment.service?.name || "Serviço"}
+      {appointment.professional?.name && (
+        <div className="text-[10px] font-mono text-[var(--foreground)]/60 truncate pl-4 mb-1">
+          {appointment.professional.name}
+        </div>
+      )}
+      <div className="flex items-center gap-1 mt-auto">
+        <div className="text-[10px] font-bold uppercase px-1 py-0.5 bg-[var(--border)] text-[var(--background)] self-start">
+          {appointment.service?.name || "Serviço"}
+        </div>
+        {appointment.duration_minutes ? (
+          <span className="text-[10px] font-mono text-[var(--foreground)]/50">{appointment.duration_minutes}min</span>
+        ) : null}
       </div>
     </div>
   )

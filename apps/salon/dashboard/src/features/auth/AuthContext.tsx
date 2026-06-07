@@ -10,6 +10,7 @@ interface User {
   role: string
   organization_id?: string
   organization_name?: string
+  professional_id?: string
 }
 
 interface Organization {

@@ -19,6 +19,13 @@ class AppointmentBase(BaseModel):
 class AppointmentUpdate(BaseModel):
     scheduled_at: datetime
 
+class ScheduleBlockBase(BaseModel):
+    professional_id: UUID | None = None  # None = bloqueio da org inteira (ex: feriado)
+    starts_at: datetime
+    ends_at: datetime
+    reason: str | None = None
+    block_type: str = "manual"  # time_off | manual | holiday
+
 class AnamnesisResponseBase(BaseModel):
     appointment_id: UUID
     patient_id: UUID

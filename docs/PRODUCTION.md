@@ -79,7 +79,7 @@ Sintoma: login 401/403 ou CORS no browser.
 
 ## Supabase migrations (aplicadas)
 
-Todas as 13 migrations do repo foram sincronizadas via `scripts/apply_migrations.py` (Jun/2026).
+Todas as 17 migrations do repo foram sincronizadas via `scripts/apply_migrations.py` (Jun/2026).
 
 Verificar: `python scripts/list_db_migrations.py`
 

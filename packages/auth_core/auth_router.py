@@ -72,6 +72,7 @@ async def login(request: Request, login_data: LoginRequest):
         data={"sub": user["username"]},
         role=user.get("role", "org_admin"),
         org_id=user.get("organization_id"),
+        professional_id=user.get("professional_id"),
     )
 
     response = JSONResponse(content={"status": "success", "user": user["username"]})
@@ -159,5 +160,6 @@ async def get_current_user(user: str = Depends(auth_required)):
             "role": user_data.get("role", "org_admin"),
             "organization_id": org_id,
             "organization_name": org_name,
+            "professional_id": user_data.get("professional_id"),
         }
     }

@@ -21,10 +21,27 @@ def _get_org_id_from_config(config: RunnableConfig) -> str:
 
 
 def _resolve_professional_id(org_id: str, service_data: dict) -> str | None:
-    """Retorna professional_id do serviço ou primeiro profissional ativo do salão."""
+    """Resolve o profissional para um serviço.
+
+    Ordem: FK legada (professional_id) -> elegibilidade M:N (service_professionals)
+    -> primeiro profissional ativo do salão.
+    """
     prof_id = service_data.get("professional_id")
     if prof_id:
         return prof_id
+
+    service_id = service_data.get("id")
+    if service_id:
+        eligible = (
+            db.client.table("service_professionals")
+            .select("professional_id")
+            .eq("service_id", service_id)
+            .eq("organization_id", org_id)
+            .execute()
+        )
+        if eligible.data:
+            return eligible.data[0]["professional_id"]
+
     fallback = (
         db.client.table("professionals")
         .select("id")

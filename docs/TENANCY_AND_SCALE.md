@@ -107,8 +107,9 @@ WhatsApp: org resolvida por `organizations.whatsapp_phone_id` — não confia no
 |---|------|------|
 | 0 | Prod real | Supabase **prod separado** do dev; secrets novos — [`PRODUCTION.md`](PRODUCTION.md) |
 | 1 | Organization | `POST /api/v1/organizations/` (`vertical=salon`, slug único) — `super_admin` |
-| 2 | Dono | `python scripts/create_salon_user.py --email ... --password ... --org <UUID>` |
-| 3 | Catálogo | Serviços + profissionais (dashboard ou API) |
+| 2 | Dono / recepção | `python scripts/create_salon_user.py --email ... --password ... --org <UUID>` (role `org_admin`) |
+| 3 | Catálogo | Serviços + profissionais (dashboard ou API) — criar os profissionais antes do passo 3b |
+| 3b | Funcionários (opcional) | Para cada profissional com login próprio: `python scripts/create_salon_user.py --email ... --password ... --org <UUID> --role professional --professional-id <UUID do profissional>`. O usuário vê apenas Visão Geral + a própria agenda. |
 | 4 | KB | Upload ou `python scripts/seed_datalake.py --org <UUID> --ensure-org` |
 | 5 | WhatsApp | Preencher `organizations.whatsapp_phone_id`, `whatsapp_access_token`, etc. |
 | 6 | Smoke | Login dashboard + criar cliente/agendamento; chat quando Meta ativo |

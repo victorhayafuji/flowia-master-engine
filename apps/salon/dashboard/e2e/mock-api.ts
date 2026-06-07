@@ -4,7 +4,9 @@ export const ORG_A = '22222222-2222-2222-2222-222222222222'
 
 const API_BASE = process.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
-type UserRole = 'org_admin' | 'super_admin'
+type UserRole = 'org_admin' | 'super_admin' | 'professional'
+
+const PROFESSIONAL_ID = 'prof1'
 
 interface MockState {
   patients: Array<{ id: string; name: string; phone: string; created_at: string }>
@@ -27,12 +29,19 @@ export function createMockState(): MockState {
   }
 }
 
+const USERNAMES: Record<UserRole, string> = {
+  org_admin: 'owner@salao.com',
+  super_admin: 'admin@flowia.com',
+  professional: 'pro@salao.com',
+}
+
 export async function setupApiMocks(page: Page, role: UserRole = 'org_admin', state = createMockState()) {
   const user = {
-    username: role === 'org_admin' ? 'owner@salao.com' : 'admin@flowia.com',
+    username: USERNAMES[role],
     role,
     organization_id: ORG_A,
     organization_name: 'Salão Beauty Express',
+    ...(role === 'professional' ? { professional_id: PROFESSIONAL_ID } : {}),
   }
 
   await page.route(`${API_BASE}/**`, async (route) => {
@@ -168,6 +177,14 @@ export async function loginAsOrgAdmin(page: Page, state = createMockState()) {
 
 export async function loginAsSuperAdmin(page: Page, state = createMockState()) {
   await setupApiMocks(page, 'super_admin', state)
+  await page.addInitScript(() => localStorage.clear())
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: 'Agenda' })).toBeVisible()
+  return state
+}
+
+export async function loginAsProfessional(page: Page, state = createMockState()) {
+  await setupApiMocks(page, 'professional', state)
   await page.addInitScript(() => localStorage.clear())
   await page.goto('/')
   await expect(page.getByRole('link', { name: 'Agenda' })).toBeVisible()

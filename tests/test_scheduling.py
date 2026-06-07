@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -26,6 +27,27 @@ def _mock_response(data):
             self.data = payload
 
     return MockResponse(data)
+
+
+# A Wednesday — used so DEFAULT_WORKING_HOURS (mon-fri) applies.
+_WORKDAY = date(2026, 6, 10)
+
+
+def _stub_availability(service, *, working_hours, break_times=None, buffer=0,
+                       appointments=None, blocks=None, slot_step=30, min_notice_hours=0):
+    """Patches the small DB helpers so get_available_slots can run in isolation."""
+    service._get_professional_schedule = lambda _pid: {
+        "working_hours": working_hours,
+        "break_times": break_times or [],
+        "buffer": buffer,
+    }
+    service._get_org_config = lambda: {
+        "slot_step": slot_step,
+        "min_notice_hours": min_notice_hours,
+        "timezone": "America/Sao_Paulo",
+    }
+    service._get_day_appointments = lambda _pid, _d: appointments or []
+    service._get_day_blocks = lambda _pid, _d: blocks or []
 
 
 @pytest.mark.asyncio
@@ -147,3 +169,119 @@ async def test_update_appointment_status_success(scheduling_service, mock_schedu
 
     result = await scheduling_service.update_appointment_status(uuid4(), AppointmentStatus.CONFIRMED)
     assert result["status"] == "confirmed"
+
+
+@pytest.mark.asyncio
+async def test_slots_respect_professional_working_hours(scheduling_service):
+    _stub_availability(
+        scheduling_service,
+        working_hours={"wed": {"start": "09:00", "end": "11:00"}},
+        slot_step=30,
+    )
+    slots = await scheduling_service.get_available_slots(uuid4(), _WORKDAY, 30)
+    times = [s[11:16] for s in slots]
+    assert times == ["09:00", "09:30", "10:00", "10:30"]
+
+
+@pytest.mark.asyncio
+async def test_slots_empty_on_day_off(scheduling_service):
+    _stub_availability(
+        scheduling_service,
+        working_hours={"mon": {"start": "08:00", "end": "18:00"}},  # no wed key
+    )
+    slots = await scheduling_service.get_available_slots(uuid4(), _WORKDAY, 30)
+    assert slots == []
+
+
+@pytest.mark.asyncio
+async def test_slots_exclude_break_times(scheduling_service):
+    _stub_availability(
+        scheduling_service,
+        working_hours={"wed": {"start": "09:00", "end": "12:00"}},
+        break_times=[{"start": "10:00", "end": "11:00"}],
+        slot_step=30,
+    )
+    slots = await scheduling_service.get_available_slots(uuid4(), _WORKDAY, 30)
+    times = [s[11:16] for s in slots]
+    assert "10:00" not in times and "10:30" not in times
+    assert "09:00" in times and "11:00" in times
+
+
+@pytest.mark.asyncio
+async def test_slots_apply_buffer_around_appointment(scheduling_service):
+    _stub_availability(
+        scheduling_service,
+        working_hours={"wed": {"start": "09:00", "end": "12:00"}},
+        buffer=15,
+        appointments=[{"scheduled_at": "2026-06-10T10:00:00", "duration_minutes": 30, "status": "confirmed"}],
+        slot_step=30,
+    )
+    slots = await scheduling_service.get_available_slots(uuid4(), _WORKDAY, 30)
+    times = [s[11:16] for s in slots]
+    # Appointment 10:00-10:30 + 15min buffer each side blocks 09:45-10:45.
+    assert "09:30" not in times  # would end 10:00, overlaps buffer start 09:45
+    assert "10:30" not in times
+    assert "09:00" in times and "11:00" in times
+
+
+@pytest.mark.asyncio
+async def test_slots_exclude_schedule_blocks(scheduling_service):
+    _stub_availability(
+        scheduling_service,
+        working_hours={"wed": {"start": "09:00", "end": "12:00"}},
+        blocks=[{"professional_id": None, "starts_at": "2026-06-10T09:00:00", "ends_at": "2026-06-10T10:00:00"}],
+        slot_step=30,
+    )
+    slots = await scheduling_service.get_available_slots(uuid4(), _WORKDAY, 30)
+    times = [s[11:16] for s in slots]
+    assert "09:00" not in times and "09:30" not in times
+    assert "10:00" in times
+
+
+class _RecordingQuery:
+    """Minimal chainable query stub that records the filters applied to it."""
+
+    def __init__(self, data):
+        self._data = data
+        self.eq_calls: list[tuple[str, Any]] = []
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def lte(self, *_args, **_kwargs):
+        return self
+
+    def gte(self, *_args, **_kwargs):
+        return self
+
+    def eq(self, column, value):
+        self.eq_calls.append((column, value))
+        return self
+
+    def execute(self):
+        return _mock_response(self._data)
+
+
+def test_get_day_blocks_filters_by_organization(scheduling_service, mock_scheduling_db):
+    from packages.auth_core.tenant import set_tenant_context
+
+    recorder = _RecordingQuery([])
+    mock_scheduling_db.client.table.return_value = recorder
+
+    with set_tenant_context("org-123"):
+        scheduling_service._get_day_blocks(uuid4(), _WORKDAY)
+
+    assert ("organization_id", "org-123") in recorder.eq_calls
+
+
+@pytest.mark.asyncio
+async def test_list_blocks_filters_by_organization(scheduling_service, mock_scheduling_db):
+    from packages.auth_core.tenant import set_tenant_context
+
+    recorder = _RecordingQuery([])
+    mock_scheduling_db.client.table.return_value = recorder
+
+    with set_tenant_context("org-456"):
+        await scheduling_service.list_blocks(_WORKDAY, _WORKDAY)
+
+    assert ("organization_id", "org-456") in recorder.eq_calls
