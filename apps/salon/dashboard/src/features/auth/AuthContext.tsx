@@ -23,6 +23,7 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   signOut: () => Promise<void>
+  loginWithCredentials: (username: string, password: string) => Promise<void>
   devLogin?: () => Promise<{ error: Error | null }>
   devSalonLogin?: () => Promise<{ error: Error | null }>
   session: { user: User } | null
@@ -37,6 +38,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
   signOut: async () => {},
+  loginWithCredentials: async () => {},
   session: null,
   organizationId: undefined,
   organizationName: undefined,
@@ -157,12 +159,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const loginWithCredentials = async (username: string, password: string) => {
+    const data = await api.post("/auth/login", { username, password })
+    if (data.status !== "success") {
+      throw new Error("Falha no login")
+    }
+    await loadUser()
+  }
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isLoading,
         signOut,
+        loginWithCredentials,
         devLogin,
         devSalonLogin,
         session: user ? { user } : null,

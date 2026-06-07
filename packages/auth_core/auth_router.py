@@ -24,6 +24,12 @@ PASSWORD_PATTERN = re.compile(
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+
+def _session_cookie_samesite() -> str:
+    """Cross-subdomain SPA (dashboard.onrender.com → api.onrender.com) needs SameSite=None."""
+    return "none" if settings.COOKIE_SECURE else "lax"
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -75,7 +81,7 @@ async def login(request: Request, login_data: LoginRequest):
         httponly=True,
         secure=settings.COOKIE_SECURE,
         max_age=3600 * 24,  # 24h
-        samesite="lax",
+        samesite=_session_cookie_samesite(),
     )
     return response
 
@@ -83,7 +89,11 @@ async def login(request: Request, login_data: LoginRequest):
 async def logout():
     """Clears the session cookie."""
     response = JSONResponse(content={"status": "logged_out"})
-    response.delete_cookie("session_token", secure=settings.COOKIE_SECURE)
+    response.delete_cookie(
+        "session_token",
+        secure=settings.COOKIE_SECURE,
+        samesite=_session_cookie_samesite(),
+    )
     return response
 
 @router.post("/change-password", dependencies=[Depends(auth_required)])

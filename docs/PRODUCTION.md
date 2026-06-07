@@ -6,9 +6,9 @@ Registro operacional pós-deploy. Preencher após o dia D.
 
 | Serviço | URL | Notas |
 |---------|-----|-------|
-| API Render | | Web Service `flowia-api` |
-| Dashboard Render | | Static Site `flowia-dashboard` |
-| Supabase prod | | Projeto separado do dev |
+| API Render | https://flowia-api.onrender.com | Web Service `flowia-api` (`srv-d8if4437uimc73ammat0`) |
+| Dashboard Render | https://flowia-dashboard.onrender.com | Static Site `flowia-dashboard` (`srv-d8if463tqb8s73b38rog`) |
+| Supabase prod | https://vwhsivwoiiicydanypmo.supabase.co | Piloto: mesmo projeto do dev local |
 
 ## Smoke executado
 
@@ -19,19 +19,24 @@ venv\Scripts\python.exe scripts\smoke_prod.py --api-url http://127.0.0.1:8765
 # OK: health status ok, database connected
 ```
 
-Produção Render (preencher após deploy):
+Produção Render (2026-06-07):
 
 ```powershell
 venv\Scripts\python.exe scripts\smoke_prod.py --api-url https://flowia-api.onrender.com --dashboard-url https://flowia-dashboard.onrender.com
+# OK: health + dashboard HTTP 200
+# Login API: POST /api/v1/auth/login com username (não email) — 200 + cookie
 ```
+
+Manual no browser: https://flowia-dashboard.onrender.com/login — `dono@beauty-express.com` / senha do seed local.
 
 | # | Teste | Data | OK? |
 |---|-------|------|-----|
-| 1 | `/health` database connected | | |
-| 2 | Login org_admin | | |
-| 3 | Páginas dashboard sem CORS | | |
-| 4 | CRUD cliente + agendamento | | |
-| 5 | super_admin sem rotas admin dev | | |
+| 1 | `/health` database connected | 2026-06-07 | Sim |
+| 2 | Login org_admin (API) | 2026-06-07 | Sim (username + cookie) |
+| 3 | Dashboard HTTP 200 | 2026-06-07 | Sim |
+| 4 | SPA `/agenda` rewrite | 2026-06-07 | Sim (após PUT routes) |
+| 5 | CRUD cliente + agendamento | | Pendente browser |
+| 6 | super_admin sem rotas admin dev | | Pendente browser |
 
 ## Rollback
 

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Lock, ArrowRight, Zap } from "lucide-react"
 import { useAuth } from "@/features/auth/AuthContext"
-import { api } from "@/shared/lib/api"
 
 export function Login() {
   const [email, setEmail] = useState("")
@@ -10,7 +9,7 @@ export function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
-  const { devLogin, session } = useAuth()
+  const { devLogin, session, loginWithCredentials } = useAuth()
 
   useEffect(() => {
     if (session) {
@@ -24,16 +23,11 @@ export function Login() {
     setError("")
 
     try {
-      const data = await api.post('/auth/login', {
-        username: email,
-        password: password
-      })
-
-      if (data.status === 'success') {
-        window.location.href = '/'
-      }
+      await loginWithCredentials(email, password)
+      navigate("/", { replace: true })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro de autenticação")
+    } finally {
       setLoading(false)
     }
   }
