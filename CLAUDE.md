@@ -81,13 +81,15 @@ flowchart TB
 
 | Persona | Role JWT | O que vê |
 |---------|----------|----------|
-| Dono / funcionário do salão | `org_admin` | Overview, Agenda, Clientes, Catálogo — **sem** Data Lake, Chat Test, seletor de org |
+| Dono / recepção do salão | `org_admin` | Overview, Agenda, Clientes, Catálogo — **sem** Data Lake, Chat Test, seletor de org |
+| Profissional do salão | `professional` | Overview resumida + Agenda **apenas da própria coluna** — **sem** Clientes nem Catálogo |
 | Operador plataforma | `super_admin` | Mesmo dashboard + seletor de org (filtro `vertical=salon`) |
 | Dev local | `super_admin` + `import.meta.env.DEV` | Rotas extras `/admin/data-lake`, `/admin/chat-test` |
 
 **Regras de acesso:**
 
 - `org_admin`: header `x-organization-id` deve coincidir com `org_id` do JWT → **403** se divergir
+- `professional`: JWT carrega `professional_id`; queries de agenda/overview filtram automaticamente por esse profissional (`professional_scope` dependency). Nav esconde Clientes e Catálogo.
 - `super_admin`: pode usar `ALL` ou qualquer org válida
 - Rotas admin dev protegidas por `AdminDevRoute` (super_admin + ambiente DEV)
 
@@ -95,9 +97,15 @@ flowchart TB
 
 ### 4.1 Agendamento
 
-- Serviço tem nome, duração (`duration_minutes`), preço e profissional vinculado (`service_catalog.professional_id`)
+- Serviço tem nome, duração (`duration_minutes`), preço e profissionais elegíveis via **M:N** `service_professionals` (FK 1:1 `service_catalog.professional_id` é legado/compat)
 - Cliente identificado por **nome + telefone** (tabela `patients`; UI exibe "Clientes")
-- Horário comercial padrão: **09:00–18:00**; slots de **30 minutos**
+- **Motor de disponibilidade** (`packages/scheduling/service.py`) deriva slots de dados reais, não de horário fixo:
+  - Lê `professionals.working_hours` do dia da semana (timezone via `organizations.timezone`)
+  - Subtrai `professionals.break_times`, `schedule_blocks` (folga/feriado/manual) e appointments ativos
+  - Slot step de `organizations.settings.scheduling.default_slot_minutes` (default 15)
+  - Duração efetiva = `service.duration_minutes` + `professionals.appointment_buffer_minutes`
+  - Mesmo motor serve dashboard e tools LangGraph (`check_availability` / `book_time`)
+- Quem pode atender serviço X: se `service_professionals` tem linhas → só esses pros; se vazio → todos pros ativos (fallback)
 - Conflito de horário (double booking) → HTTP **409** (`DoubleBookingError`)
 - Criação via dashboard (drag-and-drop na Agenda) ou agente IA (`check_availability` → `book_time`)
 - Reagendamento passa por checagem de conflito antes de persistir
@@ -132,18 +140,19 @@ flowchart TB
 
 ## 5. Matriz funcionalidade × persona
 
-| Funcionalidade | org_admin | super_admin | Dev only | Status MVP |
-|----------------|-----------|-------------|----------|------------|
-| Visão Geral (agenda hoje, clientes, próximos) | Sim | Sim | — | Ativo |
-| Agenda (CRUD + drag reagendar) | Sim | Sim | — | Ativo |
-| Clientes (`/patients`) | Sim | Sim | — | Ativo |
-| Catálogo (serviços + profissionais) | Sim | Sim | — | Ativo |
-| Data Lake (upload, sync, RAG) | Não | Não | Sim | Ativo (dev) |
-| Chat Test | Não | Não | Sim | Ativo (dev) |
-| KPIs tokens/custo IA na Overview | Não | Não | — | Removido |
-| CRM leads / SDR | Não | Não | — | Desativado |
-| Prontuário clínico | Não | Não | — | Removido da UI |
-| Seletor "Salão ativo" | Não | Sim | — | Ativo |
+| Funcionalidade | org_admin | professional | super_admin | Dev only | Status MVP |
+|----------------|-----------|--------------|-------------|----------|------------|
+| Visão Geral (today-board operacional) | Sim | Sim (própria) | Sim | — | Ativo |
+| Agenda — visão Semana + visão Equipe | Sim | Sim (própria coluna) | Sim | — | Ativo |
+| Clientes (`/patients`) | Sim | Não | Sim | — | Ativo |
+| Catálogo (serviços + profissionais) | Sim | Não | Sim | — | Ativo |
+| Data Lake (upload, sync, RAG) | Não | Não | Não | Sim | Ativo (dev) |
+| Chat Test | Não | Não | Não | Sim | Ativo (dev) |
+| KPIs tokens/custo IA na Overview | Não | Não | Não | — | Removido |
+| CRM leads / SDR | Não | Não | Não | — | Desativado |
+| Prontuário clínico | Não | Não | Não | — | Removido da UI |
+| Seletor "Salão ativo" | Não | Não | Sim | — | Ativo |
+| Integração pagamentos (PDV) | Não | Não | Não | — | Stub (deferido) |
 
 ## 6. Fluxos de usuário
 
@@ -196,7 +205,7 @@ sequenceDiagram
 | Verticals `dental`, `medical` | Stub futuro | `apps/clinic/` reservado |
 | Handoff WhatsApp | Ativo em `patients` | `handoff_requested_at`, `handoff_reason` via `legacy_sender_id` |
 | Anamnese / NPS pós-atendimento | **DEFERIDO** | Schema existe; fluxo não implementado (Cap 4 pilar 3) |
-| Pagamento / convênios | Fase 2 | Não implementar agora |
+| Pagamento / convênios | **STUB** | Schema `appointment_payments` + `packages/integrations/payments` (NoOp); flag `integrations.payments.enabled=false`; execução deferida (Fase 2) |
 | `src/`, `dashboard/` raiz, `.agent/` | **Proibido recriar** | Migrado para `packages/` + `apps/salon/` |
 
 ---
@@ -253,7 +262,7 @@ flowia-master-engine/
 │   ├── scheduling/              # Agenda, tools booking, scheduler, reminders
 │   ├── lakehouse/               # Pipeline Medallion, RAG, governance
 │   ├── engine/                  # LangGraph, chat, metrics, checkpointer, prompts
-│   └── integrations/webhook/    # WhatsApp inbound/outbound
+│   └── integrations/            # webhook/ (WhatsApp), payments/ (stub NoOp)
 ├── apps/
 │   ├── salon/                   # Produto ativo
 │   │   ├── api/                 # app_factory, dashboard router
@@ -278,7 +287,7 @@ flowia-master-engine/
 | `packages/scheduling` | `router`, `service`, `repository`, `tools`, `scheduler`, `reminder_*`, `no_show_service` | CRUD agenda, tools LangGraph, jobs background |
 | `packages/lakehouse` | `router`, `service`, `governance` | Upload, OCR, embeddings, search, SQL guardrails |
 | `packages/engine` | `engine`, `service`, `chat_router`, `metrics_router`, `checkpointer`, `tools`, `prompts/` | Grafo LangGraph, chat test, métricas, RAG tools |
-| `packages/integrations` | `webhook/router`, `whatsapp`, `tenant_resolver`, `session_store` | Webhook Meta, outbound, resolução org |
+| `packages/integrations` | `webhook/router`, `whatsapp`, `tenant_resolver`, `session_store`, `payments/` (stub) | Webhook Meta, outbound, resolução org, stub pagamentos |
 | `apps/salon/domain` | `catalog/`, `clients/` | Organizations, services, professionals, patients |
 | `apps/salon/api` | `app_factory.py`, `routers/dashboard.py` | Composition root, stats dashboard |
 
@@ -346,11 +355,14 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 
 | Método | Path | Descrição |
 |--------|------|-----------|
-| GET | `/availability` | Slots disponíveis |
+| GET | `/availability` | Slots disponíveis (motor working_hours + breaks + blocks) |
 | POST | `/` | Criar agendamento |
 | GET | `/agenda` | Lista agenda |
-| GET | `/calendar` | Dados calendário |
+| GET | `/calendar` | Dados calendário (scoped por `professional_id` se role=professional) |
 | POST | `/calendar/{appointment_id}` | Reagendar |
+| GET | `/blocks` | Listar bloqueios/folgas (`schedule_blocks`) |
+| POST | `/blocks` | Criar bloqueio/folga |
+| DELETE | `/blocks/{block_id}` | Remover bloqueio |
 
 ### Patients — `apps/salon/domain/clients/router.py` (prefix `/patients`)
 
@@ -366,9 +378,13 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 |--------|------|-----------|
 | POST | `/` | Criar org (super_admin) |
 | GET | `/` | Listar orgs |
-| POST/GET | `/services` | CRUD catálogo serviços |
+| POST/GET | `/services` | CRUD catálogo serviços (aceita `professional_ids` M:N) |
+| PUT | `/services/{service_id}` | Atualizar serviço (inclui `professional_ids`) |
+| GET | `/services/{service_id}/professionals` | Profissionais elegíveis ao serviço |
+| PUT | `/services/{service_id}/professionals` | Definir elegibilidade M:N |
 | DELETE | `/services/{service_id}` | Desativar serviço (soft delete) |
 | POST/GET | `/professionals` | CRUD profissionais |
+| PUT | `/professionals/{professional_id}` | Atualizar profissional (inclui `working_hours`, `break_times`) |
 | DELETE | `/professionals/{professional_id}` | Desativar profissional (soft delete) |
 
 ### Lakehouse — `packages/lakehouse/router.py`
@@ -403,11 +419,19 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | GET | `/whatsapp` | Verificação webhook Meta |
 | POST | `/whatsapp` | Mensagens inbound |
 
+### Payments (stub) — `packages/integrations/payments/router.py`
+
+| Método | Path | Descrição |
+|--------|------|-----------|
+| GET | `/integrations/payments/status` | Flag `enabled`/`provider` da org (sempre disabled hoje) |
+| POST | `/integrations/payments/webhook` | Placeholder — retorna **501** (não implementado) |
+
 ### Dashboard — `apps/salon/api/routers/dashboard.py`
 
 | Método | Path | Descrição |
 |--------|------|-----------|
-| GET | `/dashboard/stats` | Stats overview |
+| GET | `/dashboard/stats` | Stats overview (scoped por `professional_id` se aplicável) |
+| GET | `/dashboard/today-board` | Painel operacional do dia: agendamentos por profissional, status, fim estimado |
 
 ### System
 
@@ -424,22 +448,51 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 - `id`, `name`, `slug`, `vertical` (salon|dental|medical)
 - `whatsapp_phone_id`, `whatsapp_access_token`, `whatsapp_business_id`
 - `settings` JSONB, `timezone`, `is_active`
+- Estrutura de `settings` (credenciais por org, não `.env` global):
+
+```json
+{
+  "scheduling": { "default_slot_minutes": 15, "min_notice_hours": 2 },
+  "integrations": {
+    "payments": { "provider": null, "enabled": false, "external_merchant_id": null }
+  }
+}
+```
 
 **dashboard_users** — usuários do painel
 
-- `email`, `password_hash`, `role` (org_admin|super_admin)
+- `email`, `password_hash`, `role` (org_admin|professional|super_admin)
 - `organization_id` FK (nullable para super_admin)
+- `professional_id` FK → `professionals` (nullable; obrigatório quando `role=professional`) — vincula login à agenda
 
 **professionals** — profissionais do salão
 
 - `organization_id`, `name`, `specialty`, `working_hours` JSONB, `break_times` JSONB
+- `appointment_buffer_minutes` — folga entre atendimentos somada à duração do serviço
 - `is_active` — soft delete (desativar em vez de apagar)
 
 **service_catalog** — serviços
 
-- `organization_id`, `name`, `duration_minutes`, `price`, `professional_id` FK
+- `organization_id`, `name`, `duration_minutes`, `price`, `professional_id` FK (**legado/compat** — elegibilidade real via `service_professionals`)
 - `requires_anamnesis`, `recall_days`
 - `is_active` — soft delete; `UNIQUE(organization_id, lower(name)) WHERE is_active`
+
+**service_professionals** — elegibilidade M:N serviço↔profissional
+
+- `organization_id`, `service_id` FK, `professional_id` FK; PK `(service_id, professional_id)`
+- Vazio para um serviço = todos os profissionais ativos podem atendê-lo (fallback)
+
+**schedule_blocks** — bloqueios e folgas
+
+- `id`, `organization_id`, `professional_id` (nullable = org inteira), `starts_at`, `ends_at`
+- `reason`, `block_type` (time_off|manual|holiday); CHECK `ends_at > starts_at`
+- Motor de disponibilidade subtrai esses intervalos dos slots
+
+**appointment_payments** — cobrança (stub, deferido)
+
+- `id`, `organization_id`, `appointment_id` FK, `amount_cents`, `currency`
+- `status` (pending|synced|failed|refunded), `provider`, `external_id`, `metadata` JSONB
+- Schema + RLS apenas; nenhum provedor ativo (ver Parte VII / §39)
 
 **patients** — clientes (UI: "Clientes")
 
@@ -480,6 +533,10 @@ organizations 1──N appointments
 patients 1──N appointments
 professionals 1──N appointments
 service_catalog 1──N appointments (via service_id)
+service_catalog N──N professionals (via service_professionals)
+professionals 1──N schedule_blocks
+dashboard_users N──1 professionals (professional_id, role=professional)
+appointments 1──N appointment_payments (stub)
 ```
 
 ### Política de integridade de dados
@@ -507,6 +564,10 @@ Aplicar em ordem via `supabase db push`, SQL Editor ou `python scripts/apply_mig
 | `20260608000000_internal_tables_rls.sql` | RLS + REVOKE anon/authenticated em tabelas internas (checkpoints*, webhook dedup) |
 | `20260609000000_updated_at_triggers.sql` | Função `set_updated_at()` + triggers `BEFORE UPDATE` (organizations, patients, appointments, docs_bronze, anamnesis_responses) |
 | `20260609010000_soft_delete_and_integrity.sql` | `patients.is_active`, unique serviço ativo por nome, FKs `organization_id` CASCADE → RESTRICT |
+| `20260610000000_professional_user_link.sql` | `dashboard_users.professional_id` FK + índice (login funcionário) |
+| `20260610010000_service_professionals.sql` | Tabela M:N `service_professionals` + backfill da FK legada + RLS |
+| `20260610020000_schedule_blocks.sql` | Tabela `schedule_blocks` (folga/feriado/manual) + RLS |
+| `20260610030000_appointment_payments.sql` | Stub `appointment_payments` (schema + RLS, sem provedor ativo) |
 
 **Requisito Data Lake:** extensão **pgvector** habilitada no Supabase Dashboard.
 
@@ -530,11 +591,12 @@ sequenceDiagram
   API->>API: emite JWT (DASHBOARD_JWT_SECRET)
   API-->>Browser: Set-Cookie session_token HttpOnly Secure
   Browser->>API: GET /api/v1/auth/me + Cookie
-  API-->>Browser: user, role, org_id
+  API-->>Browser: user, role, org_id, professional_id
 ```
 
 - Frontend **nunca** chama `supabase.auth.signInWithPassword`
 - Body do login usa campo **`username`** (valor = email do usuário cadastrado)
+- JWT carrega `org_id`, `role` e — para role `professional` — `professional_id` (vínculo à agenda do funcionário); `/auth/me` retorna o mesmo `professional_id`
 - `AuthContext` consulta `/auth/me` no mount; login via `loginWithCredentials()` + `navigate("/")` sem reload completo
 - Produção Render: API e dashboard em subdomínios distintos (`*.onrender.com`) → `COOKIE_SECURE=true` + cookie **`SameSite=None`** (requer `Secure`; ver `_session_cookie_samesite()` em `auth_router.py`)
 - Local: `COOKIE_SECURE=false` → `SameSite=Lax`
@@ -544,13 +606,15 @@ sequenceDiagram
 
 **Camadas de defesa:**
 
-1. **JWT** — `org_id` e `role` embutidos no token
+1. **JWT** — `org_id`, `role` e (para `professional`) `professional_id` embutidos no token
 2. **Header** — `x-organization-id` em requests autenticados
 3. **Dependency** — `validated_tenant_context` em `packages/auth_core/dependencies.py`
 4. **RLS** — PostgreSQL filtra por `organization_id` / JWT claims
 5. **Webhook** — org resolvida via `organizations.whatsapp_phone_id` (não confia no sender)
 
 **Nunca** confiar apenas no header sem validação contra JWT para `org_admin`.
+
+**Scope por profissional:** a dependency `professional_scope` retorna o `professional_id` do JWT quando `role=professional` (senão `None`). Endpoints de agenda/overview usam esse valor para filtrar dados ao próprio profissional. Queries de `schedule_blocks` filtram por `organization_id` no backend (service role bypassa RLS).
 
 **Context manager:** `set_tenant_context(org_id)` em tools LangGraph e services.
 
@@ -628,7 +692,7 @@ Documentar novas limitações nesta seção ao descobri-las.
 
 **Env CI:** `CHECKPOINTER_BACKEND=memory`, `SCHEDULER_ENABLED=false`, secrets placeholder
 
-**Testes E2E:** Playwright em `apps/salon/dashboard/e2e/` (auth, agenda, catalog, patients, chat-test-rag, chat-test-scheduling)
+**Testes E2E:** Playwright em `apps/salon/dashboard/e2e/` (auth, professional-nav, agenda, catalog, patients, chat-test-rag, chat-test-scheduling)
 
 ---
 
@@ -779,6 +843,7 @@ src/
 | Spec | Cobertura |
 |------|-----------|
 | `auth-nav.spec.ts` | Login org_admin, nav sem admin routes |
+| `professional-nav.spec.ts` | Login `professional`, nav só Visão Geral + Agenda (sem Clientes/Catálogo/seletor org) |
 | `agenda.spec.ts` | Criar agendamento |
 | `catalog.spec.ts` | Serviço + profissional |
 | `patients.spec.ts` | CRUD cliente |
@@ -834,7 +899,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 
 Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 
-1. Supabase prod + `supabase db push` (13 migrations) + pgvector
+1. Supabase prod + `supabase db push` (17 migrations) + pgvector
 2. Secrets novos: `python scripts/generate_prod_secrets.py`
 3. Render API: `uvicorn main:app --host 0.0.0.0 --port $PORT`, health `/health`, scale=1
 4. Render Static Site: `apps/salon/dashboard`, `VITE_API_URL=https://API.onrender.com/api/v1`
@@ -862,7 +927,7 @@ Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 | `scripts/mark_migration_applied.py` | Marca migration como aplicada (reparo histórico) |
 | `scripts/create_platform_admin.py` | Cria super_admin plataforma |
 | `scripts/setup_dev_env.py` | Cria admin dev |
-| `scripts/create_salon_user.py` | Cria org_admin salão |
+| `scripts/create_salon_user.py` | Cria usuário salão — `org_admin` (default) ou `--role professional --professional-id <UUID>` (login funcionário) |
 | `scripts/seed_salon.py` | Dados demo salão |
 | `scripts/seed_dev.py` | Seeds multi-vertical + mocks data lake |
 | `apps/salon/seeds/vertical_orgs.py` | Org referência Beauty Express |
@@ -876,6 +941,7 @@ Org demo: `22222222-2222-2222-2222-222222222222` (Beauty Express)
 | Validar env | `python scripts/check_env.py` | Antes de subir ou após rotacionar secrets |
 | Admin dev | `python scripts/setup_dev_env.py --email ... --password ...` | Primeiro setup local |
 | Dono salão | `python scripts/create_salon_user.py --email ... --password ...` | Testar como org_admin |
+| Funcionário | `python scripts/create_salon_user.py --email ... --password ... --org <UUID> --role professional --professional-id <UUID>` | Login profissional (agenda própria) |
 | Seed salão | `python scripts/seed_salon.py` | Dados demo agenda/catálogo |
 | Seed completo | `python scripts/seed_dev.py` | Multi-vertical + mocks data lake |
 
@@ -965,7 +1031,11 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | Booking race | read-then-write | **Resolvido** — constraint EXCLUDE no DB |
 | Handoff → leads | session_store | **Resolvido** — `patients.handoff_*` |
 | Triage → scheduling | `packages/engine/engine.py` | **Aberto** — triage mantém `receptionist` em vez de `scheduling`; booking via chat inconsistente em prod |
+| Disponibilidade hardcoded | `packages/scheduling/service.py` | **Resolvido** — motor lê working_hours/break_times/buffer/timezone + `schedule_blocks` |
+| Serviço↔profissional 1:1 | `service_catalog.professional_id` | **Em transição** — M:N via `service_professionals`; coluna legada mantida nullable p/ compat |
+| UI catálogo working_hours/M:N | `apps/salon/dashboard/.../catalog` | **Aberto** — backend pronto (PUT professionals/services); UI de edição ainda não exposta |
 | Anamnese / NPS | Cap 4 pilar 3 | **DEFERIDO** — schema only |
+| Pagamentos | `packages/integrations/payments` | **STUB** — contrato + NoOp + schema; execução deferida (Fase 2) |
 
 ## 40. Manutenção da fonte da verdade
 
@@ -1004,6 +1074,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.2 | Jun/2026 | Purge automático webhook_message_dedup (APScheduler, retention 7 dias) |
 | 1.3 | Jun/2026 | Deploy Render (API + Static Site), cookie SameSite cross-subdomain, scripts smoke ops, auditoria docs |
 | 1.4 | Jun/2026 | Playbook tenancy & escala (`docs/TENANCY_AND_SCALE.md`); ambiente vs cliente; ADR multi-tenant 200+ orgs |
+| 1.5 | Jun/2026 | Capítulo Agenda/Equipe/Integrações: motor de disponibilidade real (working_hours/breaks/buffer/timezone/blocks), M:N `service_professionals`, agenda dual (Semana/Equipe), Overview today-board, role `professional`, stub pagamentos |
 
 ---
 

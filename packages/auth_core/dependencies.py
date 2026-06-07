@@ -171,6 +171,31 @@ async def validated_tenant_context(
 tenant_context = validated_tenant_context
 
 
+async def professional_scope(
+    request: Request,
+    api_key: str = Security(api_key_header),
+) -> str | None:
+    """
+    Returns the professional_id a user is restricted to (role 'professional'),
+    or None for full org access (org_admin, super_admin, API key).
+    Routes use this to scope an employee to their own agenda.
+    """
+    if api_key and api_key == settings.DASHBOARD_API_KEY:
+        return None
+
+    token = request.cookies.get("session_token")
+    if not token:
+        return None
+
+    payload = _decode_session_token(token)
+    if not payload:
+        return None
+
+    if payload.get("role") == "professional":
+        return payload.get("professional_id")
+    return None
+
+
 def get_db():
     """Returns the singleton SupabaseHandler instance."""
     from packages.auth_core.database import SupabaseHandler

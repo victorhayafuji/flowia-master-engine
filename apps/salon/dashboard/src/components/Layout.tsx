@@ -7,15 +7,23 @@ export function Layout() {
   const location = useLocation()
   const isDev = import.meta.env.DEV
 
+  const isProfessional = user?.role === "professional"
+
   const navItems = [
     { label: "Visão Geral", path: "/", icon: LayoutDashboard },
     { label: "Agenda", path: "/agenda", icon: Calendar },
-    { label: "Clientes", path: "/patients", icon: Users },
-    { label: "Catálogo", path: "/catalog", icon: Settings },
+    // Professionals see only their schedule — no client list or catalog management.
+    ...(isProfessional
+      ? []
+      : [
+          { label: "Clientes", path: "/patients", icon: Users },
+          { label: "Catálogo", path: "/catalog", icon: Settings },
+        ]),
   ]
 
   const brandName = organizationName || "Salão"
-  const roleLabel = user?.role === "super_admin" ? "Operador" : "Equipe"
+  const roleLabel =
+    user?.role === "super_admin" ? "Operador" : isProfessional ? "Profissional" : "Equipe"
 
   return (
     <div className="h-screen bg-slate-50 dark:bg-slate-950 flex font-sans overflow-hidden">

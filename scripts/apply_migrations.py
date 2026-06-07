@@ -35,6 +35,10 @@ MIGRATION_FILES = [
     "20260608000000_internal_tables_rls.sql",
     "20260609000000_updated_at_triggers.sql",
     "20260609010000_soft_delete_and_integrity.sql",
+    "20260610000000_professional_user_link.sql",
+    "20260610010000_service_professionals.sql",
+    "20260610020000_schedule_blocks.sql",
+    "20260610030000_appointment_payments.sql",
 ]
 
 

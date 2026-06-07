@@ -50,7 +50,7 @@ venv\Scripts\python.exe scripts\setup_dev_env.py --email admin@flowia.com --pass
 venv\Scripts\python.exe scripts\check_env.py
 ```
 
-**Migrations pendentes conhecidas** (se o projeto Supabase foi criado antes de Jun/2026): aplicar os 13 arquivos em [`supabase/migrations/`](../supabase/migrations/) na ordem do [`CLAUDE.md`](../CLAUDE.md) §15.
+**Migrations pendentes conhecidas** (se o projeto Supabase foi criado antes de Jun/2026): aplicar os 17 arquivos em [`supabase/migrations/`](../supabase/migrations/) na ordem do [`CLAUDE.md`](../CLAUDE.md) §15.
 
 ---
 

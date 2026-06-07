@@ -3,11 +3,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from packages.auth_core.dependencies import auth_required, tenant_context
-from packages.auth_core.exceptions import DoubleBookingError
+from packages.auth_core.dependencies import auth_required, professional_scope, tenant_context
+from packages.auth_core.exceptions import DoubleBookingError, ResourceNotFoundError
 from packages.auth_core.tenant import set_tenant_context
 from packages.scheduling.repository import SchedulingRepository
-from packages.scheduling.schemas import AppointmentBase, AppointmentUpdate
+from packages.scheduling.schemas import AppointmentBase, AppointmentUpdate, ScheduleBlockBase
 from packages.scheduling.service import SchedulingService
 
 router = APIRouter(prefix="/scheduling", tags=["Scheduling"])
@@ -56,10 +56,11 @@ async def list_appointments(
     start_date: str,
     end_date: str,
     org_id: str = Depends(tenant_context),
+    prof_scope: str | None = Depends(professional_scope),
     repo: SchedulingRepository = Depends(get_scheduling_repository)
 ):
     with set_tenant_context(org_id):
-        data = repo.get_appointments_by_date_range(start_date, end_date, org_id)
+        data = repo.get_appointments_by_date_range(start_date, end_date, org_id, professional_id=prof_scope)
         return {"status": "success", "data": data}
 
 @router.post("/calendar/{appointment_id}", dependencies=[Depends(auth_required)])
@@ -79,3 +80,40 @@ async def update_appointment(
             return {"status": "success", "data": data}
         except DoubleBookingError as e:
             raise HTTPException(status_code=409, detail=str(e)) from e
+
+
+@router.get("/blocks", dependencies=[Depends(auth_required)])
+async def list_blocks(
+    start_date: date,
+    end_date: date,
+    org_id: str = Depends(tenant_context),
+    service: SchedulingService = Depends(get_scheduling_service),
+):
+    with set_tenant_context(org_id):
+        data = await service.list_blocks(start_date, end_date)
+        return {"status": "success", "data": data}
+
+
+@router.post("/blocks", dependencies=[Depends(auth_required)])
+async def create_block(
+    block: ScheduleBlockBase,
+    org_id: str = Depends(tenant_context),
+    service: SchedulingService = Depends(get_scheduling_service),
+):
+    with set_tenant_context(org_id):
+        data = await service.create_block(block)
+        return {"status": "success", "data": data}
+
+
+@router.delete("/blocks/{block_id}", dependencies=[Depends(auth_required)])
+async def delete_block(
+    block_id: str,
+    org_id: str = Depends(tenant_context),
+    service: SchedulingService = Depends(get_scheduling_service),
+):
+    with set_tenant_context(org_id):
+        try:
+            data = await service.delete_block(UUID(block_id), organization_id=org_id)
+            return {"status": "success", "data": data}
+        except ResourceNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e

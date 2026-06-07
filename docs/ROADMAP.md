@@ -96,6 +96,13 @@ Integração com o **Data Warehouse Executivo** para consultas estratégicas via
 3. **Anamnese & Pós-Atendimento (NPS):** **DEFERIDO**
    - Schema (`anamnesis_*`, `nps_*`) existe; fluxo de produto não implementado no MVP salão.
    - Questionário dinâmico pré-consulta e pesquisa pós-serviço ficam para ciclo futuro.
+4. **Operação de Equipe & Disponibilidade Real:**
+   - Motor de disponibilidade lê dados reais do profissional (`working_hours`, `break_times`, `appointment_buffer_minutes`, `schedule_blocks`) no fuso da organização — fim dos horários hardcoded.
+   - Elegibilidade serviço↔profissional em M:N (`service_professionals`); fallback para todos os profissionais ativos quando vazio.
+   - Agenda com duas visões: **Semana** (colunas por dia) e **Equipe** (colunas por profissional, cards por duração).
+   - **Overview operacional** (`GET /dashboard/today-board`): atendimentos por profissional, status e horário de fim estimado.
+   - Login de funcionário via role `professional` (JWT com `professional_id`, nav e queries reduzidas à própria agenda).
+   - **Stub de pagamentos:** schema `appointment_payments` + pacote `packages/integrations/payments` (NoOp, `enabled=false`); execução deferida para Fase 2.
 
 ---
-*Documento atualizado em: 31/05/2026*
+*Documento atualizado em: 07/06/2026*

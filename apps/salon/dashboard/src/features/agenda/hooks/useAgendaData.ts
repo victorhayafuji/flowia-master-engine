@@ -42,6 +42,9 @@ export function useAgendaData(user: unknown, orgHeader: OrgHeader) {
     const load = async () => {
       try {
         await refreshAgenda()
+        // Professionals power the team-view columns and the week-view filter.
+        const profRes = await api.get("/organizations/professionals", orgHeader)
+        setOptions((prev) => ({ ...prev, professionals: profRes.data || [] }))
       } catch (err) {
         console.error("Erro ao buscar agenda:", err)
       } finally {
@@ -49,7 +52,7 @@ export function useAgendaData(user: unknown, orgHeader: OrgHeader) {
       }
     }
     load()
-  }, [user, refreshAgenda])
+  }, [user, refreshAgenda, orgHeader])
 
   return {
     appointments,

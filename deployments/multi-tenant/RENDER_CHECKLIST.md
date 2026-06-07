@@ -9,7 +9,7 @@ Deploy piloto realizado via Blueprint + Render MCP.
 - [x] Repo GitHub conectado ao Render
 - [x] Serviços `flowia-api` + `flowia-dashboard` no ar
 - [x] Env vars preenchidas (sync off)
-- [x] 13 migrations aplicadas (`apply_migrations.py`)
+- [x] 17 migrations aplicadas (`apply_migrations.py`)
 - [x] CORS + cookie cross-subdomain (`SameSite=None`)
 - [x] SPA rewrite `/* → /index.html`
 - [x] Smoke automático (`smoke_prod.py`, `smoke_agent.py`)

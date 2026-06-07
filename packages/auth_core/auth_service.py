@@ -26,8 +26,9 @@ def create_access_token(
     expires_delta: timedelta | None = None,
     role: str = "org_admin",
     org_id: str | None = None,
+    professional_id: str | None = None,
 ) -> str:
-    """Creates a JWT access token with embedded role and org context."""
+    """Creates a JWT access token with embedded role, org and (optional) professional context."""
     to_encode = data.copy()
     now = datetime.now(timezone.utc)
     # Uses setting directly instead of local constant
@@ -36,6 +37,8 @@ def create_access_token(
     to_encode.update({"exp": expire, "iat": now, "role": role})
     if org_id:
         to_encode["org_id"] = org_id
+    if professional_id:
+        to_encode["professional_id"] = professional_id
 
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -48,7 +51,8 @@ def get_user_by_username(username: str):
             return {
                 "username": user_data["email"],
                 "role": user_data.get("role", "org_admin"),
-                "organization_id": user_data.get("organization_id")
+                "organization_id": user_data.get("organization_id"),
+                "professional_id": user_data.get("professional_id"),
             }
         return None
     except Exception as e:
