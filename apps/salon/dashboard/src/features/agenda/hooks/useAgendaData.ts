@@ -42,7 +42,7 @@ export function useAgendaData(user: unknown, orgHeader: OrgHeader) {
     const load = async () => {
       try {
         await refreshAgenda()
-        // Professionals power the team-view columns and the week-view filter.
+        // Professionals power the timeline columns and the week-view filter.
         const profRes = await api.get("/organizations/professionals", orgHeader)
         setOptions((prev) => ({ ...prev, professionals: profRes.data || [] }))
       } catch (err) {

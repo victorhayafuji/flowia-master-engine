@@ -107,8 +107,9 @@ flowchart TB
   - Mesmo motor serve dashboard e tools LangGraph (`check_availability` / `book_time`)
 - Quem pode atender serviço X: se `service_professionals` tem linhas → só esses pros; se vazio → todos pros ativos (fallback)
 - Conflito de horário (double booking) → HTTP **409** (`DoubleBookingError`)
-- Criação via dashboard (drag-and-drop na Agenda) ou agente IA (`check_availability` → `book_time`)
-- Reagendamento passa por checagem de conflito antes de persistir
+- Criação via dashboard (modal ou drag-and-drop) ou agente IA (`check_availability` → `book_time`)
+- **Agenda dashboard:** aba **Operacional** (default) — timeline por profissional, move/resize no dia; aba **Semana** — grade 5 dias **de um profissional** (sem filtro “Todos”; equipe inteira só na Operacional)
+- Reagendamento passa por checagem de conflito antes de persistir; `POST /scheduling/calendar/{id}` aceita `scheduled_at` e/ou `duration_minutes`
 - Lembretes automáticos via APScheduler (`packages/scheduling/reminder_service.py`)
 - Detecção de no-show via `no_show_service.py`
 
@@ -143,7 +144,7 @@ flowchart TB
 | Funcionalidade | org_admin | professional | super_admin | Dev only | Status MVP |
 |----------------|-----------|--------------|-------------|----------|------------|
 | Visão Geral (today-board operacional) | Sim | Sim (própria) | Sim | — | Ativo |
-| Agenda — visão Semana + visão Equipe | Sim | Sim (própria coluna) | Sim | — | Ativo |
+| Agenda — **Operacional** (Gantt/timeline, default) + **Semana** (1 profissional) | Sim | Sim (própria linha) | Sim | — | Ativo |
 | Clientes (`/patients`) | Sim | Não | Sim | — | Ativo |
 | Catálogo (serviços + profissionais) | Sim | Não | Sim | — | Ativo |
 | Data Lake (upload, sync, RAG) | Não | Não | Não | Sim | Ativo (dev) |
@@ -359,7 +360,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | POST | `/` | Criar agendamento |
 | GET | `/agenda` | Lista agenda |
 | GET | `/calendar` | Dados calendário (scoped por `professional_id` se role=professional) |
-| POST | `/calendar/{appointment_id}` | Reagendar |
+| POST | `/calendar/{appointment_id}` | Reagendar (`scheduled_at?`, `duration_minutes?`; ao menos um) |
 | GET | `/blocks` | Listar bloqueios/folgas (`schedule_blocks`) |
 | POST | `/blocks` | Criar bloqueio/folga |
 | DELETE | `/blocks/{block_id}` | Remover bloqueio |
@@ -836,7 +837,8 @@ src/
 - Paleta alto contraste: preto, branco, laranja accent
 - Utilitários: `card-brutal`, tokens em `src/index.css`
 - Ícones: lucide-react
-- DnD agenda: @dnd-kit
+- DnD agenda Semana: @dnd-kit (drop target = slot ISO, não card)
+- Timeline operacional: `react-calendar-timeline` + CSS brutal scoped (`operationalTimeline.css`)
 
 ## 32. Testes E2E (Playwright)
 
@@ -1074,6 +1076,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.2 | Jun/2026 | Purge automático webhook_message_dedup (APScheduler, retention 7 dias) |
 | 1.3 | Jun/2026 | Deploy Render (API + Static Site), cookie SameSite cross-subdomain, scripts smoke ops, auditoria docs |
 | 1.4 | Jun/2026 | Playbook tenancy & escala (`docs/TENANCY_AND_SCALE.md`); ambiente vs cliente; ADR multi-tenant 200+ orgs |
+| 1.6 | Jun/2026 | Agenda Operacional (Gantt/timeline default), Semana por profissional, fix DnD slot, resize via `duration_minutes` |
 | 1.5 | Jun/2026 | Capítulo Agenda/Equipe/Integrações: motor de disponibilidade real (working_hours/breaks/buffer/timezone/blocks), M:N `service_professionals`, agenda dual (Semana/Equipe), Overview today-board, role `professional`, stub pagamentos |
 
 ---

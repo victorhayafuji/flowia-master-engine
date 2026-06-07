@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from packages.models.enums import AppointmentSource, AppointmentStatus
 
@@ -17,7 +17,14 @@ class AppointmentBase(BaseModel):
     source: AppointmentSource = AppointmentSource.WHATSAPP
 
 class AppointmentUpdate(BaseModel):
-    scheduled_at: datetime
+    scheduled_at: datetime | None = None
+    duration_minutes: int | None = Field(default=None, ge=15, le=480)
+
+    @model_validator(mode="after")
+    def require_at_least_one_field(self) -> "AppointmentUpdate":
+        if self.scheduled_at is None and self.duration_minutes is None:
+            raise ValueError("Informe scheduled_at e/ou duration_minutes.")
+        return self
 
 class ScheduleBlockBase(BaseModel):
     professional_id: UUID | None = None  # None = bloqueio da org inteira (ex: feriado)

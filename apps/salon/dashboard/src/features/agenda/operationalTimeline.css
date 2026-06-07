@@ -1,0 +1,68 @@
+.operational-timeline .react-calendar-timeline {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border: none;
+}
+
+.operational-timeline .rct-header-root,
+.operational-timeline .rct-dateHeader,
+.operational-timeline .rct-sidebar-header,
+.operational-timeline .rct-sidebar-row {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+  border-radius: 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.operational-timeline .rct-horizontal-lines .rct-hl-even,
+.operational-timeline .rct-horizontal-lines .rct-hl-odd {
+  background: var(--surface);
+  border-bottom: 1px dashed color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.operational-timeline .rct-vertical-lines .rct-vl {
+  border-left: 1px dashed color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.operational-timeline .rct-cursor-line {
+  background-color: var(--accent);
+  width: 2px;
+}
+
+.operational-timeline .rct-item {
+  border: 2px solid var(--border);
+  border-radius: 0;
+  box-shadow: 2px 2px 0 0 var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.operational-timeline .timeline-item--confirmed {
+  background: var(--background);
+  border-left: 4px solid var(--accent);
+}
+
+.operational-timeline .timeline-item--pending {
+  background: color-mix(in srgb, var(--surface) 80%, var(--foreground) 5%);
+}
+
+.operational-timeline .timeline-item--in-progress {
+  background: color-mix(in srgb, var(--accent) 20%, var(--background));
+}
+
+.operational-timeline .timeline-item--cancelled {
+  background: var(--surface);
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.operational-timeline .rct-item-content {
+  padding: 4px 6px;
+}
+
+.operational-timeline .rct-scroll {
+  scrollbar-width: thin;
+}

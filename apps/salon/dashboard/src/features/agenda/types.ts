@@ -9,13 +9,11 @@ export interface Appointment {
   service: { name: string; price: number }
 }
 
-export type AgendaView = "week" | "team"
+export type AgendaView = "week" | "timeline"
 
 export const AGENDA_HOURS = Array.from({ length: 11 }, (_, i) => i + 8)
 export const AGENDA_QUARTERS = [0, 15, 30, 45]
 
-// Team (single-day) view grid geometry.
+// Timeline view grid bounds (single-day operational view).
 export const AGENDA_START_HOUR = 8
 export const AGENDA_END_HOUR = 18
-export const AGENDA_SLOT_MINUTES = 15
-export const TEAM_ROW_HEIGHT = 28 // px per slot row

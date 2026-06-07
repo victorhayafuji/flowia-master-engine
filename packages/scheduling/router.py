@@ -75,6 +75,7 @@ async def update_appointment(
             data = await service.reschedule_appointment(
                 UUID(appointment_id),
                 update_data.scheduled_at,
+                duration_minutes=update_data.duration_minutes,
                 organization_id=org_id,
             )
             return {"status": "success", "data": data}
