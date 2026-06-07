@@ -1,0 +1,43 @@
+---
+description: Supabase migration conventions — RLS, tenant isolation, versioning
+globs: supabase/**/*.sql
+alwaysApply: false
+---
+
+# Supabase Migrations
+
+## Versionamento
+
+- Migrações em `supabase/migrations/` com timestamp no nome
+- Aplicar via `supabase db push` ou SQL Editor
+
+## Multi-tenant
+
+- Toda tabela de dados de negócio: coluna `organization_id`
+- RLS habilitado com policies por tenant — nunca `USING (false)` em produção
+- `super_admin` cross-tenant só via service role no backend, nunca no frontend
+
+## Tabelas internas (backend-only)
+
+Sem `organization_id`, sem acesso browser — ex.: `checkpoints*`, `webhook_message_dedup`:
+
+1. `ENABLE ROW LEVEL SECURITY`
+2. **Nenhuma policy** (deny by default para anon/authenticated via PostgREST)
+3. `REVOKE ALL ON TABLE ... FROM anon, authenticated`
+4. Backend via `SUPABASE_SERVICE_ROLE` ou `SUPABASE_DB_URL` — não criar policies tenant
+
+Ver migration [`20260608000000_internal_tables_rls.sql`](../../supabase/migrations/20260608000000_internal_tables_rls.sql).
+
+## Integridade de dados
+
+- **Exclusão = soft delete:** nunca hard delete de dados de negócio. Desativar via `is_active=false` (patients, professionals, service_catalog). Listagens filtram `is_active` por padrão (`?include_inactive=true` para incluir).
+- **`updated_at` sempre via trigger:** toda tabela com `updated_at` usa `set_updated_at()` (trigger `trg_set_updated_at BEFORE UPDATE`). Nunca depender de update manual.
+- **FK de negócio nunca CASCADE a partir de `organizations`:** usar `ON DELETE RESTRICT`. Organização também é soft-delete (`is_active`), nunca apagada.
+- **Unicidade case-insensitive** onde fizer sentido: ex. `service_catalog(organization_id, lower(name)) WHERE is_active`.
+
+Ver migrations [`20260609000000_updated_at_triggers.sql`](../../supabase/migrations/20260609000000_updated_at_triggers.sql) e [`20260609010000_soft_delete_and_integrity.sql`](../../supabase/migrations/20260609010000_soft_delete_and_integrity.sql).
+
+## Segurança
+
+- Nunca expor `SUPABASE_SERVICE_ROLE` no dashboard ou `.env` do Vite
+- Consultar schema via MCP Supabase (read-only) antes de alterar tabelas

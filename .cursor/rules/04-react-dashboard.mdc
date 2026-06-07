@@ -1,0 +1,31 @@
+---
+description: React dashboard conventions for apps/salon/dashboard/
+globs: apps/salon/dashboard/**/*.ts, apps/salon/dashboard/**/*.tsx, apps/salon/dashboard/**/*.css
+alwaysApply: false
+---
+
+# React Dashboard
+
+## Localização
+
+Frontend único: `apps/salon/dashboard/`. Não existe dashboard na raiz.
+
+## Autenticação
+
+- Sessão JWT via FastAPI (cookie `session_token` HttpOnly)
+- Login: `POST /api/v1/auth/login`; sessão: `GET /api/v1/auth/me`
+- **Não** usar `supabase.auth.signInWithPassword` no browser
+- Contexto: `AuthContext` consulta `/auth/me` no mount
+- Import canônico: `@/features/auth/AuthContext` (re-export em `contexts/` só para compat)
+
+## API client
+
+Centralizar em `apps/salon/dashboard/src/lib/api.ts` (importar via `@/shared/lib/api`). Enviar `x-organization-id` quando autenticado.
+
+## Config
+
+Vite lê `.env` da **raiz** do monorepo. Nunca definir `VITE_DEV_*` em produção.
+
+## Design (Neo-Swiss Brutalism)
+
+Tailwind CSS v4, `radius: 0`, alto contraste. Tokens em `src/index.css` (ex: `card-brutal`).

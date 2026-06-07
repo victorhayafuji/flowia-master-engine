@@ -1,0 +1,495 @@
+{
+  "docs_silver": {
+    "layer": "Silver",
+    "privacy": "Public",
+    "description": "Tabela contendo os textos brutos limpos extraídos de documentos via OCR.",
+    "columns": {
+      "id": {
+        "type": "uuid",
+        "description": "Identificador único do documento na camada Silver."
+      },
+      "bronze_id": {
+        "type": "uuid",
+        "description": "Chave estrangeira apontando para o registro correspondente na Bronze."
+      },
+      "raw_text": {
+        "type": "text",
+        "description": "Texto cru extraído pelo OCR sem pós-processamento."
+      },
+      "cleaned_text": {
+        "type": "text",
+        "description": "Texto limpo, livre de caracteres inválidos e formatado em Markdown."
+      },
+      "status": {
+        "type": "varchar",
+        "description": "Status de processamento (ex: SILVER_READY, COMPLETED, ERROR)."
+      },
+      "created_at": {
+        "type": "timestamp",
+        "description": "Data e hora de ingestão na camada Silver."
+      }
+    }
+  },
+  "leads_raw": {
+    "layer": "Bronze",
+    "privacy": "Public",
+    "description": "Dados brutos de leads capturados em conversas com os agentes de IA na camada Bronze.",
+    "columns": {
+      "id": {
+        "type": "integer",
+        "description": "Identificador único do lead bruto."
+      },
+      "sender_id": {
+        "type": "text",
+        "description": "Identificador único do canal ou conversa (WhatsApp/Slack)."
+      },
+      "lead_name": {
+        "type": "text",
+        "description": "Nome cru informado pelo lead."
+      },
+      "company_name": {
+        "type": "text",
+        "description": "Nome cru da empresa informado pelo lead."
+      },
+      "budget": {
+        "type": "text",
+        "description": "Orçamento cru informado (BANT)."
+      },
+      "need": {
+        "type": "text",
+        "description": "Necessidade crua informada (BANT)."
+      },
+      "timeline": {
+        "type": "text",
+        "description": "Cronograma cru informado (BANT)."
+      },
+      "data_captura": {
+        "type": "timestamp",
+        "description": "Data e hora de captura da conversa inicial."
+      }
+    }
+  },
+  "leads_silver": {
+    "layer": "Silver",
+    "privacy": "Public",
+    "description": "Dados higienizados, estruturados e enriquecidos de leads qualificados na camada Silver (Contém PII Mascarado para não-executivos).",
+    "columns": {
+      "id": {
+        "type": "integer",
+        "description": "Identificador único do lead estruturado."
+      },
+      "origem": {
+        "type": "text",
+        "description": "Canal de origem do lead (ex: WhatsApp, Web Chat)."
+      },
+      "nome": {
+        "type": "text",
+        "description": "Nome higienizado e padronizado do lead."
+      },
+      "email": {
+        "type": "text",
+        "description": "E-mail de contato corporativo (PII Mascarado para não-executivos)."
+      },
+      "telefone": {
+        "type": "text",
+        "description": "Telefone de contato do lead (PII Mascarado para não-executivos)."
+      },
+      "status": {
+        "type": "text",
+        "description": "Status de qualificação do lead (Pronto para Compra / Em Qualificação)."
+      },
+      "score_ia": {
+        "type": "integer",
+        "description": "Pontuação preditiva de qualificação gerada por IA (0 a 100)."
+      },
+      "data_cadastro": {
+        "type": "timestamp",
+        "description": "Data e hora de cadastro do lead no CRM."
+      }
+    }
+  },
+  "leads": {
+    "layer": "Silver",
+    "privacy": "Public",
+    "description": "Tabela central do CRM que registra leads qualificados e em qualificação.",
+    "columns": {
+      "id": {
+        "type": "integer",
+        "description": "Chave primária autoincrementada do lead."
+      },
+      "nome": {
+        "type": "text",
+        "description": "Nome completo do lead (ou contato primário)."
+      },
+      "email": {
+        "type": "text",
+        "description": "E-mail de contato corporativo do lead."
+      },
+      "empresa": {
+        "type": "text",
+        "description": "Nome da empresa onde o lead trabalha."
+      },
+      "produto": {
+        "type": "text",
+        "description": "Nome do produto/serviço da FlowIA no qual o lead está interessado."
+      },
+      "orcamento": {
+        "type": "text",
+        "description": "Orçamento/Budget estimado (framework BANT)."
+      },
+      "necessidade": {
+        "type": "text",
+        "description": "Necessidade ou dor de negócio apontada (framework BANT)."
+      },
+      "pronto_para_compra": {
+        "type": "boolean",
+        "description": "Flag indicando se o lead está qualificado e pronto para vendas (True/False)."
+      },
+      "handoff_concluido": {
+        "type": "boolean",
+        "description": "Flag indicando se o lead foi transferido para um atendente humano (True/False)."
+      },
+      "data_captura": {
+        "type": "timestamp",
+        "description": "Data e hora de cadastro do lead no CRM."
+      },
+      "is_frustrated": {
+        "type": "boolean",
+        "description": "Flag de sentimento indicando se o lead demonstrou frustração (True/False)."
+      }
+    }
+  },
+  "conversation_metrics": {
+    "layer": "Gold",
+    "privacy": "Public",
+    "description": "Métricas consolidadas de conversas dos agentes de IA para análise de performance e consumo.",
+    "columns": {
+      "id": {
+        "type": "bigint",
+        "description": "Chave primária de métrica."
+      },
+      "thread_id": {
+        "type": "text",
+        "description": "Identificador único da thread ou conversa."
+      },
+      "agent_type": {
+        "type": "text",
+        "description": "Tipo de agente que respondeu (sdr ou support)."
+      },
+      "messages_count": {
+        "type": "integer",
+        "description": "Total de mensagens trocadas na conversa."
+      },
+      "tokens_in": {
+        "type": "integer",
+        "description": "Total de tokens de entrada consumidos."
+      },
+      "tokens_out": {
+        "type": "integer",
+        "description": "Total de tokens de saída gerados."
+      },
+      "tokens_total": {
+        "type": "integer",
+        "description": "Total de tokens acumulados (in + out)."
+      },
+      "model_name": {
+        "type": "text",
+        "description": "Nome do modelo de LLM utilizado (ex: gemini-2.5-flash)."
+      },
+      "sentiment_score": {
+        "type": "double precision",
+        "description": "Score médio de sentimento da conversa (-1.0 a 1.0)."
+      },
+      "is_frustrated": {
+        "type": "boolean",
+        "description": "Indica se o cliente terminou a conversa frustrado (True/False)."
+      },
+      "created_at": {
+        "type": "timestamp",
+        "description": "Data e hora de registro das métricas da conversa."
+      }
+    }
+  },
+  "fato_faturamento": {
+    "layer": "Gold",
+    "privacy": "Executive",
+    "description": "Faturamento executivo consolidado vs metas por departamento de negócios.",
+    "columns": {
+      "id": {
+        "type": "integer",
+        "description": "Chave primária do faturamento."
+      },
+      "data_faturamento": {
+        "type": "date",
+        "description": "Data correspondente ao faturamento registrado."
+      },
+      "departamento": {
+        "type": "varchar",
+        "description": "Departamento de negócio (ex: DPH, UD, PETS)."
+      },
+      "valor_faturado": {
+        "type": "numeric",
+        "description": "Valor líquido faturado em Reais (R$)."
+      },
+      "valor_meta": {
+        "type": "numeric",
+        "description": "Meta estipulada de faturamento em Reais (R$)."
+      }
+    }
+  },
+  "fato_carteira_v2": {
+    "layer": "Gold",
+    "privacy": "Executive",
+    "description": "Métricas da carteira de clientes ativos e vendedores responsáveis.",
+    "columns": {
+      "id": {
+        "type": "integer",
+        "description": "Chave primária da carteira."
+      },
+      "cliente_id": {
+        "type": "varchar",
+        "description": "Código identificador do cliente corporativo."
+      },
+      "nome_cliente": {
+        "type": "varchar",
+        "description": "Nome fantasia do cliente da carteira."
+      },
+      "valor_carteira": {
+        "type": "numeric",
+        "description": "Valor total de recorrência ou carteira associada."
+      },
+      "vendedor_responsavel": {
+        "type": "varchar",
+        "description": "Nome do executivo de vendas responsável pela carteira."
+      }
+    }
+  },
+  "contratos": {
+    "layer": "Gold",
+    "privacy": "Executive",
+    "description": "Contratos ativos e assinaturas vigentes de clientes da plataforma.",
+    "columns": {
+      "id": {
+        "type": "integer",
+        "description": "Chave primária do contrato."
+      },
+      "cliente_id": {
+        "type": "varchar",
+        "description": "Código identificador do cliente."
+      },
+      "plano_contratado": {
+        "type": "varchar",
+        "description": "Nome do plano contratado (ex: Enterprise Pro, Ultimate Plus)."
+      },
+      "valor_mensal": {
+        "type": "numeric",
+        "description": "Mensalidade do contrato em Reais (R$)."
+      },
+      "status": {
+        "type": "varchar",
+        "description": "Status do contrato (ex: ATIVO, CANCELADO, SUSPENSO)."
+      },
+      "data_inicio": {
+        "type": "date",
+        "description": "Data de início da vigência do contrato."
+      }
+    }
+  },
+  "servicos": {
+    "layer": "Gold",
+    "privacy": "Executive",
+    "description": "Catálogo de serviços e seus respectivos custos operacionais internos.",
+    "columns": {
+      "id": {
+        "type": "integer",
+        "description": "Chave primária do serviço."
+      },
+      "nome_servico": {
+        "type": "varchar",
+        "description": "Nome do serviço prestado (ex: Consultoria, Hospedagem)."
+      },
+      "custo_operacional": {
+        "type": "numeric",
+        "description": "Custo operacional associado à execução do serviço."
+      },
+      "tempo_execucao_horas": {
+        "type": "integer",
+        "description": "Tempo médio estimado de execução em horas."
+      }
+    }
+  },
+  "docs_bronze": {
+    "layer": "Bronze",
+    "privacy": "Public",
+    "description": "Tabela contendo os registros de documentos brutos ingeridos com metadados básicos de arquivos.",
+    "columns": {
+      "id": {
+        "type": "uuid",
+        "description": "Identificador único do documento na camada Bronze."
+      },
+      "file_name": {
+        "type": "varchar",
+        "description": "Nome original do arquivo ingerido."
+      },
+      "storage_path": {
+        "type": "varchar",
+        "description": "Caminho do arquivo no bucket bronze_raw."
+      },
+      "mime_type": {
+        "type": "varchar",
+        "description": "Tipo MIME do arquivo (image/png, application/pdf, etc)."
+      },
+      "file_size": {
+        "type": "bigint",
+        "description": "Tamanho do arquivo em bytes."
+      },
+      "status": {
+        "type": "varchar",
+        "description": "Status (PENDING, PROCESSING, COMPLETED, ERROR)."
+      },
+      "error_message": {
+        "type": "text",
+        "description": "Mensagem de erro do processamento OCR."
+      },
+      "organization_id": {
+        "type": "uuid",
+        "description": "Tenant dono do documento."
+      },
+      "created_at": {
+        "type": "timestamp",
+        "description": "Data e hora de ingestão."
+      }
+    }
+  },
+  "docs_gold_vectors": {
+    "layer": "Gold",
+    "privacy": "Public",
+    "description": "Chunks vetorizados prontos para busca semântica (RAG) pelo chatbot.",
+    "columns": {
+      "id": {
+        "type": "uuid",
+        "description": "Identificador único do chunk vetorial."
+      },
+      "silver_id": {
+        "type": "uuid",
+        "description": "Referência ao documento na camada Silver."
+      },
+      "chunk_index": {
+        "type": "integer",
+        "description": "Índice do chunk dentro do documento."
+      },
+      "content": {
+        "type": "text",
+        "description": "Texto do chunk usado no RAG."
+      },
+      "organization_id": {
+        "type": "uuid",
+        "description": "Tenant dono do conhecimento."
+      },
+      "created_at": {
+        "type": "timestamp",
+        "description": "Data de vetorização."
+      }
+    }
+  },
+  "organizations": {
+    "layer": "Silver",
+    "privacy": "Public",
+    "description": "Tabela contendo os clientes B2B (Tenants) do sistema.",
+    "columns": {
+      "id": {
+        "type": "uuid",
+        "description": "Identificador único da organização."
+      },
+      "name": {
+        "type": "varchar",
+        "description": "Nome da organização."
+      },
+      "vertical": {
+        "type": "varchar",
+        "description": "Vertical de negócio (ex: SALON, CLINIC)."
+      }
+    }
+  },
+  "appointments": {
+    "layer": "Silver",
+    "privacy": "Public",
+    "description": "Agendamentos de serviços realizados pelas organizações.",
+    "columns": {
+      "id": {
+        "type": "uuid",
+        "description": "Identificador único do agendamento."
+      },
+      "organization_id": {
+        "type": "uuid",
+        "description": "Tenant dono do agendamento."
+      },
+      "patient_id": {
+        "type": "uuid",
+        "description": "Cliente/Paciente que fará o agendamento."
+      },
+      "professional_id": {
+        "type": "uuid",
+        "description": "Profissional responsável."
+      },
+      "service_id": {
+        "type": "uuid",
+        "description": "Serviço agendado."
+      },
+      "scheduled_at": {
+        "type": "timestamp",
+        "description": "Data e hora marcadas."
+      },
+      "status": {
+        "type": "varchar",
+        "description": "Status (PENDING, CONFIRMED, CANCELLED, ARRIVED, COMPLETED)."
+      }
+    }
+  },
+  "patients": {
+    "layer": "Silver",
+    "privacy": "Public",
+    "description": "Clientes finais das organizações (Pacientes/Consumidores).",
+    "columns": {
+      "id": {
+        "type": "uuid",
+        "description": "Identificador único."
+      },
+      "organization_id": {
+        "type": "uuid",
+        "description": "Tenant dono do cliente."
+      },
+      "name": {
+        "type": "varchar",
+        "description": "Nome do paciente (Pode ser mascarado)."
+      },
+      "phone": {
+        "type": "varchar",
+        "description": "Telefone do paciente (Pode ser mascarado)."
+      }
+    }
+  },
+  "service_catalog": {
+    "layer": "Silver",
+    "privacy": "Public",
+    "description": "Catálogo de serviços oferecidos pelas organizações.",
+    "columns": {
+      "id": {
+        "type": "uuid",
+        "description": "Identificador único."
+      },
+      "organization_id": {
+        "type": "uuid",
+        "description": "Tenant dono do serviço."
+      },
+      "name": {
+        "type": "varchar",
+        "description": "Nome do serviço."
+      },
+      "price": {
+        "type": "numeric",
+        "description": "Preço."
+      }
+    }
+  }
+}

@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ruff lint
+        run: ruff check packages apps/salon tests main.py
+
+      - name: Run tests with coverage
+        env:
+          GOOGLE_API_KEY: test-key
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_KEY: test-anon-key
+          SUPABASE_SERVICE_ROLE: test-service-role
+          SUPABASE_DB_URL: postgresql://postgres:pass@localhost:5432/postgres
+          WHATSAPP_VERIFY_TOKEN: test-verify-token
+          DASHBOARD_API_KEY: test-dashboard-api-key
+          DASHBOARD_JWT_SECRET: test-jwt-secret-for-ci-only-32chars
+          CHECKPOINTER_BACKEND: memory
+          SCHEDULER_ENABLED: false
+        run: pytest --cov=packages --cov=apps/salon --cov-report=term-missing --cov-fail-under=30
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/salon/dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/salon/dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_KEY: test-anon-key
+          VITE_API_URL: http://localhost:8000/api/v1
+        run: npm run build

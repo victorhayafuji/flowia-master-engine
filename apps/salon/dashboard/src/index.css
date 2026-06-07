@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+@theme {
+  /* Neo-Swiss Brutalist Palette - Vermillion Accent */
+  --color-brand-50: #fff4ed;
+  --color-brand-100: #ffe6d5;
+  --color-brand-200: #feccaa;
+  --color-brand-300: #fdb074;
+  --color-brand-400: #fa8839;
+  --color-brand-500: #f6660a; 
+  --color-brand-600: #e75107;
+  --color-brand-700: #bf3b07;
+  --color-brand-800: #982f0e;
+  --color-brand-900: #7b290f;
+  
+  /* Modern premium typography */
+  --font-sans: "Outfit", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Overriding standard border radius to FORCE sharp edges */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+}
+
+/* Custom properties for fluid themes */
+:root {
+  --background: #fdfbf7; /* Bone White for Clinical Cleanliness */
+  --foreground: #121212; /* Deep Charcoal */
+  --surface: #ffffff;
+  --border: #121212; /* High contrast raw borders */
+  --accent: #f6660a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #fdfbf7;
+    --surface: #121212;
+    --border: rgba(253, 251, 247, 0.2);
+    --accent: #f6660a;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Micro-interactions & Physics */
+@utility spring-transition {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition-duration: 300ms;
+}
+
+@utility hover-lift {
+  @apply spring-transition;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 4px 4px 0px 0px var(--border);
+  }
+}
+
+@utility active-press {
+  @apply spring-transition;
+  &:active {
+    transform: translateY(0px);
+    box-shadow: 0px 0px 0px 0px var(--border);
+  }
+}
+
+/* Base interactive elements */
+@utility btn-brutal {
+  background-color: var(--foreground);
+  color: var(--background);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  @apply hover-lift active-press;
+}
+
+@utility card-brutal {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  /* Sharp shadows instead of soft blurs */
+  box-shadow: 4px 4px 0px 0px var(--border);
+  @apply spring-transition;
+}
+
+/* App shell — header fixo, listas com scroll próprio */
+@utility page-shell {
+  @apply flex flex-col h-full min-h-0 w-full max-w-[1600px] mx-auto p-4 sm:p-8;
+}
+
+@utility page-header {
+  @apply shrink-0;
+}
+
+@utility panel-scroll {
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+@utility panel-scroll-both {
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}

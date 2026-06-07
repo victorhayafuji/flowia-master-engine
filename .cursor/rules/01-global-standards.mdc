@@ -1,0 +1,61 @@
+---
+description: Global architectural standards — boundaries, tenant, concurrency, queries
+alwaysApply: true
+---
+
+# Global Standards
+
+## Boundaries
+
+- `packages/*` **nunca** importa `apps/salon`
+- Composition root único: `apps/salon/api/app_factory.py` (`create_salon_app()`)
+- Routers: paths relativos; prefixo `/api/v1` só no app_factory
+
+## Tenant & secrets
+
+- Endpoints autenticados: `validated_tenant_context` — não confiar só no header
+- Queries com `organization_id` + RLS Supabase
+- Nunca commitar `.env`; validar com `python scripts/check_env.py`
+
+## Exceções HTTP
+
+Definir em `packages/auth_core/exceptions.py`; mapear no app_factory:
+
+| Exceção | HTTP |
+|---------|------|
+| `DoubleBookingError` | 409 |
+| `ResourceNotFoundError` | 404 |
+| `BusinessLogicError` | 422 |
+| `FlowIAError` | 400 |
+
+## Concorrência & idempotência
+
+- Webhook WhatsApp: dedup por `message_id` (`packages/integrations/webhook/router.py`)
+- Lakehouse OCR: semáforo async (`packages/lakehouse/service.py`)
+- Booking: validar overlap antes de insert (`packages/scheduling/service.py`)
+
+## Queries & duplicação
+
+- Evitar N+1: `.select()` com filtros batch (`.in_()`), repository layer em `apps/salon/domain`
+- Dashboard: client API em `lib/api.ts` (importar via `@/shared/lib/api`)
+- Auth dashboard: cookie JWT FastAPI — não Supabase Auth no browser
+
+## Skills (detalhes sob demanda)
+
+Domínio (`flowia-*`):
+
+- `@flowia-dev` — subir local, CI, pytest, `.env`
+- `@flowia-monorepo` — onde colocar código, imports, boundaries
+- `@flowia-salon-domain` — fluxos auth, agenda, WhatsApp, LangGraph
+- `@flowia-security` — auditoria tenant, secrets, rate limiting
+- `@flowia-data-lake` — pipeline Medallion, RAG
+
+On-demand:
+
+- `@security-audit` — injeção (SQL/prompt), vazamento PII/secrets, tenant
+- `@performance-optimization` — bundle/lazy loading, N+1, queries lentas
+- `@feature-flag-override` — toggles (`is_active`, `settings`, `PRODUCT_LINE`, `AdminDevRoute`), UI `card-brutal`
+
+## Documentação
+
+- Fonte da verdade: `CLAUDE.md` na raiz — manter atualizado em mudanças de arquitetura, negócio ou segurança

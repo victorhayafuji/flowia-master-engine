@@ -1,0 +1,28 @@
+---
+description: Python backend conventions for packages/, apps/salon/, and tests/
+globs: packages/**/*.py, apps/salon/**/*.py, tests/**/*.py, main.py
+alwaysApply: false
+---
+
+# Python API
+
+## Multi-tenant
+
+Usar `validated_tenant_context` de `packages/auth_core/dependencies.py` em endpoints que precisam de org.
+
+## LangGraph
+
+- Checkpointer: `packages/engine/checkpointer.py`
+- Produção: `PostgresSaver` via `SUPABASE_DB_URL`
+- Testes/CI: `CHECKPOINTER_BACKEND=memory`
+
+## Novos endpoints
+
+1. Router no pacote correto (`packages/*` ou `apps/salon/domain`)
+2. Registrar em `apps/salon/api/app_factory.py`
+3. Path relativo (sem `/api/v1` no router)
+
+## Testes
+
+- Fixtures em `tests/conftest.py`
+- Mock DB via `mock_db` fixture; não depender de Supabase real em unit tests

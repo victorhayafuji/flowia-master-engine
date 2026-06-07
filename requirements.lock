@@ -1,0 +1,28 @@
+# Pinned versions from the project's working venv (Python 3.12).
+# Regenerate with: pip freeze > requirements.lock
+# Install with: pip install -r requirements.txt  (ranges) or pip install -r requirements.lock (exact)
+
+fastapi==0.136.1
+uvicorn==0.36.0
+pydantic==2.12.5
+pydantic-settings==2.13.1
+python-dotenv==1.2.2
+httpx==0.29.0
+slowapi==0.1.9
+cachetools==6.2.6
+tenacity==9.1.4
+supabase==2.29.0
+bcrypt==5.0.0
+python-jose==3.5.0
+requests==2.33.0
+psycopg2-binary==2.9.11
+langgraph==1.1.10
+langchain==1.2.18
+langchain-google-genai==4.2.2
+google-genai==1.66.0
+pillow==12.1.1
+ruff==0.15.4
+pytest==9.0.2
+pytest-asyncio==1.3.0
+pytest-mock==3.15.1
+pytest-cov==7.0.0

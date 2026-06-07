@@ -1,0 +1,69 @@
+# FlowIA Salão — Render Blueprint (multi-tenant SaaS)
+# Docs: docs/RENDER.md
+# Apply: Dashboard → Blueprints → New Blueprint Instance, or `render blueprints validate`
+
+services:
+  - type: web
+    name: flowia-api
+    runtime: python
+    plan: starter
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PRODUCT_LINE
+        value: salon
+      - key: CHECKPOINTER_BACKEND
+        value: auto
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: WEBHOOK_DEDUP_RETENTION_DAYS
+        value: "7"
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      # Set in Render Dashboard (sync: false) — never commit real values
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: DASHBOARD_API_KEY
+        sync: false
+      - key: DASHBOARD_JWT_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: ALLOWED_HOSTS
+        sync: false
+
+  - type: web
+    name: flowia-dashboard
+    runtime: static
+    plan: starter
+    region: oregon
+    rootDir: apps/salon/dashboard
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_KEY
+        sync: false

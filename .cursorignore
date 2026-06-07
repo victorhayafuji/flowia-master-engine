@@ -1,0 +1,5 @@
+scratch/
+docs/archive/
+venv/
+apps/salon/dashboard/node_modules/
+apps/salon/dashboard/dist/

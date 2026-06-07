@@ -1,0 +1,33 @@
+---
+description: Monorepo layout, composition root, deploys, and legacy guardrails
+globs: main.py, apps/salon/api/**, packages/**/README.md
+alwaysApply: false
+---
+
+# Monorepo Layout
+
+## Estrutura
+
+- **Motor:** `packages/` (auth_core, engine, scheduling, lakehouse, integrations, models)
+- **Produto salão:** `apps/salon/` (api, domain, dashboard, prompts)
+- **Deploy:** `deployments/` — multi-tenant ou `tenants/{slug}/` (`.env` + branding)
+
+## Dependências
+
+- `apps/salon` compõe pacotes em `packages/`
+- **`packages/*` nunca importa `apps/salon`**
+
+## Composition root
+
+- Entry: `main.py` → `create_salon_app()` em `apps/salon/api/app_factory.py`
+- Não registrar routers soltos em `main.py`
+
+## Legado removido
+
+Não recriar: `src/`, `dashboard/` na raiz, `.agent/`.
+
+## Produto
+
+MVP: `PRODUCT_LINE=salon`. `apps/clinic/` é stub futuro.
+
+Grafo e checklist de refactor: skill `@flowia-monorepo`.

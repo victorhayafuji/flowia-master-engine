@@ -1,0 +1,164 @@
+# Deploy FlowIA no Render + Supabase
+
+Hosting confirmado para produção multi-tenant:
+
+| Componente | Render | Tipo |
+|------------|--------|------|
+| API FastAPI | `flowia-api` | Web Service (Python) |
+| Dashboard SPA | `flowia-dashboard` | Static Site |
+| Banco | Supabase (externo) | PostgreSQL + RLS |
+
+Blueprint IaC: [`render.yaml`](../render.yaml) na raiz do repo.
+
+---
+
+## 1. Pré-requisitos
+
+1. Repositório Git no GitHub/GitLab/Bitbucket (Render exige Git para deploy contínuo).
+2. Projeto **Supabase de produção** separado do dev.
+3. Conta Render com workspace selecionado.
+4. Secrets novos — **nunca** reutilizar dev ([`SECRET_ROTATION.md`](SECRET_ROTATION.md)).
+
+Gerar secrets (stdout — não commitar):
+
+```powershell
+venv\Scripts\python.exe scripts\generate_prod_secrets.py
+```
+
+Templates de env:
+
+- API: [`deployments/multi-tenant/.env.production.example`](../deployments/multi-tenant/.env.production.example)
+- Dashboard build: [`deployments/multi-tenant/render-dashboard.env.example`](../deployments/multi-tenant/render-dashboard.env.example)
+
+---
+
+## 2. Supabase (manhã)
+
+```bash
+supabase link --project-ref <PROD_REF>
+supabase db push
+```
+
+Habilitar **pgvector** no Dashboard se a migration `20260605000000_phase4_data_lake` falhar na extensão.
+
+Seed piloto (`.env` apontando prod temporariamente):
+
+```powershell
+venv\Scripts\python.exe scripts\seed_salon.py
+venv\Scripts\python.exe scripts\create_salon_user.py --email dono@salao.com --password "SenhaForte1!"
+venv\Scripts\python.exe scripts\setup_dev_env.py --email admin@flowia.com --password "SenhaForte2!"
+venv\Scripts\python.exe scripts\check_env.py
+```
+
+**Migrations pendentes conhecidas** (se o projeto Supabase foi criado antes de Jun/2026): aplicar os 13 arquivos em [`supabase/migrations/`](../supabase/migrations/) na ordem do [`CLAUDE.md`](../CLAUDE.md) §15.
+
+---
+
+## 3. Deploy API — Render Web Service
+
+### Opção A: Blueprint (recomendado)
+
+1. Render Dashboard → **Blueprints** → New Blueprint Instance
+2. Conectar repo; Render detecta [`render.yaml`](../render.yaml)
+3. Preencher env vars marcadas `sync: false` no painel
+
+### Opção B: Manual
+
+| Campo | Valor |
+|-------|-------|
+| Runtime | Python 3 |
+| Root | repo root |
+| Build | `pip install -r requirements.txt` |
+| Start | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+| Health check | `/health` |
+| Instâncias | **1** (scheduler) |
+
+### Env vars críticas (API)
+
+| Variável | Valor |
+|----------|-------|
+| `PRODUCT_LINE` | `salon` |
+| `CHECKPOINTER_BACKEND` | `auto` |
+| `SCHEDULER_ENABLED` | `true` |
+| `COOKIE_SECURE` | `true` |
+| `WEBHOOK_DEDUP_RETENTION_DAYS` | `7` |
+| `ALLOWED_ORIGINS` | `["https://SEU-DASHBOARD.onrender.com"]` |
+| `ALLOWED_HOSTS` | `["SEU-API.onrender.com"]` |
+| `GOOGLE_API_KEY`, `SUPABASE_*`, `DASHBOARD_*`, `WHATSAPP_VERIFY_TOKEN` | secrets prod |
+
+**Não definir:** `DEV_*`, `VITE_DEV_*`.
+
+Anotar URL da API: `https://flowia-api.onrender.com` (exemplo).
+
+---
+
+## 4. Deploy Dashboard — Render Static Site
+
+| Campo | Valor |
+|-------|-------|
+| Root | `apps/salon/dashboard` |
+| Build | `npm ci && npm run build` |
+| Publish | `dist` |
+
+### Env vars build-time
+
+| Variável | Valor |
+|----------|-------|
+| `VITE_API_URL` | `https://flowia-api.onrender.com/api/v1` |
+| `VITE_SUPABASE_URL` | URL prod |
+| `VITE_SUPABASE_KEY` | anon key prod |
+
+### SPA routing
+
+O [`render.yaml`](../render.yaml) inclui rewrite `/* → /index.html`. Fallback adicional: [`apps/salon/dashboard/public/_redirects`](../apps/salon/dashboard/public/_redirects).
+
+Após obter URL final do Static Site, **atualizar `ALLOWED_ORIGINS`** na API.
+
+---
+
+## 5. Smoke produção
+
+Automático (health + dashboard HTTP):
+
+```powershell
+venv\Scripts\python.exe scripts\smoke_prod.py --api-url https://flowia-api.onrender.com --dashboard-url https://flowia-dashboard.onrender.com
+```
+
+Manual:
+
+| # | Teste | Esperado |
+|---|-------|----------|
+| 1 | `GET /health` | `status: ok`, `database: connected` |
+| 2 | Login org_admin | cookie `session_token` |
+| 3 | Overview, Agenda, Catálogo, Clientes | sem CORS |
+| 4 | Criar cliente + agendamento | persiste no Supabase |
+| 5 | super_admin | sem `/admin/*` em prod (AdminDevRoute exige DEV) |
+
+Checklist completo: [`STAGING.md`](STAGING.md) · Rollback: [`PRODUCTION.md`](PRODUCTION.md)
+
+---
+
+## 6. Rollback rápido
+
+| Problema | Ação |
+|----------|------|
+| Deploy API quebrado | Render → flowia-api → **Rollback** deploy anterior |
+| CORS / login | Conferir `ALLOWED_ORIGINS` = URL exata HTTPS do dashboard |
+| Scheduler duplicado | Manter **1 instância** Web Service |
+| Cold start (free tier) | Upgrade para Starter ou plano always-on |
+
+---
+
+## 7. Render MCP (opcional)
+
+Para deploy via Cursor: configurar MCP Render com `Authorization: Bearer <RENDER_API_KEY>` em `.cursor/mcp.json`. Sem auth, usar Dashboard ou Blueprint.
+
+---
+
+## URLs de produção (preencher após deploy)
+
+| Serviço | URL |
+|---------|-----|
+| API | `https://____________.onrender.com` |
+| Dashboard | `https://____________.onrender.com` |
+| Supabase | `https://____________.supabase.co` |

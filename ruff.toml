@@ -1,0 +1,26 @@
+# Ruff configuration file
+# Ref: https://docs.astral.sh/ruff/configuration/
+
+exclude = [
+    ".git",
+    ".ruff_cache",
+    ".venv",
+    "venv",
+    "apps/salon/dashboard/node_modules",
+    "__pycache__",
+]
+
+line-length = 120
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E402",  # Module level import not at top of file
+    "E501",  # Line too long
+    "B008",  # FastAPI Depends() in defaults is intentional
+]
+
+[lint.per-file-ignores]
+"packages/**/__init__.py" = ["F401"]
+"apps/**/__init__.py" = ["F401"]
+"packages/integrations/webhook/whatsapp.py" = ["F841"]
