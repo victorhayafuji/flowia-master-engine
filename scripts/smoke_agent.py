@@ -3,10 +3,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import uuid
 
 import httpx
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
 
 
 def main() -> int:
@@ -17,7 +25,10 @@ def main() -> int:
         help="Base API (ex: https://flowia-api.onrender.com/api/v1)",
     )
     parser.add_argument("--username", default="dono@beauty-express.com")
-    parser.add_argument("--password", default="senha123")
+    parser.add_argument(
+        "--password",
+        default=os.getenv("PROD_SMOKE_PASSWORD") or os.getenv("VITE_DEV_PASSWORD") or "",
+    )
     parser.add_argument(
         "--org-id",
         default="22222222-2222-2222-2222-222222222222",
@@ -39,6 +50,14 @@ def main() -> int:
             "name": "Agendamento",
             "message": "Quero agendar manicure amanhã, quais horários disponíveis?",
             "expect_any": ["horário", "horario", "dispon", "10:", "14:", "09:", "manicure", "agendar"],
+        },
+        {
+            "name": "Hybrid scheduling",
+            "message": "Quero mechas sexta",
+            "expect_agent": "scheduling",
+            "expect_path": "deterministic",
+            "require_triage": True,
+            "expect_any": ["mechas", "sexta", "horário", "horario", "dispon", "14:", "09:", "agendar"],
         },
         {
             "name": "Recepção",
@@ -78,8 +97,30 @@ def main() -> int:
             answer = (data.get("response") or "").strip()
             agent = data.get("agent", "?")
             tokens = data.get("tokens_used", 0)
-            print(f"Agente: {agent} | tokens: {tokens}")
+            path = data.get("scheduling_path")
+            triage = data.get("triage_source")
+            print(
+                f"Agente: {agent} | tokens: {tokens}"
+                + (f" | path: {path} | triage: {triage}" if path or triage else "")
+            )
             print(f"Resposta: {answer[:400]}{'...' if len(answer) > 400 else ''}")
+
+            expected_agent = scenario.get("expect_agent")
+            if expected_agent and agent != expected_agent:
+                failures.append(f"{scenario['name']}: agent={agent} (esperado {expected_agent})")
+                print(f"FALHOU: agent={agent}")
+                continue
+
+            expected_path = scenario.get("expect_path")
+            if expected_path and path != expected_path:
+                failures.append(f"{scenario['name']}: path={path} (esperado {expected_path})")
+                print(f"FALHOU: scheduling_path={path}")
+                continue
+
+            if scenario.get("require_triage") and not triage:
+                failures.append(f"{scenario['name']}: triage_source ausente")
+                print("FALHOU: triage_source ausente")
+                continue
 
             lower = answer.lower()
             if not answer:

@@ -106,7 +106,7 @@ WhatsApp: org resolvida por `organizations.whatsapp_phone_id` — não confia no
 | # | Ação | Como |
 |---|------|------|
 | 0 | Prod real | Supabase **prod separado** do dev; secrets novos — [`PRODUCTION.md`](PRODUCTION.md) |
-| 1 | Organization | `POST /api/v1/organizations/` (`vertical=salon`, slug único) — `super_admin` |
+| 1 | Organization | `POST /api/v1/organizations/` ou `python scripts/onboard_tenant.py --name ... --email ... --password ...` |
 | 2 | Dono / recepção | `python scripts/create_salon_user.py --email ... --password ... --org <UUID>` (role `org_admin`) |
 | 3 | Catálogo | Serviços + profissionais (dashboard ou API) — criar os profissionais antes do passo 3b |
 | 3b | Funcionários (opcional) | Para cada profissional com login próprio: `python scripts/create_salon_user.py --email ... --password ... --org <UUID> --role professional --professional-id <UUID do profissional>`. O usuário vê apenas Visão Geral + a própria agenda. |
@@ -114,7 +114,7 @@ WhatsApp: org resolvida por `organizations.whatsapp_phone_id` — não confia no
 | 5 | WhatsApp | Preencher `organizations.whatsapp_phone_id`, `whatsapp_access_token`, etc. |
 | 6 | Smoke | Login dashboard + criar cliente/agendamento; chat quando Meta ativo |
 
-Webhook prod (único): `https://flowia-api.onrender.com/api/v1/whatsapp`
+Webhook prod (único): `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`
 
 Referência scripts: [`CLAUDE.md`](../CLAUDE.md) §35 · Deploy: [`RENDER.md`](RENDER.md)
 

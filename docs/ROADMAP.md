@@ -20,8 +20,8 @@ Este documento centraliza o planejamento estratégico e a arquitetura futura do 
 ### 🔵 Fase 5: Expansão Omnichannel (BLOQUEADO — aguardando API WhatsApp)
 - **Foco:** Voz e integrações de canais externos (ex: WhatsApp e Slack).
 - **Bloqueio:** Credenciais Meta/WhatsApp Business API ainda não disponíveis.
-- **Infra pronta:** Webhook prod `https://flowia-api.onrender.com/api/v1/whatsapp` — código em `packages/integrations/webhook/`.
-- **Próximo passo:** Configurar Meta Business API + campos `organizations.whatsapp_*` por tenant. Doc de setup: futuro (`WHATSAPP_SETUP.md`).
+- **Infra pronta:** Webhook prod `https://flowia-api.onrender.com/api/v1/webhook/whatsapp` — código em `packages/integrations/webhook/`. Setup: [`WHATSAPP_SETUP.md`](WHATSAPP_SETUP.md).
+- **Próximo passo:** Configurar Meta Business API + campos `organizations.whatsapp_*` por tenant. Doc: [`WHATSAPP_SETUP.md`](WHATSAPP_SETUP.md).
 
 ---
 
@@ -112,9 +112,9 @@ Paradigma detalhado em [`CLAUDE.md` §4.5](../CLAUDE.md). Ordem acordada:
 
 1. **Epic 4 — UI Catálogo** (concluído): horários/buffer/M:N no dashboard
 2. **Epic 1A — No-show audit** (concluído): `no_show_count` na UI Clientes + Overview; refresh reminders no reagendamento
-3. **Epic 1B — Lembretes WhatsApp:** bloqueado até credenciais Meta API (Cap. 5)
+3. **Epic 1B — Lembretes WhatsApp:** implementado em `reminder_service.py` via `WhatsAppService` — requer credenciais Meta por org (Cap. 5)
 4. **Epic 2 — Lei Salão Parceiro:** RBAC API + comissões — **adiado** até integração pagamentos/PDV
-5. **Epic 3 — IA booking** (concluído): multi-pro `check_availability`, upsert telefone, validação M:N no create; agenda via tools SQL (sem embedding)
+5. **Epic 3 — IA booking** (concluído): multi-pro `check_availability`, upsert telefone, validação M:N no create; **motor híbrido** (`routing.py` → `booking_executor` → `response_composer` → fallback LLM) + observability (`scheduling_path`, `triage_source`, `channel` em `conversation_metrics`)
 
 ---
-*Documento atualizado em: 07/06/2026*
+*Documento atualizado em: 08/06/2026 (pós-merge motor híbrido)*

@@ -147,7 +147,7 @@ flowchart TB
 
 | Pilar | Dor de mercado | Onde atuar no código | Status |
 |-------|----------------|----------------------|--------|
-| **1 — No-show** | Receita perdida por absenteísmo | `reminder_service.py`, `no_show_service.py`, APScheduler | Detecção OK; audit `no_show_count` na UI **ativo**; lembretes WhatsApp **stub** (Epic 1B) |
+| **1 — No-show** | Receita perdida por absenteísmo | `reminder_service.py`, `no_show_service.py`, APScheduler | Detecção OK; audit `no_show_count` na UI **ativo**; lembretes WhatsApp via `WhatsAppService` (**Epic 1B** — requer credenciais Meta por org) |
 | **2 — Double-booking** | Conflito de agenda / slots errados | `scheduling/service.py` (motor dinâmico + 409) | **Ativo** (working_hours, blocks, buffer, timezone, EXCLUDE) |
 | **3 — IA conversacional** | Conversão 24/7 via WhatsApp/chat | `scheduling/tools.py`, `eligibility.py`, `apps/salon/prompts.py` | **Ativo** — multi-pro tools, upsert telefone, M:N no create; agenda **não** vetorizada (tools SQL) |
 | **4 — Lei Salão Parceiro** | Retenção do profissional parceiro | `professional_scope`, dashboard agenda | UI scoped; API write paths + comissões **adiado** (pagamentos/PDV) |
@@ -158,7 +158,7 @@ flowchart TB
 |------|--------|--------------|
 | **4 — UI Catálogo** | `working_hours`, `break_times`, buffer, M:N serviço↔pro em [`Catalog.tsx`](apps/salon/dashboard/src/features/catalog/Catalog.tsx) | Backend pronto — **sem WhatsApp** | **Concluído** |
 | **1A — No-show audit** | `no_show_count` em Clientes + Overview; refresh reminders no reagendamento | Nenhuma | **Concluído** |
-| **1B — Lembretes WhatsApp** | Plug `WhatsAppService` em `process_pending_reminders` | **Credenciais Meta API** (Cap. 5 bloqueado) |
+| **1B — Lembretes WhatsApp** | `WhatsAppService` em `process_pending_reminders` | Credenciais Meta por org (Cap. 5) | **Concluído** (código) |
 | **2 — RBAC + comissões** | `professional_scope` em POST create/reschedule; `commission_rate` + earnings scoped | Pagamentos/PDV | **Adiado** |
 | **3 — IA booking** | Multi-pro `check_availability`; upsert phone atômico; validação M:N no create | Epic 4 | **Concluído** |
 
@@ -172,6 +172,7 @@ flowchart TB
 | Catálogo (serviços + profissionais + horários/M:N) | Sim | Não | Sim | — | Ativo |
 | Data Lake (upload, sync, RAG) | Não | Não | Não | Sim | Ativo (dev) |
 | Chat Test | Não | Não | Não | Sim | Ativo (dev) |
+| Observabilidade agente | Não | Não | Não | Sim | Ativo (dev) |
 | KPIs tokens/custo IA na Overview | Não | Não | Não | — | Removido |
 | CRM leads / SDR | Não | Não | Não | — | Desativado |
 | Prontuário clínico | Não | Não | Não | — | Removido da UI |
@@ -433,6 +434,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | GET | `/metrics/kpis` | KPIs |
 | GET | `/metrics/conversations` | Conversas |
 | GET | `/metrics/tokens-daily` | Tokens/dia |
+| GET | `/metrics/scheduling-observability` | KPIs path determinístico / canal (últimos N dias) |
 | GET | `/metrics/system-health` | Saúde sistema |
 | GET/POST | `/system/settings` | Config sistema |
 
@@ -754,6 +756,46 @@ Tools recebem `RunnableConfig` com `org_id` no configurable — **obrigatório**
 
 **Perímetro agente:** allowlist de tools por agente; scheduling **não** inclui `request_human_handoff`; handoff bloqueado durante `booking_active`.
 
+## 23.1 Motor híbrido de agendamento (deterministic-first)
+
+**Objetivo:** reduzir tokens/custo e erros de data/hora; LLM só quando heurísticas + extractor não bastam.
+
+```mermaid
+flowchart TD
+  inbound[Mensagem chat/WhatsApp] --> triage[triage_node routing.py]
+  triage --> force{should_force_scheduling_route?}
+  force -->|sim| sched[scheduling_node]
+  force -->|não| recv[receptionist_node]
+  recv --> escape{booking_active ou is_booking_conversation?}
+  escape -->|sim| sched
+  sched --> exec{run_scheduling_turn booking_executor}
+  exec -->|slots/book OK| compose[response_composer]
+  exec -->|ambíguo| extract[intent_extractor LLM]
+  extract --> compose
+  exec -->|smart fallback| llm[scheduling_node LLM tools]
+  compose --> reply[AIMessage tokens=0]
+  llm --> reply
+```
+
+| Módulo | Arquivo | Função |
+|--------|---------|--------|
+| Routing heurístico | `packages/engine/routing.py` | Keywords, sticky booking, weekday parsing |
+| Executor | `packages/scheduling/booking_executor.py` | `run_scheduling_turn()` — catálogo, slots, book |
+| Guardrails | `packages/scheduling/guardrails.py` | Datas coloquiais (`sexta`), telefone, serviço |
+| Composer | `packages/engine/response_composer.py` | Templates humanizados (grid horários, ack) |
+| Extractor | `packages/engine/intent_extractor.py` | LLM estruturado só se regex falhar |
+| Fallback | `packages/engine/scheduling_fallback.py` | `SCHEDULING_LLM_FALLBACK=smart` |
+
+**Estado LangGraph:** `booking_date`, `booking_service`, `booking_active`, `scheduling_path` (`deterministic`|`llm`), `triage_source` (`keyword`|`conversation`|`sticky`|`llm`).
+
+**Resposta `/chat/test`:** campos `scheduling_path`, `triage_source` (badges na UI dev).
+
+**Env vars:** ver §33 (`SCHEDULING_DETERMINISTIC_ENABLED`, `SCHEDULING_LLM_FALLBACK`, `INTENT_EXTRACTOR_ENABLED`, `RESPONSE_POLISH_ENABLED`).
+
+**Scripts de validação:** `scripts/smoke_hybrid_prod.py` (prod), `scripts/simulate_whatsapp_webhook.py` (dev, `SIM_WHATSAPP_ORG_ID`).
+
+**Observability:** `conversation_metrics.scheduling_path`, `triage_source`, `channel`, `tools_called` — ver §27.
+
 ## 24. RAG e Data Lake Medallion
 
 ```mermaid
@@ -853,6 +895,7 @@ src/
 | `/catalog` | Catálogo | autenticado |
 | `/admin/data-lake` | Data Lake | AdminDevRoute |
 | `/admin/chat-test` | Chat Test | AdminDevRoute |
+| `/admin/observability` | KPIs scheduling path / conversas | AdminDevRoute |
 
 ## 30. API client
 
@@ -915,13 +958,24 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `SCHEDULING_DETERMINISTIC_ENABLED` | Opcional | Executor antes do LLM (default true) |
 | `SCHEDULING_LLM_FALLBACK` | Opcional | smart \| always \| never |
 | `INTENT_EXTRACTOR_ENABLED` | Opcional | LLM estruturado em turnos ambíguos (default true) |
-| `RESPONSE_POLISH_ENABLED` | Opcional | Polish LLM pós-composer (default false) |
+| `RESPONSE_POLISH_ENABLED` | Opcional | Polish LLM pós-composer (default **false**; A/B staging — ver §33.1) |
+| `SIM_WHATSAPP_ORG_ID` | Dev only | Bypass tenant resolver em simulação local — **nunca produção** |
+| `SIM_WHATSAPP_PHONE_ID` | Dev only | Default `123456789`; parear com simulate script |
+| `PROD_SMOKE_PASSWORD` | Dev/smoke | Senha piloto para `smoke_hybrid_prod.py` — não commitar |
 | `SCHEDULER_ENABLED` | Opcional | true em prod, false em CI |
 | `WEBHOOK_DEDUP_RETENTION_DAYS` | Opcional | TTL purge dedup WhatsApp (default 7) |
 | `COOKIE_SECURE` | Prod | true com HTTPS |
 | `ALLOWED_ORIGINS` | Prod | URL dashboard produção (CORS) |
 | `ALLOWED_HOSTS` | Prod | Hostname da API (`TrustedHostMiddleware`) |
 | `DEV_*` / `VITE_DEV_*` | Dev only | Login rápido local — **nunca produção** |
+
+### 33.1 RESPONSE_POLISH — decisão A/B (staging)
+
+| Ambiente | Valor recomendado | Notas |
+|----------|-------------------|-------|
+| Produção piloto | `false` | Templates do composer já humanizados; `tokens=0` no path determinístico |
+| Staging / teste 1 semana | `true` | Comparar `tokens_out` e satisfação manual; KPI via `/metrics/scheduling-observability` |
+| Critério para ligar prod | Polish melhora tom **e** custo extra ≤ R$ X/dia por org | Registrar decisão nesta seção ao fechar A/B |
 
 ## 34. Deploy e staging
 
@@ -937,12 +991,13 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 
 Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 
-1. Supabase prod + `supabase db push` (17 migrations) + pgvector
+1. Supabase prod + `supabase db push` (**21 migrations**) + pgvector
 2. Secrets novos: `python scripts/generate_prod_secrets.py`
 3. Render API: `uvicorn main:app --host 0.0.0.0 --port $PORT`, health `/health`, scale=1
 4. Render Static Site: `apps/salon/dashboard`, `VITE_API_URL=https://API.onrender.com/api/v1`
 5. `ALLOWED_ORIGINS` = URL dashboard; `COOKIE_SECURE=true`, `SCHEDULER_ENABLED=true`
-6. Smoke: `python scripts/smoke_prod.py` + `python scripts/smoke_agent.py` + login manual
+6. Smoke: `python scripts/smoke_prod.py` + `python scripts/smoke_hybrid_prod.py` + `python scripts/smoke_agent.py` + login manual
+7. WhatsApp (quando Meta): [`docs/WHATSAPP_SETUP.md`](docs/WHATSAPP_SETUP.md)
 
 **Deploy templates:**
 
@@ -958,7 +1013,8 @@ Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 | `scripts/check_env.py` | Valida .env sem expor valores |
 | `scripts/generate_prod_secrets.py` | Gera JWT/API key/WhatsApp verify (stdout) |
 | `scripts/smoke_prod.py` | Smoke `/health` + dashboard HTTP em prod |
-| `scripts/smoke_agent.py` | Smoke LangGraph/RAG via `/chat/test` em prod |
+| `scripts/smoke_hybrid_prod.py` | Smoke motor híbrido (`scheduling_path=deterministic`) + today-board |
+| `scripts/smoke_agent.py` | Smoke LangGraph/RAG + cenário hybrid via `/chat/test` |
 | `scripts/test_rag_chat.py` | Teste RAG local ou prod (queries KB) |
 | `scripts/apply_migrations.py` | Aplica migrations SQL via `SUPABASE_DB_URL` |
 | `scripts/list_db_migrations.py` | Lista migrations aplicadas no banco |
@@ -966,6 +1022,7 @@ Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 | `scripts/create_platform_admin.py` | Cria super_admin plataforma |
 | `scripts/setup_dev_env.py` | Cria admin dev |
 | `scripts/create_salon_user.py` | Cria usuário salão — `org_admin` (default) ou `--role professional --professional-id <UUID>` (login funcionário) |
+| `scripts/onboard_tenant.py` | Runbook + criação org + org_admin para 1º cliente pagante |
 | `scripts/seed_salon.py` | Dados demo salão |
 | `scripts/seed_dev.py` | Seeds multi-vertical + mocks data lake |
 | `apps/salon/seeds/vertical_orgs.py` | Org referência Beauty Express |
@@ -984,6 +1041,8 @@ Org demo: `22222222-2222-2222-2222-222222222222` (Beauty Express)
 | Seed completo | `python scripts/seed_dev.py` | Multi-vertical + mocks data lake |
 | Chat test HTTP | `python scripts/test_booking_flow_http.py` | Multi-turn `/chat/test` no terminal |
 | Simular WhatsApp | `python scripts/simulate_whatsapp_webhook.py` | Webhook fake sem Meta (métricas `channel=whatsapp`) |
+| Smoke híbrido prod | `python scripts/smoke_hybrid_prod.py --api-url https://flowia-api.onrender.com` | Pós-deploy; senha via `PROD_SMOKE_PASSWORD` |
+| Onboard tenant | `python scripts/onboard_tenant.py` | Novo salão pagante (org + admin + checklist) |
 
 ### Decisões arquiteturais registradas (ADRs implícitos)
 
@@ -1008,7 +1067,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | 2 — Sales Analytics | **Futuro** | SG-Vendas, faturamento — **isolado do chatbot** |
 | 3 — Workspace Analítico | Concluído | Data Lake UI, SQL editor |
 | 4 — Agendamento Multi-Tenant | Concluído | RLS, lembretes, no-show |
-| 5 — Omnichannel WhatsApp | Bloqueado | Webhook prod pronto: `https://flowia-api.onrender.com/api/v1/whatsapp`; aguardando credenciais Meta API (doc setup futuro) |
+| 5 — Omnichannel WhatsApp | Bloqueado | Webhook prod: `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`; aguardando credenciais Meta — [`docs/WHATSAPP_SETUP.md`](docs/WHATSAPP_SETUP.md) |
 
 **Fase 2 salão:** pagamento, convênios — não implementar agora.
 
@@ -1070,10 +1129,12 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | Webhook dedup | in-memory dict | **Resolvido** — tabela `webhook_message_dedup` |
 | Booking race | read-then-write | **Resolvido** — constraint EXCLUDE no DB |
 | Handoff → leads | session_store | **Resolvido** — `patients.handoff_*` |
-| Triage → scheduling | `packages/engine/engine.py` | **Aberto** — triage mantém `receptionist` em vez de `scheduling`; booking via chat inconsistente em prod |
+| Triage → scheduling | `packages/engine/routing.py` | **Resolvido** — heurísticas + escape receptionist + executor determinístico |
 | Disponibilidade hardcoded | `packages/scheduling/service.py` | **Resolvido** — motor lê working_hours/break_times/buffer/timezone + `schedule_blocks` |
 | Serviço↔profissional 1:1 | `service_catalog.professional_id` | **Em transição** — M:N via `service_professionals`; coluna legada mantida nullable p/ compat |
-| UI catálogo working_hours/M:N | `apps/salon/dashboard/.../catalog` | **Aberto** — backend pronto (PUT professionals/services); UI de edição ainda não exposta |
+| UI catálogo working_hours/M:N | `apps/salon/dashboard/.../catalog` | **Resolvido** — modais `ProfessionalEditModal` / `ServiceEditModal` + `workingHours.ts` |
+| Lembretes WhatsApp | `packages/scheduling/reminder_service.py` | **Resolvido** — envio via `WhatsAppService` quando credenciais org configuradas; `mark_failed` se indisponível |
+| Métricas scheduling UI admin | `/metrics/scheduling-observability` + `AgentObservability.tsx` | **Resolvido** — KPI dev-only |
 | Anamnese / NPS | Cap 4 pilar 3 | **DEFERIDO** — schema only |
 | Pagamentos | `packages/integrations/payments` | **STUB** — contrato + NoOp + schema; execução deferida (Fase 2) |
 
@@ -1117,6 +1178,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.4 | Jun/2026 | Playbook tenancy & escala (`docs/TENANCY_AND_SCALE.md`); ambiente vs cliente; ADR multi-tenant 200+ orgs |
 | 1.6 | Jun/2026 | Agenda Operacional (Gantt/timeline default), Semana por profissional, fix DnD slot, resize via `duration_minutes` |
 | 1.7 | Jun/2026 | Paradigma Recuperador de Lucros (§4.5) + roadmap epics 1A–4 documentados |
+| 1.8 | Jun/2026 | Motor híbrido agendamento (§23.1), observability metrics, smoke_hybrid_prod, WHATSAPP_SETUP |
 | 1.5 | Jun/2026 | Capítulo Agenda/Equipe/Integrações: motor de disponibilidade real (working_hours/breaks/buffer/timezone/blocks), M:N `service_professionals`, agenda dual (Semana/Equipe), Overview today-board, role `professional`, stub pagamentos |
 
 ---

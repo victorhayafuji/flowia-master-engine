@@ -13,6 +13,9 @@ const Catalog = lazy(() => import("./pages/Catalog").then(m => ({ default: m.Cat
 const Patients = lazy(() => import("./pages/Patients").then(m => ({ default: m.Patients })))
 const DataLake = lazy(() => import("./pages/DataLake").then(m => ({ default: m.DataLake })))
 const ChatTest = lazy(() => import("./pages/ChatTest").then(m => ({ default: m.ChatTest })))
+const AgentObservability = lazy(() =>
+  import("./pages/AgentObservability").then(m => ({ default: m.AgentObservability }))
+)
 
 function App() {
   return (
@@ -57,6 +60,11 @@ function App() {
                 <Route path="/admin/chat-test" element={
                   <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
                     <ChatTest />
+                  </Suspense>
+                } />
+                <Route path="/admin/observability" element={
+                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                    <AgentObservability />
                   </Suspense>
                 } />
               </Route>

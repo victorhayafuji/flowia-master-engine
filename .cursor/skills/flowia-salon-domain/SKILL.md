@@ -31,7 +31,7 @@ FastAPI JWT via cookie HttpOnly — única auth do dashboard.
 ## WhatsApp
 
 - Inbound: webhook em `packages/integrations` — org via `organizations.whatsapp_phone_id`
-- URL prod (futuro): `https://flowia-api.onrender.com/api/v1/whatsapp`
+- URL prod (futuro): `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`
 - Outbound: `packages/integrations/webhook/whatsapp.py` (Meta Graph API v21)
 - Credenciais por org: `whatsapp_phone_id`, `whatsapp_access_token`
 

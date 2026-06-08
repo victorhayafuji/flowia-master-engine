@@ -7,7 +7,7 @@ Checklist para publicar uma instância piloto do FlowIA Salão multi-tenant.
 ## Pré-requisitos
 
 - Projeto Supabase criado — **recomendado** prod separado do dev; piloto atual compartilha projeto local (ver [`PRODUCTION.md`](PRODUCTION.md))
-- Migrations aplicadas: `supabase db push`, `python scripts/apply_migrations.py` ou SQL Editor em `supabase/migrations/`
+- Migrations aplicadas: `supabase db push`, `python scripts/apply_migrations.py` ou SQL Editor em `supabase/migrations/` (**21 arquivos** — ver `scripts/list_db_migrations.py`)
 - Extensão **pgvector** habilitada (Data Lake / RAG)
 - Secrets prod novos: `python scripts/generate_prod_secrets.py` (stdout — não commitar)
 - Templates: `deployments/multi-tenant/.env.production.example`
@@ -25,7 +25,7 @@ python scripts/seed_salon.py   # opcional — dados demo
 | Variável | Valor recomendado |
 |----------|-------------------|
 | `CHECKPOINTER_BACKEND` | `auto` (Postgres via `SUPABASE_DB_URL`) |
-| `SCHEDULER_ENABLED` | `true` (lembretes stub + no-show) |
+| `SCHEDULER_ENABLED` | `true` (lembretes WhatsApp + no-show) |
 | `COOKIE_SECURE` | `true` (HTTPS; cookie `SameSite=None` em prod Render) |
 | `ALLOWED_ORIGINS` | URL HTTPS exata do dashboard Render |
 | `ALLOWED_HOSTS` | hostname da API Render |
@@ -41,6 +41,7 @@ Produção (API + dashboard no ar):
 
 ```powershell
 venv\Scripts\python.exe scripts\smoke_prod.py --api-url https://SUA-API.onrender.com --dashboard-url https://SEU-DASHBOARD.onrender.com
+venv\Scripts\python.exe scripts\smoke_hybrid_prod.py --api-url https://SUA-API.onrender.com --username dono@beauty-express.com
 ```
 
 Local antes do deploy:
@@ -59,6 +60,10 @@ Checklist de negócio: [`docs/SALON_BUSINESS_AUDIT.md`](SALON_BUSINESS_AUDIT.md)
 
 Se `.env` foi exposto: [`docs/SECRET_ROTATION.md`](SECRET_ROTATION.md).
 
-## WhatsApp (pendente)
+## WhatsApp (Meta — pendente credenciais)
 
-Outbound/inbound real requer credenciais Meta Business API. Webhook prod: `https://flowia-api.onrender.com/api/v1/whatsapp`. Doc de setup: futuro (`WHATSAPP_SETUP.md`). Até lá, lembretes rodam em modo stub (log + status `sent` no banco).
+Outbound/inbound real requer credenciais Meta Business API. Webhook prod: `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`. Doc: [`WHATSAPP_SETUP.md`](WHATSAPP_SETUP.md).
+
+**Lembretes:** `reminder_service.py` envia via `WhatsAppService` quando credenciais da org existem; falha de envio → `mark_failed`.
+
+**RESPONSE_POLISH A/B:** staging Render com `RESPONSE_POLISH_ENABLED=true` por 1 semana; comparar KPI em `/metrics/scheduling-observability` (decisão default em [`CLAUDE.md`](../CLAUDE.md) §33.1).
