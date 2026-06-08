@@ -24,16 +24,18 @@ test.describe('Audit #3 — create appointment', () => {
     await page.getByRole('button', { name: 'Semana' }).click()
 
     await page.getByRole('button', { name: 'Novo Agendamento' }).click()
-    await page.locator('select').nth(0).selectOption('p1')
-    await page.locator('select').nth(1).selectOption('prof1')
-    await page.locator('select').nth(2).selectOption('svc1')
+
+    const modalForm = page.locator('form').filter({ has: page.locator('input[type="date"]') })
+    await modalForm.locator('select').nth(0).selectOption('p1')
+    await modalForm.locator('select').nth(1).selectOption('prof1')
+    await modalForm.locator('select').nth(2).selectOption('svc1')
 
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
     const dateValue = tomorrow.toISOString().split('T')[0]
-    await page.locator('input[type="date"]').fill(dateValue)
-    await page.locator('input[type="time"]').fill('10:00')
-    await page.getByRole('button', { name: 'Confirmar Agendamento' }).click()
+    await modalForm.locator('input[type="date"]').fill(dateValue)
+    await modalForm.locator('input[type="time"]').fill('10:00')
+    await modalForm.getByRole('button', { name: 'Confirmar Agendamento' }).click()
 
     await expect(page.getByText('Sem Nome')).not.toBeVisible({ timeout: 10000 })
     await expect(page.locator('.font-mono.text-xs.font-bold.truncate').filter({ hasText: 'Maria' })).toBeVisible()
