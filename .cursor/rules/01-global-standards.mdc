@@ -48,6 +48,7 @@ Domínio (`flowia-*`):
 - `@flowia-monorepo` — onde colocar código, imports, boundaries
 - `@flowia-salon-domain` — fluxos auth, agenda, WhatsApp, LangGraph
 - `@flowia-security` — auditoria tenant, secrets, rate limiting
+- `@flowia-lgpd` — consentimento, DSAR, retenção, checklist LGPD
 - `@flowia-data-lake` — pipeline Medallion, RAG
 
 On-demand:

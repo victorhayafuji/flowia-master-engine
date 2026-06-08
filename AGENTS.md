@@ -62,6 +62,7 @@ Regras em [`.cursor/rules/`](.cursor/rules/) · Skills em [`.cursor/skills/`](.c
 | `03-python-api` | `*.py` em packages/apps/tests |
 | `04-react-dashboard` | dashboard `*.ts(x)` |
 | `05-supabase-migrations` | `supabase/**/*.sql` |
+| `06-lgpd-compliance` | Sempre — PII, consent, DSAR, retenção |
 
 | Skill | Trigger |
 |-------|---------|
@@ -69,6 +70,7 @@ Regras em [`.cursor/rules/`](.cursor/rules/) · Skills em [`.cursor/skills/`](.c
 | `flowia-monorepo` | Onde colocar código, imports, boundaries |
 | `flowia-salon-domain` | Auth, agenda, WhatsApp, LangGraph, RLS |
 | `flowia-security` | Auditoria tenant, secrets, webhook, 403 |
+| `flowia-lgpd` | Consentimento, DSAR, retenção, checklist LGPD |
 | `flowia-data-lake` | Bronze/Silver/Gold, OCR, RAG, DataLake UI |
 | `security-audit` | Revisão de injeção (SQL/prompt), vazamento PII/secrets, tenant |
 | `performance-optimization` | Bundle/lazy loading, N+1, queries lentas |

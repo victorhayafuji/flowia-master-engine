@@ -18,8 +18,9 @@ def get_kpis(org_id: str = Depends(validated_tenant_context)):
 
 
 @router.get("/metrics/conversations", dependencies=[Depends(auth_required)])
-def get_conversations(limit: int = 20):
-    return get_recent_conversations(limit)
+def get_conversations(limit: int = 20, org_id: str = Depends(validated_tenant_context)):
+    org_filter = org_id if org_id != "ALL" else None
+    return get_recent_conversations(limit, organization_id=org_filter)
 
 
 @router.get("/metrics/tokens-daily", dependencies=[Depends(auth_required)])

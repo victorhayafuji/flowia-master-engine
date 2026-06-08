@@ -185,18 +185,21 @@ def get_dashboard_kpis(organization_id: str | None = None) -> dict:
         raise e
 
 
-def get_recent_conversations(limit: int = 20) -> list:
+def get_recent_conversations(limit: int = 20, organization_id: str | None = None) -> list:
     """Returns the most recent unique conversations for the dashboard table."""
     if not db.wait_for_ready(timeout=3):
         return []
     try:
         client = db.client
-        # Fetch more to allow for deduplication
-        response = client.table("conversation_metrics") \
-            .select("*") \
-            .order("created_at", desc=True) \
-            .limit(limit * 5) \
-            .execute()
+        query = (
+            client.table("conversation_metrics")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit * 5)
+        )
+        if organization_id and organization_id != "ALL":
+            query = query.eq("organization_id", organization_id)
+        response = query.execute()
 
         rows = response.data or []
         thread_map = {}

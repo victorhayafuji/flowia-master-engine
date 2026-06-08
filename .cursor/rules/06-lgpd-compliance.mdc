@@ -1,0 +1,38 @@
+---
+description: LGPD compliance — consent, DSAR, retention, PII in logs; mandatory before shipping features that touch personal data
+alwaysApply: true
+---
+
+# LGPD Compliance
+
+Fonte: [`docs/legal/`](../../docs/legal/) · Checklist: [`LGPD_FEATURE_CHECKLIST.md`](../../docs/legal/LGPD_FEATURE_CHECKLIST.md)
+
+## Papéis
+
+- **Salão (tenant):** controlador dos clientes finais
+- **Gaussix / FlowIA:** operadora (processamento em nome do salão)
+
+## Antes de merge (feature com dados, auth, logs, IA ou integração)
+
+1. **Novo PII?** → Atualizar `docs/legal/ROPA.md` + base legal documentada
+2. **Retenção?** → TTL em `packages/compliance/retention.py` ou política em ROPA
+3. **Logs?** → Mascarar conteúdo WhatsApp (15 chars); truncar `sender_id`; nunca JWT/tokens
+4. **API?** → `validated_tenant_context` + `organization_id` em queries
+5. **Titular?** → Export/erase via `packages/compliance/` ou estender `erasure.py`
+6. **WhatsApp/chat?** → Respeitar `packages/compliance/consent.py` (aviso 1ª msg)
+7. **Subprocessador novo?** → `docs/legal/SUBPROCESSORS.md` + PRIVACIDADE.md
+8. **Prompts IA?** → Não pedir senha/cartão; encaminhar DSAR para `PRIVACY_CONTACT_EMAIL`
+
+## Código de referência
+
+| Área | Path |
+|------|------|
+| Consent | `packages/compliance/consent.py` |
+| Export / erase | `packages/compliance/export.py`, `erasure.py` |
+| Retention | `packages/compliance/retention.py` |
+| Router DSAR | `packages/compliance/router.py` |
+| Env | `PRIVACY_CONTACT_EMAIL`, `PRIVACY_POLICY_URL`, `CHECKPOINT_RETENTION_DAYS`, `CONVERSATION_METRICS_RETENTION_DAYS` |
+
+## Skill
+
+Detalhes sob demanda: `@flowia-lgpd`

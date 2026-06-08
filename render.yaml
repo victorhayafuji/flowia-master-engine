@@ -85,6 +85,10 @@ services:
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_DEMO_EMAIL
         value: contato@gaussix.com.br

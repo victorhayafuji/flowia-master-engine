@@ -36,7 +36,10 @@ Login, webhook e endpoints sensíveis: `packages/auth_core/limiter` (slowapi)
 ## LGPD / logging
 
 - Mascarar conteúdo de mensagens WhatsApp nos logs (primeiros 15 chars)
+- Truncar `sender_id` em logs (ex.: últimos 4 dígitos ou hash curto)
 - Service role só no backend; anon key no frontend via `VITE_SUPABASE_KEY`
+- Consent: `packages/compliance/consent.py` · DSAR: `packages/compliance/router.py`
+- Nova feature: `@flowia-lgpd` + `docs/legal/LGPD_FEATURE_CHECKLIST.md`
 
 ## Checklist de auditoria
 

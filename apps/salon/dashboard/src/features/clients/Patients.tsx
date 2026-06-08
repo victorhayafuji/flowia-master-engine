@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/features/auth/AuthContext"
 import { api } from "@/shared/lib/api"
-import { Search, Phone, History, Plus, ArrowRight } from "lucide-react"
+import { Search, Phone, Plus, Download, Trash2 } from "lucide-react"
 
 interface Patient {
   id: string
@@ -24,6 +24,8 @@ export function Patients() {
   const [newName, setNewName] = useState("")
   const [newPhone, setNewPhone] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [eraseTarget, setEraseTarget] = useState<Patient | null>(null)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchPatients = async () => {
@@ -68,7 +70,41 @@ export function Patients() {
     }
   }
 
-  const filteredPatients = patients.filter(p => 
+  const handleExportPatient = async (patient: Patient) => {
+    setActionLoading(patient.id)
+    try {
+      const response = await api.get(`/compliance/patients/${patient.id}/export`, orgHeader)
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `flowia-export-${patient.id}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Erro ao exportar:", err)
+      alert("Erro ao exportar dados do cliente.")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleErasePatient = async () => {
+    if (!eraseTarget) return
+    setActionLoading(eraseTarget.id)
+    try {
+      await api.post(`/compliance/patients/${eraseTarget.id}/erase`, {}, orgHeader)
+      setPatients(prev => prev.filter(p => p.id !== eraseTarget.id))
+      setEraseTarget(null)
+    } catch (err) {
+      console.error("Erro ao eliminar:", err)
+      alert("Erro ao eliminar dados do cliente.")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const filteredPatients = patients.filter(p =>
     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.phone?.includes(searchTerm)
   )
@@ -196,11 +232,26 @@ export function Patients() {
 
                 </div>
 
-                <div className="mt-6 lg:mt-0 w-full lg:w-auto">
-                  <button className="w-full lg:w-auto flex items-center justify-center gap-3 px-6 py-3 border-2 border-[var(--border)] group-hover:border-[var(--background)] font-mono text-sm font-bold uppercase tracking-widest hover:bg-[var(--accent)] hover:border-[var(--accent)] hover:text-[var(--foreground)] transition-colors">
-                    <History className="w-4 h-4" />
-                    <span>Prontuário</span>
-                    <ArrowRight className="w-4 h-4 opacity-0 -ml-4 group-hover:opacity-100 group-hover:ml-0 transition-all" />
+                <div className="mt-6 lg:mt-0 w-full lg:w-auto flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleExportPatient(p)}
+                    disabled={actionLoading === p.id}
+                    className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-[var(--border)] group-hover:border-[var(--background)] font-mono text-xs font-bold uppercase tracking-widest hover:bg-[var(--accent)] transition-colors"
+                    data-testid={`patient-export-${p.id}`}
+                  >
+                    <Download className="w-4 h-4" />
+                    Exportar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEraseTarget(p)}
+                    disabled={actionLoading === p.id}
+                    className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-rose-600 text-rose-700 group-hover:text-rose-200 group-hover:bg-rose-600 font-mono text-xs font-bold uppercase tracking-widest transition-colors"
+                    data-testid={`patient-erase-${p.id}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar
                   </button>
                 </div>
               </div>
@@ -254,6 +305,35 @@ export function Patients() {
                 {submitting ? 'Salvando...' : 'Confirmar Registro'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {eraseTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--background)] border-4 border-[var(--border)] shadow-[12px_12px_0px_0px_var(--border)] w-full max-w-md p-8">
+            <h2 className="text-2xl font-black uppercase mb-4">Eliminar dados (LGPD)</h2>
+            <p className="font-mono text-sm mb-6">
+              Isso anonimiza PII e remove histórico de conversas de{" "}
+              <strong>{eraseTarget.name}</strong>. Agendamentos permanecem com vínculo anonimizado.
+            </p>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setEraseTarget(null)}
+                className="flex-1 px-4 py-3 border-2 border-[var(--border)] font-black uppercase text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleErasePatient}
+                disabled={actionLoading === eraseTarget.id}
+                className="flex-1 px-4 py-3 bg-rose-600 text-white border-2 border-[var(--border)] font-black uppercase text-sm"
+              >
+                {actionLoading === eraseTarget.id ? "Processando..." : "Confirmar"}
+              </button>
+            </div>
           </div>
         </div>
       )}

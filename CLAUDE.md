@@ -452,6 +452,14 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | GET | `/integrations/payments/status` | Flag `enabled`/`provider` da org (sempre disabled hoje) |
 | POST | `/integrations/payments/webhook` | Placeholder — retorna **501** (não implementado) |
 
+### Compliance (LGPD) — `packages/compliance/router.py`
+
+| Método | Path | Auth | Descrição |
+|--------|------|------|-----------|
+| GET | `/compliance/privacy-notice` | — | Texto e versão do aviso LGPD |
+| GET | `/compliance/patients/{id}/export` | auth + tenant | Exportação DSAR (JSON) |
+| POST | `/compliance/patients/{id}/erase` | auth + tenant | Eliminação/anonimização + purge conversas |
+
 ### Dashboard — `apps/salon/api/routers/dashboard.py`
 
 | Método | Path | Descrição |
@@ -595,6 +603,7 @@ Aplicar em ordem via `supabase db push`, SQL Editor ou `python scripts/apply_mig
 | `20260610020000_schedule_blocks.sql` | Tabela `schedule_blocks` (folga/feriado/manual) + RLS |
 | `20260610030000_appointment_payments.sql` | Stub `appointment_payments` (schema + RLS, sem provedor ativo) |
 | `20260610040000_conversation_metrics_observability.sql` | `scheduling_path`, `triage_source`, `channel`, `tools_called` em `conversation_metrics` |
+| `20260610060000_lgpd_consent.sql` | `patients.privacy_*` (consentimento LGPD) + índice org/legacy_sender |
 
 **Requisito Data Lake:** extensão **pgvector** habilitada no Supabase Dashboard.
 
@@ -689,12 +698,20 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 
 **Rate limiting (slowapi):** login, webhook WhatsApp, endpoints sensíveis — `packages/auth_core/limiter.py`
 
-**LGPD:**
+**Documentação legal (fonte operacional):** [`docs/legal/`](docs/legal/) — PRIVACIDADE, TERMOS, ROPA, SUBPROCESSORS, DSR_RUNBOOK, LGPD_FEATURE_CHECKLIST (rascunhos técnicos — revisão jurídica recomendada).
 
-- Mascaramento de conteúdo WhatsApp nos logs (15 chars + "...") — inbound **e outbound** AI
+**LGPD — controles técnicos:**
+
+- Mascaramento de conteúdo WhatsApp nos logs (15 chars + "...") — inbound **e outbound** AI; `sender_id` truncado em logs
 - PII masking em resultados do data lake governance
 - Não logar tokens JWT ou WhatsApp
 - Service role **nunca** no frontend
+- **Consentimento:** aviso no 1º contato WhatsApp/chat (`packages/compliance/consent.py`); campos `patients.privacy_*`; `lgpd_shown` no grafo
+- **DSAR:** `GET /compliance/patients/{id}/export`, `POST /compliance/patients/{id}/erase` — `packages/compliance/`
+- **Retenção:** `CHECKPOINT_RETENTION_DAYS` (90), `CONVERSATION_METRICS_RETENTION_DAYS` (365), purge APScheduler em `packages/compliance/retention.py`
+- **Env:** `PRIVACY_CONTACT_EMAIL`, `PRIVACY_POLICY_URL`
+
+**Nova feature:** consultar [`docs/legal/LGPD_FEATURE_CHECKLIST.md`](docs/legal/LGPD_FEATURE_CHECKLIST.md) e rule `.cursor/rules/06-lgpd-compliance.mdc`.
 
 **Security headers:** X-Frame-Options DENY, nosniff, HSTS, XSS-Protection (app_factory middleware)
 
@@ -710,6 +727,8 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 | Booking tool rate limit | In-process TTL por `sender_id`/`thread_id` (`scheduling/guardrails.py`) | Não distribuído entre réplicas — OK para MVP |
 | Handoff cooldown | 1 handoff/24h por sender + `/resume` após 5 min (max 3/h) — `session_store.py` | In-memory; reinício do processo zera contadores |
 | Webhook tenant | Fail-closed sem `phone_number_id` válido | Mensagem ignorada (ack 200 Meta) |
+| LGPD retention | Purge checkpoints + conversation_metrics (scheduler) | Agendamentos anonimizados após erase; Data Lake Bronze sem purge automático por tenant |
+| Consentimento WhatsApp | Aviso 1ª msg; consent tácito 2ª msg | Opt-in explícito SIM/NÃO — fase 2 se exigido |
 
 Documentar novas limitações nesta seção ao descobri-las.
 

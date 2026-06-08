@@ -72,6 +72,24 @@ export function Layout() {
             <p className="text-xs text-slate-500">{roleLabel}</p>
           </div>
           <div className="space-y-1">
+            <div className="px-3 pb-2 font-mono text-[10px] text-slate-500 space-x-2">
+              <a
+                href={`${import.meta.env.VITE_LANDING_URL || "http://localhost:5174"}/privacidade`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-[var(--accent)]"
+              >
+                Privacidade
+              </a>
+              <a
+                href={`${import.meta.env.VITE_LANDING_URL || "http://localhost:5174"}/termos`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-[var(--accent)]"
+              >
+                Termos
+              </a>
+            </div>
             {isDev && user?.role === "super_admin" && (
               <>
                 <Link to="/admin/data-lake">

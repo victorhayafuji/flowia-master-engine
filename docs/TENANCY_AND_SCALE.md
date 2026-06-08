@@ -113,6 +113,7 @@ WhatsApp: org resolvida por `organizations.whatsapp_phone_id` — não confia no
 | 4 | KB | Upload ou `python scripts/seed_datalake.py --org <UUID> --ensure-org` |
 | 5 | WhatsApp | Preencher `organizations.whatsapp_phone_id`, `whatsapp_access_token`, etc. |
 | 6 | Smoke | Login dashboard + criar cliente/agendamento; chat quando Meta ativo |
+| 7 | LGPD | `PRIVACY_CONTACT_EMAIL` + `PRIVACY_POLICY_URL`; smoke aviso 1ª msg; [`legal/LGPD_ONBOARDING_CHECKLIST.md`](legal/LGPD_ONBOARDING_CHECKLIST.md) |
 
 Webhook prod (único): `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`
 

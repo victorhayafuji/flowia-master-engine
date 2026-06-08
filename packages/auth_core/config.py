@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     COOKIE_SECURE: bool = False  # True apenas em produção (HTTPS)
 
+    # LGPD / Privacy
+    PRIVACY_CONTACT_EMAIL: str = "privacidade@exemplo.com"
+    PRIVACY_POLICY_URL: str = "http://localhost:5174/privacidade"
+    CONVERSATION_METRICS_RETENTION_DAYS: int = 365
+    CHECKPOINT_RETENTION_DAYS: int = 90
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 # Initialize global settings

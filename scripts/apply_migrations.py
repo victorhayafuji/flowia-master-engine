@@ -41,6 +41,7 @@ MIGRATION_FILES = [
     "20260610030000_appointment_payments.sql",
     "20260610040000_conversation_metrics_observability.sql",
     "20260610050000_conversation_metrics_sender_text.sql",
+    "20260610060000_lgpd_consent.sql",
 ]
 
 

@@ -49,9 +49,11 @@ async def lifespan(app: FastAPI):
 
     start_scheduler()
     if sched := get_scheduler():
+        from packages.compliance.retention import register_retention_jobs
         from packages.integrations.webhook.dedup import register_dedup_purge_job
 
         register_dedup_purge_job(sched)
+        register_retention_jobs(sched)
     yield
     from packages.scheduling.scheduler import stop_scheduler
 
@@ -106,6 +108,7 @@ def _register_routers(app: FastAPI) -> None:
     from apps.salon.domain.catalog.router import router as organization_router
     from apps.salon.domain.clients.router import router as patient_router
     from packages.auth_core.auth_router import router as auth_router
+    from packages.compliance.router import router as compliance_router
     from packages.engine.chat_router import router as chat_router
     from packages.engine.metrics_router import router as metrics_router
     from packages.integrations.payments.router import router as payments_router
@@ -123,6 +126,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(scheduling_router, prefix=api)
     app.include_router(patient_router, prefix=api)
     app.include_router(organization_router, prefix=api)
+    app.include_router(compliance_router, prefix=api)
     app.include_router(payments_router, prefix=api)
 
 

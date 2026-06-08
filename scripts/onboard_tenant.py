@@ -32,6 +32,7 @@ Onboarding — novo salão pagante (sem novo Render/Supabase)
 4. KB: upload Data Lake ou seed_datalake.py --org <UUID>
 5. WhatsApp: organizations.whatsapp_phone_id + whatsapp_access_token (docs/WHATSAPP_SETUP.md)
 6. Smoke: login + agendamento; chat/WhatsApp quando Meta ativo
+7. LGPD: PRIVACY_CONTACT_EMAIL, PRIVACY_POLICY_URL, docs/legal/LGPD_ONBOARDING_CHECKLIST.md
 Webhook prod: https://flowia-api.onrender.com/api/v1/webhook/whatsapp
 """
 
@@ -115,6 +116,7 @@ def main() -> int:
         print("  2. Upload KB (Data Lake)")
         print("  3. WhatsApp fields em organizations (WHATSAPP_SETUP.md)")
         print("  4. Smoke manual + smoke_hybrid_prod.py")
+        print("  5. LGPD: PRIVACY_CONTACT_EMAIL, PRIVACY_POLICY_URL — docs/legal/LGPD_ONBOARDING_CHECKLIST.md")
         return 0
     except subprocess.CalledProcessError:
         print("ERRO ao criar usuário — verifique saída acima")
