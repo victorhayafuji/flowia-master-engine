@@ -30,11 +30,12 @@ export function Overview() {
           <p className="text-slate-500 dark:text-slate-400">Resumo operacional do salão para hoje.</p>
         </div>
 
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <StatCard icon={<Calendar className="w-4 h-4 text-primary-500" />} label="Agendamentos Hoje" value={stats.appointmentsToday} />
           <StatCard icon={<Clock className="w-4 h-4 text-amber-500" />} label="Em Atendimento" value={stats.counts.in_progress} />
           <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />} label="Concluídos" value={stats.counts.completed} />
-          <StatCard icon={<UserX className="w-4 h-4 text-rose-500" />} label="Faltas" value={stats.counts.no_show} />
+          <StatCard icon={<UserX className="w-4 h-4 text-rose-500" />} label="Faltas Hoje" value={stats.counts.no_show} />
+          <StatCard icon={<UserX className="w-4 h-4 text-rose-600" />} label="Faltas no Cadastro" value={stats.totalNoShows} />
         </div>
       </div>
 

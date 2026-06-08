@@ -105,4 +105,16 @@ Integração com o **Data Warehouse Executivo** para consultas estratégicas via
    - **Stub de pagamentos:** schema `appointment_payments` + pacote `packages/integrations/payments` (NoOp, `enabled=false`); execução deferida para Fase 2.
 
 ---
+
+## Recuperador de Lucros — epics pós-Cap. 4 (Jun/2026)
+
+Paradigma detalhado em [`CLAUDE.md` §4.5](../CLAUDE.md). Ordem acordada:
+
+1. **Epic 4 — UI Catálogo** (concluído): horários/buffer/M:N no dashboard
+2. **Epic 1A — No-show audit** (concluído): `no_show_count` na UI Clientes + Overview; refresh reminders no reagendamento
+3. **Epic 1B — Lembretes WhatsApp:** bloqueado até credenciais Meta API (Cap. 5)
+4. **Epic 2 — Lei Salão Parceiro:** RBAC API + comissões — **adiado** até integração pagamentos/PDV
+5. **Epic 3 — IA booking** (concluído): multi-pro `check_availability`, upsert telefone, validação M:N no create; agenda via tools SQL (sem embedding)
+
+---
 *Documento atualizado em: 07/06/2026*

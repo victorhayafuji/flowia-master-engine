@@ -1,9 +1,27 @@
+from datetime import date
 from typing import Any
 
 from packages.auth_core.database import db
+from packages.scheduling.timezone_utils import DEFAULT_TIMEZONE, local_date_range_utc_bounds
 
 
 class SchedulingRepository:
+    def _org_timezone(self, org_id: str) -> str:
+        if not org_id or org_id == "ALL":
+            return DEFAULT_TIMEZONE
+        try:
+            res = (
+                db.client.table("organizations")
+                .select("timezone")
+                .eq("id", org_id)
+                .maybe_single()
+                .execute()
+            )
+            row = (res.data if res else None) or {}
+            return row.get("timezone") or DEFAULT_TIMEZONE
+        except Exception:
+            return DEFAULT_TIMEZONE
+
     def get_appointments_by_date_range(
         self,
         start_date: str,
@@ -21,8 +39,14 @@ class SchedulingRepository:
         if professional_id:
             query = query.eq("professional_id", professional_id)
 
-        query = query.gte('scheduled_at', f"{start_date}T00:00:00.000Z")
-        query = query.lte('scheduled_at', f"{end_date}T23:59:59.999Z")
+        tzname = self._org_timezone(org_id)
+        start_iso, end_iso = local_date_range_utc_bounds(
+            date.fromisoformat(start_date),
+            date.fromisoformat(end_date),
+            tzname,
+        )
+        query = query.gte("scheduled_at", start_iso)
+        query = query.lte("scheduled_at", end_iso)
 
         result = query.execute()
         return result.data

@@ -84,6 +84,26 @@ async def test_create_appointment_success(scheduling_service, mock_scheduling_db
 
 
 @pytest.mark.asyncio
+async def test_create_appointment_rejects_ineligible_professional(scheduling_service, mocker):
+    mocker.patch("packages.auth_core.tenant.get_current_org_id", return_value="org-1")
+    mocker.patch(
+        "packages.scheduling.eligibility.assert_professional_eligible",
+        side_effect=BusinessLogicError("O profissional selecionado não está elegível para executar este serviço."),
+    )
+
+    appointment = AppointmentBase(
+        patient_id=uuid4(),
+        professional_id=uuid4(),
+        service_id=uuid4(),
+        scheduled_at=datetime.now() + timedelta(days=1),
+        duration_minutes=30,
+    )
+
+    with pytest.raises(BusinessLogicError, match="elegível"):
+        await scheduling_service.create_appointment(appointment)
+
+
+@pytest.mark.asyncio
 async def test_create_appointment_double_booking(scheduling_service, mock_scheduling_db):
     scheduled_time = datetime.now(timezone.utc) + timedelta(days=1)
 
@@ -173,7 +193,7 @@ async def test_update_appointment_status_success(scheduling_service, mock_schedu
 
 
 @pytest.mark.asyncio
-async def test_reschedule_appointment_updates_duration(scheduling_service, mock_scheduling_db):
+async def test_reschedule_appointment_updates_duration(scheduling_service, mock_scheduling_db, mocker):
     appointment_id = uuid4()
     professional_id = uuid4()
     scheduled_at = datetime(2026, 6, 10, 14, 0, tzinfo=timezone.utc)
@@ -205,12 +225,18 @@ async def test_reschedule_appointment_updates_duration(scheduling_service, mock_
 
     mock_scheduling_db.client.table.side_effect = [fetch_table, conflict_table, update_table]
 
+    refresh = mocker.patch(
+        "packages.scheduling.reminder_service.ReminderService.refresh_reminders_for_appointment",
+        return_value=[],
+    )
+
     result = await scheduling_service.reschedule_appointment(
         appointment_id,
         duration_minutes=60,
         organization_id="org-1",
     )
     assert result["duration_minutes"] == 60
+    refresh.assert_called_once()
 
 
 @pytest.mark.asyncio

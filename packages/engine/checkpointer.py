@@ -1,4 +1,4 @@
-"""LangGraph checkpointer — PostgreSQL (Supabase) with MemorySaver fallback."""
+"""LangGraph checkpointer — async PostgreSQL (Supabase) with MemorySaver fallback."""
 from __future__ import annotations
 
 import logging
@@ -9,55 +9,85 @@ from langgraph.checkpoint.memory import MemorySaver
 logger = logging.getLogger(__name__)
 
 _checkpointer: Any = None
-_pg_conn: Any = None
+_async_pg_conn: Any = None
 _compiled_engine: Any = None
 
 
-def init_checkpointer() -> None:
-    """Initialize checkpointer once at app startup."""
-    global _checkpointer, _pg_conn
+def _use_memory_backend() -> bool:
+    from packages.auth_core.config import settings
+
+    return settings.CHECKPOINTER_BACKEND == "memory" or settings.CHECKPOINTER_BACKEND not in (
+        "auto",
+        "postgres",
+    )
+
+
+def _init_memory_checkpointer() -> None:
+    global _checkpointer
+    _checkpointer = MemorySaver()
+    logger.info("[FlowIA] Checkpointer: MemorySaver")
+
+
+async def init_checkpointer_async() -> None:
+    """Initialize checkpointer at app startup (async graph requires async saver)."""
+    global _checkpointer, _async_pg_conn
 
     if _checkpointer is not None:
         return
 
     from packages.auth_core.config import settings
 
-    if settings.CHECKPOINTER_BACKEND == "memory":
-        _checkpointer = MemorySaver()
-        logger.info("[FlowIA] Checkpointer: MemorySaver (config)")
-        return
-
-    if settings.CHECKPOINTER_BACKEND not in ("auto", "postgres"):
-        _checkpointer = MemorySaver()
-        logger.info("[FlowIA] Checkpointer: MemorySaver (unknown backend)")
+    if _use_memory_backend():
+        _init_memory_checkpointer()
         return
 
     try:
-        from langgraph.checkpoint.postgres import PostgresSaver
-        from psycopg import Connection
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+        from psycopg import AsyncConnection
         from psycopg.rows import dict_row
 
-        _pg_conn = Connection.connect(
+        _async_pg_conn = await AsyncConnection.connect(
             settings.SUPABASE_DB_URL,
             autocommit=True,
             prepare_threshold=0,
             row_factory=dict_row,
         )
-        saver = PostgresSaver(_pg_conn)
-        saver.setup()
+        saver = AsyncPostgresSaver(_async_pg_conn)
+        await saver.setup()
         _checkpointer = saver
-        logger.info("[FlowIA] Checkpointer: PostgreSQL (Supabase)")
+        logger.info("[FlowIA] Checkpointer: AsyncPostgresSaver (Supabase)")
     except Exception as exc:
         logger.warning(
-            "[FlowIA] PostgreSQL checkpointer unavailable (%s); using MemorySaver",
+            "[FlowIA] Async PostgreSQL checkpointer unavailable (%s); using MemorySaver",
             exc,
         )
-        _checkpointer = MemorySaver()
+        _async_pg_conn = None
+        _init_memory_checkpointer()
+
+
+def init_checkpointer() -> None:
+    """Sync init — MemorySaver only (tests/CI). Production uses init_checkpointer_async()."""
+    global _checkpointer
+
+    if _checkpointer is not None:
+        return
+
+    if _use_memory_backend():
+        _init_memory_checkpointer()
+        return
+
+    logger.info(
+        "[FlowIA] Checkpointer postgres deferred — await init_checkpointer_async() in lifespan"
+    )
 
 
 def get_checkpointer() -> Any:
     if _checkpointer is None:
         init_checkpointer()
+    if _checkpointer is None:
+        raise RuntimeError(
+            "Checkpointer not initialized. Ensure app lifespan ran init_checkpointer_async()."
+        )
     return _checkpointer
 
 
@@ -71,14 +101,24 @@ def get_compiled_engine() -> Any:
     return _compiled_engine
 
 
-def shutdown_checkpointer() -> None:
-    global _checkpointer, _pg_conn, _compiled_engine
-    if _pg_conn is not None:
+async def shutdown_checkpointer_async() -> None:
+    global _checkpointer, _async_pg_conn, _compiled_engine
+
+    if _async_pg_conn is not None:
         try:
-            _pg_conn.close()
+            await _async_pg_conn.close()
         except Exception:
             pass
-    _pg_conn = None
+    _async_pg_conn = None
+    _checkpointer = None
+    _compiled_engine = None
+
+
+def shutdown_checkpointer() -> None:
+    """Sync shutdown (tests). Async connections closed via shutdown_checkpointer_async()."""
+    global _checkpointer, _async_pg_conn, _compiled_engine
+
+    _async_pg_conn = None
     _checkpointer = None
     _compiled_engine = None
 

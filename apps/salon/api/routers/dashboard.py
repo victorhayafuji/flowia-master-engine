@@ -49,12 +49,14 @@ async def get_dashboard_stats(
 ):
     try:
         patients_count = 0
+        total_no_shows = 0
         if not prof_scope:
-            query_patients = db.client.table("patients").select("*", count="exact")
+            query_patients = db.client.table("patients").select("no_show_count")
             if org_id and org_id != "ALL":
                 query_patients = query_patients.eq("organization_id", org_id)
-            res_patients = query_patients.limit(1).execute()
-            patients_count = res_patients.count or 0
+            patient_rows = query_patients.eq("is_active", True).execute().data or []
+            patients_count = len(patient_rows)
+            total_no_shows = sum(row.get("no_show_count") or 0 for row in patient_rows)
 
         now, today, end_today = _day_bounds(org_id)
 
@@ -83,6 +85,7 @@ async def get_dashboard_stats(
             "status": "success",
             "data": {
                 "patients": patients_count,
+                "totalNoShows": total_no_shows,
                 "appointmentsToday": res_today.count or 0,
                 "upcoming": res_upcoming.data,
             },

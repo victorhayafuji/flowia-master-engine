@@ -28,11 +28,11 @@ _APP_VERSION = "1.1.0"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from packages.engine.checkpointer import init_checkpointer, shutdown_checkpointer
+    from packages.engine.checkpointer import init_checkpointer_async, shutdown_checkpointer_async
 
     logger = logging.getLogger("uvicorn")
     logger.info("[FlowIA] Aquecendo motores...")
-    init_checkpointer()
+    await init_checkpointer_async()
     try:
         from packages.auth_core.database import SupabaseHandler
 
@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
     from packages.scheduling.scheduler import stop_scheduler
 
     stop_scheduler()
-    shutdown_checkpointer()
+    await shutdown_checkpointer_async()
     logger.info("[FlowIA] Desligando...")
 
 

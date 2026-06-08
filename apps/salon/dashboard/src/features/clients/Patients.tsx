@@ -8,6 +8,9 @@ interface Patient {
   name: string
   phone: string
   created_at: string
+  no_show_count?: number
+  total_appointments?: number
+  last_visit_at?: string | null
 }
 
 export function Patients() {
@@ -85,7 +88,7 @@ export function Patients() {
             Clientes
           </h1>
           <p className="text-[var(--foreground)]/70 font-mono mt-4 uppercase text-sm font-bold tracking-widest border-l-4 border-[var(--accent)] pl-4">
-            Acesso Restrito // Registros Ativos
+            Histórico de faltas visível // Recuperação de receita
           </p>
         </div>
         
@@ -145,7 +148,7 @@ export function Patients() {
                 key={p.id} 
                 className={`flex flex-col lg:flex-row items-start lg:items-center justify-between p-6 hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors group ${idx % 2 === 0 ? 'bg-[var(--background)]' : 'bg-[var(--surface)]'}`}
               >
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
                   
                   <div className="space-y-1">
                     <div className="font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/40 group-hover:text-[var(--background)]/50">Identificação</div>
@@ -161,9 +164,33 @@ export function Patients() {
                   </div>
 
                   <div className="space-y-1">
+                    <div className="font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/40 group-hover:text-[var(--background)]/50">Faltas / Atendimentos</div>
+                    <div className="flex items-center gap-2 font-mono font-bold">
+                      <span
+                        className={`px-2 py-0.5 border-2 text-sm ${
+                          (p.no_show_count ?? 0) > 0
+                            ? "border-rose-500 bg-rose-500 text-white"
+                            : "border-[var(--border)] group-hover:border-[var(--background)]"
+                        }`}
+                        data-testid={`patient-no-show-${p.id}`}
+                      >
+                        {(p.no_show_count ?? 0)} falta{(p.no_show_count ?? 0) === 1 ? "" : "s"}
+                      </span>
+                      <span className="text-[var(--foreground)]/60 group-hover:text-[var(--background)]/70">
+                        {p.total_appointments ?? 0} visita{(p.total_appointments ?? 0) === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
                     <div className="font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/40 group-hover:text-[var(--background)]/50">Registro</div>
                     <div className="font-mono font-bold">
                       {new Date(p.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      {p.last_visit_at ? (
+                        <div className="text-[10px] font-bold uppercase text-[var(--foreground)]/50 group-hover:text-[var(--background)]/60 mt-1">
+                          Última: {new Date(p.last_visit_at).toLocaleDateString('pt-BR')}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 

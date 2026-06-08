@@ -15,6 +15,8 @@ interface ChatMessage {
     tokens_out?: number
     estimated_cost_brl?: number
     thread_id?: string
+    scheduling_path?: string | null
+    triage_source?: string | null
   }
 }
 
@@ -24,6 +26,29 @@ const SUGGESTIONS = [
   "Quero agendar manicure amanhã",
   "Qual a política de cancelamento?",
 ]
+
+function PathBadge({ path }: { path: string }) {
+  const isDeterministic = path === "deterministic"
+  return (
+    <span
+      className={`inline-block px-1.5 py-0.5 border-2 text-[10px] font-black uppercase ${
+        isDeterministic
+          ? "border-emerald-600 text-emerald-700 dark:text-emerald-400"
+          : "border-[var(--accent)] text-[var(--accent)]"
+      }`}
+    >
+      path={path}
+    </span>
+  )
+}
+
+function TriageBadge({ source }: { source: string }) {
+  return (
+    <span className="inline-block px-1.5 py-0.5 border-2 border-slate-500 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase">
+      triage={source}
+    </span>
+  )
+}
 
 export function ChatTest() {
   const { user, organizationId, orgHeader } = useAuth()
@@ -61,6 +86,8 @@ export function ChatTest() {
             tokens_out: res.tokens_out,
             estimated_cost_brl: res.estimated_cost_brl,
             thread_id: res.thread_id,
+            scheduling_path: res.scheduling_path,
+            triage_source: res.triage_source,
           },
         },
       ])
@@ -143,12 +170,20 @@ export function ChatTest() {
                 </span>
                 {m.content}
                 {m.meta && (
-                  <span className="block text-xs text-slate-400 mt-2">
-                    agent={m.meta.agent} | tokens={m.meta.tokens_used ?? 0} (in{" "}
-                    {m.meta.tokens_in ?? 0} / out {m.meta.tokens_out ?? 0}) | ~R${" "}
-                    {(m.meta.estimated_cost_brl ?? 0).toFixed(4)}
-                    {m.meta.thread_id ? ` | thread=${m.meta.thread_id.slice(0, 8)}...` : ""}
-                  </span>
+                  <div className="mt-2 space-y-1">
+                    {(m.meta.scheduling_path || m.meta.triage_source) && (
+                      <div className="flex flex-wrap gap-1">
+                        {m.meta.scheduling_path && <PathBadge path={m.meta.scheduling_path} />}
+                        {m.meta.triage_source && <TriageBadge source={m.meta.triage_source} />}
+                      </div>
+                    )}
+                    <span className="block text-xs text-slate-400">
+                      agent={m.meta.agent} | tokens={m.meta.tokens_used ?? 0} (in{" "}
+                      {m.meta.tokens_in ?? 0} / out {m.meta.tokens_out ?? 0}) | ~R${" "}
+                      {(m.meta.estimated_cost_brl ?? 0).toFixed(4)}
+                      {m.meta.thread_id ? ` | thread=${m.meta.thread_id.slice(0, 8)}...` : ""}
+                    </span>
+                  </div>
                 )}
               </div>
             ))}

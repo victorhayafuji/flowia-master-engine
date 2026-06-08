@@ -36,6 +36,7 @@ interface BoardCounts {
 
 interface OverviewStats {
   patients: number
+  totalNoShows: number
   appointmentsToday: number
   upcoming: UpcomingAppt[]
   counts: BoardCounts
@@ -47,6 +48,7 @@ const EMPTY_COUNTS: BoardCounts = { total: 0, in_progress: 0, completed: 0, no_s
 export function useOverviewStats(user: unknown, orgHeader: Record<string, string>) {
   const [stats, setStats] = useState<OverviewStats>({
     patients: 0,
+    totalNoShows: 0,
     appointmentsToday: 0,
     upcoming: [],
     counts: EMPTY_COUNTS,
@@ -63,6 +65,7 @@ export function useOverviewStats(user: unknown, orgHeader: Record<string, string
         setStats((prev) => ({
           ...prev,
           patients: data.patients || 0,
+          totalNoShows: data.totalNoShows || 0,
           appointmentsToday: data.appointmentsToday || 0,
           upcoming: data.upcoming || [],
         }))

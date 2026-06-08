@@ -1,33 +1,47 @@
-"""Tests for WhatsApp webhook tenant resolution."""
-from packages.integrations.webhook.tenant_resolver import resolve_org_id_from_webhook_value
+"""Tests for webhook tenant resolution (fail-closed)."""
+from unittest.mock import MagicMock
+
+from packages.integrations.webhook import tenant_resolver
 
 
-class TestWebhookTenantResolver:
-    def test_resolves_org_by_phone_number_id(self, mocker):
-        mock_db = mocker.patch("packages.integrations.webhook.tenant_resolver.db")
-        mock_table = mock_db.client.table.return_value
-        mock_select = mock_table.select.return_value
-        mock_eq = mock_select.eq.return_value
-        mock_limit = mock_eq.limit.return_value
-        mock_limit.execute.return_value = mocker.MagicMock(
+class TestTenantResolver:
+    def test_returns_none_without_phone_number_id(self, mocker):
+        org = tenant_resolver.resolve_org_id_from_webhook_value({"metadata": {}})
+        assert org is None
+
+    def test_returns_org_when_matched(self, mocker):
+        mock_db = MagicMock()
+        mock_db.client.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"id": "22222222-2222-2222-2222-222222222222"}]
         )
+        mocker.patch.object(tenant_resolver, "db", mock_db)
 
-        value = {"metadata": {"phone_number_id": "999888777"}}
-        org_id = resolve_org_id_from_webhook_value(value)
-
-        assert org_id == "22222222-2222-2222-2222-222222222222"
-        mock_select.eq.assert_called_with("whatsapp_phone_id", "999888777")
-
-    def test_fallback_when_no_metadata(self, mocker):
-        mock_db = mocker.patch("packages.integrations.webhook.tenant_resolver.db")
-        mock_table = mock_db.client.table.return_value
-        mock_select = mock_table.select.return_value
-        mock_limit = mock_select.limit.return_value
-        mock_limit.execute.return_value = mocker.MagicMock(
-            data=[{"id": "fallback-org-id"}]
+        org = tenant_resolver.resolve_org_id_from_webhook_value(
+            {"metadata": {"phone_number_id": "12345"}}
         )
+        assert org == "22222222-2222-2222-2222-222222222222"
 
-        org_id = resolve_org_id_from_webhook_value({})
+    def test_no_fallback_to_first_org(self, mocker):
+        mock_db = MagicMock()
+        mock_db.client.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+        mocker.patch.object(tenant_resolver, "db", mock_db)
+        mocker.patch.object(tenant_resolver.settings, "SIM_WHATSAPP_ORG_ID", "")
 
-        assert org_id == "fallback-org-id"
+        org = tenant_resolver.resolve_org_id_from_webhook_value(
+            {"metadata": {"phone_number_id": "unknown"}}
+        )
+        assert org is None
+
+    def test_sim_whatsapp_org_override(self, mocker):
+        mocker.patch.object(
+            tenant_resolver.settings,
+            "SIM_WHATSAPP_ORG_ID",
+            "22222222-2222-2222-2222-222222222222",
+        )
+        mocker.patch.object(tenant_resolver.settings, "SIM_WHATSAPP_PHONE_ID", "123456789")
+        org = tenant_resolver.resolve_org_id_from_webhook_value(
+            {"metadata": {"phone_number_id": "123456789"}}
+        )
+        assert org == "22222222-2222-2222-2222-222222222222"

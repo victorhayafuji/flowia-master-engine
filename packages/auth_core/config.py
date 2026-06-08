@@ -26,7 +26,19 @@ class Settings(BaseSettings):
 
     # Background jobs (reminders, no-show detection)
     SCHEDULER_ENABLED: bool = True
+
+    # Scheduling: deterministic executor antes do LLM (desligar para testar/melhorar o agente)
+    SCHEDULING_DETERMINISTIC_ENABLED: bool = True
+    # smart = LLM só se executor não resolver; always = fallback LLM; never = só código
+    SCHEDULING_LLM_FALLBACK: str = "smart"
+    # Extractor LLM para turnos coloquiais/ambíguos antes do executor
+    INTENT_EXTRACTOR_ENABLED: bool = True
+    # Polish opcional pós-composer (validação factual fail-closed)
+    RESPONSE_POLISH_ENABLED: bool = False
     WEBHOOK_DEDUP_RETENTION_DAYS: int = 7
+    # Local webhook simulation (scripts/simulate_whatsapp_webhook.py) — dev only
+    SIM_WHATSAPP_ORG_ID: str = ""
+    SIM_WHATSAPP_PHONE_ID: str = "123456789"
 
     # LangSmith Observability
     LANGCHAIN_TRACING_V2: str = "false"

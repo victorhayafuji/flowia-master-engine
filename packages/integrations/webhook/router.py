@@ -12,10 +12,18 @@ from packages.auth_core.config import settings
 from packages.auth_core.limiter import limiter
 from packages.auth_core.tenant import set_tenant_context
 from packages.engine.checkpointer import master_engine
+from packages.engine.input_guard import (
+    BLOCKED_USER_RESPONSE,
+    MessageVerdict,
+    assess_user_message,
+    format_user_message_for_agent,
+)
 from packages.engine.metrics.service import save_conversation_metric
+from packages.engine.metrics.telemetry import extract_turn_tools_called
 from packages.engine.token_tracking import TurnTokenTracker, resolve_turn_tokens
 from packages.integrations.webhook.dedup import try_claim_message
 from packages.integrations.webhook.schemas import WebhookResponse, WhatsAppWebhookPayload
+from packages.integrations.webhook.session_store import can_resume_ai, clear_handoff_session
 from packages.integrations.webhook.tenant_resolver import resolve_org_id_from_webhook_value
 from packages.integrations.webhook.whatsapp import WhatsAppService
 
@@ -82,21 +90,40 @@ def process_message_in_background(payload: WhatsAppWebhookPayload):
                     if not text_body:
                         continue
 
+                    verdict = assess_user_message(text_body)
+                    if verdict == MessageVerdict.BLOCKED:
+                        logger.warning("Blocked message from %s (input guard)", sender_id)
+                        wa_service = WhatsAppService()
+                        asyncio.run(wa_service.send_text_message(sender_id, BLOCKED_USER_RESPONSE))
+                        continue
+
+                    formatted_body = format_user_message_for_agent(text_body)
+
                     # LGPD Compliance: Mask message content in logs
                     masked_body = (text_body[:15] + "...") if len(text_body) > 15 else text_body
                     logger.info(f"Processing message from {sender_id}: {masked_body}")
 
                     initial_state = {
-                        "messages": [HumanMessage(content=text_body)],
+                        "messages": [HumanMessage(content=formatted_body)],
                         "sender_id": sender_id,
-                        "handoff_requested": False
+                        "handoff_requested": False,
                     }
+                    if verdict == MessageVerdict.SUSPICIOUS:
+                        initial_state["audit_flag"] = "suspicious"
 
                     org_id = resolve_org_id_from_webhook_value(value)
+                    if not org_id:
+                        logger.error("Skipping message — organization unresolved for webhook")
+                        continue
 
                     token_tracker = TurnTokenTracker()
                     config = {
-                        "configurable": {"thread_id": sender_id, "org_id": org_id},
+                        "configurable": {
+                            "thread_id": sender_id,
+                            "org_id": org_id,
+                            "channel": "whatsapp",
+                            "sender_phone": sender_id,
+                        },
                         "callbacks": [token_tracker],
                     }
 
@@ -107,9 +134,17 @@ def process_message_in_background(payload: WhatsAppWebhookPayload):
                             state_values = current_state_wrapper.values
                             if state_values.get("handoff_requested") is True:
                                 if text_body.strip().lower() == "/resume":
-                                    logger.info(f"🦸‍♂️ HUMAN MODE DISABLED for {sender_id}. Resuming AI control.")
+                                    can_resume, resume_err = can_resume_ai(sender_id)
+                                    if not can_resume:
+                                        logger.info(
+                                            "Resume rejected for %s: %s", sender_id, resume_err
+                                        )
+                                        continue
+                                    logger.info(
+                                        "HUMAN MODE DISABLED for %s. Resuming AI control.", sender_id
+                                    )
                                     master_engine.update_state(config, {"handoff_requested": False})
-                                    logger.info(f"AI Response to {sender_id}: Bot reassumiu o controle.")
+                                    clear_handoff_session(sender_id)
                                     continue
                                 else:
                                     logger.info(f"🤫 SILENT MODE: Human is talking to {sender_id}. Ignoring message.")
@@ -123,54 +158,77 @@ def process_message_in_background(payload: WhatsAppWebhookPayload):
                                 master_engine.ainvoke(initial_state, config=config)
                             )
 
-                        # Extract AI response object and text
-                        messages = final_state.get("messages", [])
-                        ai_msg_obj = messages[-1] if messages else None
+                            messages = final_state.get("messages", [])
+                            ai_msg_obj = messages[-1] if messages else None
 
-                        if not isinstance(ai_msg_obj, AIMessage) and len(messages) > 1:
-                            for m in reversed(messages):
-                                if isinstance(m, AIMessage):
-                                    ai_msg_obj = m
-                                    break
+                            if not isinstance(ai_msg_obj, AIMessage) and len(messages) > 1:
+                                for m in reversed(messages):
+                                    if isinstance(m, AIMessage):
+                                        ai_msg_obj = m
+                                        break
 
-                        if final_state.get("audit_flag") is False:
-                            logger.warning(f"AUDIT BLOCKED response for {sender_id}. Fallback activated.")
-                            final_ai_msg = "Sinto muito, ocorreu um erro técnico ao processar sua resposta. Como posso te ajudar de outra forma?"
-                        else:
-                            final_ai_msg = getattr(ai_msg_obj, "content", "") if ai_msg_obj else ""
-
-                        # --- SAVE METRICS ---
-                        if ai_msg_obj:
-                            t_in, t_out, t_total = resolve_turn_tokens(messages, token_tracker)
-
-                            save_conversation_metric(
-                                thread_id=sender_id,
-                                sender_id=sender_id,
-                                agent_type=final_state.get("active_agent", "unknown"),
-                                messages_count=len(messages),
-                                tokens_in=t_in,
-                                tokens_out=t_out,
-                                tokens_total=t_total,
-                                handoff_requested=final_state.get("handoff_requested", False),
-                                qualified=final_state.get("qualified", False),
-                                model_name=settings.MODEL_NAME
-                            )
-
-                        if final_ai_msg and final_ai_msg.strip():
-                            wa_service = WhatsAppService()
-                            sent = asyncio.run(
-                                wa_service.send_text_message(sender_id, final_ai_msg)
-                            )
-                            if not sent:
+                            if final_state.get("audit_flag") == "blocked":
                                 logger.warning(
-                                    "WhatsApp outbound failed for %s (check org credentials)",
-                                    sender_id,
+                                    f"AUDIT BLOCKED response for {sender_id}. Fallback activated."
                                 )
+                                final_ai_msg = BLOCKED_USER_RESPONSE
+                            elif final_state.get("audit_flag") is False:
+                                logger.warning(
+                                    f"AUDIT BLOCKED response for {sender_id}. Fallback activated."
+                                )
+                                final_ai_msg = (
+                                    "Sinto muito, ocorreu um erro técnico ao processar sua resposta. "
+                                    "Como posso te ajudar de outra forma?"
+                                )
+                            else:
+                                final_ai_msg = getattr(ai_msg_obj, "content", "") if ai_msg_obj else ""
+
+                            if ai_msg_obj:
+                                t_in, t_out, t_total = resolve_turn_tokens(messages, token_tracker)
+
+                                save_conversation_metric(
+                                    thread_id=sender_id,
+                                    sender_id=sender_id,
+                                    agent_type=final_state.get("active_agent", "unknown"),
+                                    messages_count=len(messages),
+                                    tokens_in=t_in,
+                                    tokens_out=t_out,
+                                    tokens_total=t_total,
+                                    handoff_requested=final_state.get("handoff_requested", False),
+                                    qualified=final_state.get("qualified", False),
+                                    model_name=settings.MODEL_NAME,
+                                    organization_id=org_id,
+                                    scheduling_path=final_state.get("scheduling_path"),
+                                    triage_source=final_state.get("triage_source"),
+                                    channel="whatsapp",
+                                    tools_called=extract_turn_tools_called(messages),
+                                )
+
+                            if final_ai_msg and final_ai_msg.strip():
+                                try:
+                                    wa_service = WhatsAppService()
+                                    sent = asyncio.run(
+                                        wa_service.send_text_message(sender_id, final_ai_msg)
+                                    )
+                                    if not sent:
+                                        logger.warning(
+                                            "WhatsApp outbound failed for %s (check org credentials)",
+                                            sender_id,
+                                        )
+                                except ValueError as wa_err:
+                                    logger.warning(
+                                        "WhatsApp outbound skipped for %s: %s",
+                                        sender_id,
+                                        wa_err,
+                                    )
                     except Exception as llm_error:
                         logger.critical(f"🚨 ENGINE FAILURE for {sender_id}: {llm_error}", exc_info=True)
                         final_ai_msg = FALLBACK_MESSAGE
 
-                    logger.info(f"AI Response to {sender_id}: {final_ai_msg}")
+                    masked_response = (
+                        (final_ai_msg[:15] + "...") if len(final_ai_msg) > 15 else final_ai_msg
+                    )
+                    logger.info(f"AI Response to {sender_id}: {masked_response}")
 
     except Exception as e:
         logger.error(f"Failed to process background message: {e}", exc_info=True)

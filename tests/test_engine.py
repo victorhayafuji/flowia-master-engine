@@ -77,6 +77,25 @@ class TestTriageNode:
         result = triage_node(state, {})
         assert result["active_agent"] == "receptionist"
 
+    def test_agendar_phrase_routes_to_scheduling_on_first_message(self):
+        state = {
+            "messages": [HumanMessage(content="Quero agendar coloração na sexta")],
+        }
+        result = triage_node(state, {})
+        assert result["active_agent"] == "scheduling"
+
+    def test_booking_followup_escapes_receptionist(self):
+        state = {
+            "messages": [
+                HumanMessage(content="Quero agendar coloração na sexta."),
+                AIMessage(content="Qual tipo de coloração?"),
+                HumanMessage(content="Vou querer fazer mechas."),
+            ],
+            "active_agent": "receptionist",
+        }
+        result = triage_node(state, {})
+        assert result["active_agent"] == "scheduling"
+
     def test_keyword_routes_to_receptionist(self):
         state = {
             "messages": [HumanMessage(content="2")],
