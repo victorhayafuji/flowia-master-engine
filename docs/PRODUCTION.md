@@ -18,6 +18,7 @@ Registro operacional do deploy Render (Jun/2026). Detalhes de deploy: [`RENDER.m
 |---------|-----|-------|
 | API Render | https://flowia-api.onrender.com | Web Service `flowia-api` (`srv-d8if4437uimc73ammat0`) |
 | Dashboard Render | https://flowia-dashboard.onrender.com | Static Site `flowia-dashboard` (`srv-d8if463tqb8s73b38rog`) |
+| Landing FlowIA | https://flowia-landing.onrender.com | Static Site `flowia-landing` — marketing (sem login) |
 | Supabase | https://vwhsivwoiiicydanypmo.supabase.co | Piloto: mesmo projeto do dev local |
 | Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/webhook/whatsapp | Aguardando credenciais Meta |
 
@@ -45,6 +46,33 @@ Permite consultar deploys, logs e serviços sem abrir o Dashboard manualmente.
 4. Validar: serviços `flowia-api` e `flowia-dashboard` listados; último deploy **live**
 
 Consultas úteis ao agente: status do deploy pós-merge, logs de startup (`Supabase conectado`), erros webhook.
+
+---
+
+## Rotina semanal de manutenção
+
+Cadência fixa (~1–2h) enquanto o produto amadurece sem WhatsApp Meta. Detalhes em [`STAGING.md`](STAGING.md) § Manutenção mensal.
+
+| Dia sugerido | Ação |
+|--------------|------|
+| Pós-deploy | Smokes automatizados (bloco abaixo) |
+| Semanal | Checklist manual #7 e #8 (procedimento abaixo) |
+| Semanal | Revisar CI GitHub Actions — backend, dashboard, E2E, landing |
+
+### Checklist manual #7 — CRUD cliente + agenda (prod)
+
+1. Login em https://flowia-dashboard.onrender.com como `dono@beauty-express.com`
+2. **Clientes** → criar cliente teste (nome + telefone único) → editar → desativar ou manter
+3. **Agenda** → criar agendamento no slot livre → arrastar para reagendar → confirmar sem 409
+4. Marcar #7 OK na tabela abaixo com data
+
+### Checklist manual #8 — Chat Test + Observabilidade (DEV local)
+
+Requer `super_admin` + `npm run dev` (ou build preview):
+
+1. `/admin/chat-test` → enviar `"Quero mechas sexta"` → badges `path=deterministic`, `triage=keyword`
+2. `/admin/observability` → KPI determinístico + tabela conversas carrega
+3. Marcar #8 OK na tabela abaixo com data
 
 ---
 
@@ -205,3 +233,18 @@ LIMIT 5;
 ```
 
 Esperado: pelo menos 1 linha com `scheduling_path=deterministic` após fluxo de agendamento no celular.
+
+---
+
+## Landing FlowIA (marketing)
+
+| Campo | Valor |
+|-------|-------|
+| Serviço Render | `flowia-landing` (Static Site) |
+| URL | https://flowia-landing.onrender.com |
+| Código | [`apps/landing/`](../apps/landing/) |
+| Deploy | Automático via [`render.yaml`](../render.yaml) após merge em `main` |
+
+**Primeiro deploy:** Render Dashboard → Blueprint sync ou criar Static Site manual (`rootDir: apps/landing`).
+
+Copy e SEO: [`docs/marketing/FLOWIA_LANDING_COPY.md`](marketing/FLOWIA_LANDING_COPY.md).

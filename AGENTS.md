@@ -45,6 +45,7 @@ python scripts/smoke_prod.py --api-url https://flowia-api.onrender.com --dashboa
 python scripts/smoke_hybrid_prod.py --api-url https://flowia-api.onrender.com  # PROD_SMOKE_PASSWORD no .env
 python scripts/smoke_agent.py --api-url https://flowia-api.onrender.com/api/v1
 python scripts/onboard_tenant.py --checklist   # runbook 1º cliente pagante
+cd apps/landing && npm run dev                 # landing marketing local
 start_flowia.bat   # Windows: backend + frontend
 ```
 

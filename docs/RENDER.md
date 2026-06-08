@@ -6,6 +6,7 @@ Hosting confirmado para produção multi-tenant:
 |------------|--------|------|
 | API FastAPI | `flowia-api` | Web Service (Python) |
 | Dashboard SPA | `flowia-dashboard` | Static Site |
+| Landing marketing | `flowia-landing` | Static Site |
 | Banco | Supabase (externo) | PostgreSQL + RLS |
 
 Blueprint IaC: [`render.yaml`](../render.yaml) na raiz do repo.
@@ -116,6 +117,21 @@ Após obter URL final do Static Site, **atualizar `ALLOWED_ORIGINS`** na API.
 
 ---
 
+## 4b. Deploy Landing — Render Static Site
+
+| Campo | Valor |
+|-------|-------|
+| Nome | `flowia-landing` |
+| Root | `apps/landing` |
+| Build | `npm ci && npm run build` |
+| Publish | `dist` |
+
+Sem env vars obrigatórias (CTA `mailto:` estático). Opcional: `VITE_DEMO_EMAIL` para customizar contato no build futuro.
+
+URL esperada: https://flowia-landing.onrender.com — registrar em [`PRODUCTION.md`](PRODUCTION.md).
+
+---
+
 ## 5. Smoke produção
 
 Automático (health + dashboard HTTP + agente RAG):
@@ -164,5 +180,6 @@ Registro canônico: [`PRODUCTION.md`](PRODUCTION.md).
 |---------|-----|
 | API | https://flowia-api.onrender.com |
 | Dashboard | https://flowia-dashboard.onrender.com |
+| Landing | https://flowia-landing.onrender.com |
 | Supabase (piloto) | https://vwhsivwoiiicydanypmo.supabase.co |
 | Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/webhook/whatsapp |
