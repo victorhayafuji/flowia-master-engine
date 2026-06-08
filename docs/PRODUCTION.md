@@ -18,7 +18,7 @@ Registro operacional do deploy Render (Jun/2026). Detalhes de deploy: [`RENDER.m
 |---------|-----|-------|
 | API Render | https://flowia-api.onrender.com | Web Service `flowia-api` (`srv-d8if4437uimc73ammat0`) |
 | Dashboard Render | https://flowia-dashboard.onrender.com | Static Site `flowia-dashboard` (`srv-d8if463tqb8s73b38rog`) |
-| Landing FlowIA | https://flowia-landing.onrender.com | Static Site `flowia-landing` — marketing (sem login) |
+| Landing FlowIA | https://flowia-landing.onrender.com | Static Site `flowia-landing` (`srv-d8jl0mhkh4rs73e8o0vg`) — **live** Jun/2026 |
 | Supabase | https://vwhsivwoiiicydanypmo.supabase.co | Piloto: mesmo projeto do dev local |
 | Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/webhook/whatsapp | Aguardando credenciais Meta |
 
@@ -128,13 +128,17 @@ Esperado: `channel=chat_test`, `scheduling_path=deterministic`, `agent_type=sche
 | 4 | SPA `/agenda` rewrite | Manual browser | 2026-06-07 | Sim |
 | 5 | Hybrid chat `"Quero mechas sexta"` → `path=deterministic` | `smoke_hybrid_prod.py` | 2026-06-08 | Sim |
 | 6 | `GET /dashboard/today-board` | `smoke_hybrid_prod.py` | 2026-06-08 | Sim |
-| 7 | CRUD cliente + agendamento drag | Manual browser | | Pendente |
-| 8 | Chat Test badges (super_admin DEV) | Manual browser | | Pendente |
+| 7 | CRUD cliente + agendamento drag | Manual browser + API smoke | 2026-06-07 | Sim (API create/reschedule; drag UI manual) |
+| 8 | Chat Test badges (super_admin DEV) | API pós-consent + DEV UI | 2026-06-07 | Sim (API: path=deterministic; UI badges DEV local) |
 | 9 | `conversation_metrics` observability | Supabase SQL | 2026-06-08 | Sim |
+| 10 | Migration `20260610060000` aplicada | `list_db_migrations.py` | 2026-06-07 | Sim (22 total) |
+| 11 | Landing `/privacidade` live | HTTP + browser | 2026-06-07 | Sim |
+| 12 | Chat Test aviso LGPD (L1/L2) | API `/chat/test` | 2026-06-07 | Sim |
+| 13 | Export/Erase Clientes (L3/L4) | API compliance | 2026-06-07 | Sim (após fix `717dda9`) |
 
 ### Última execução registrada
 
-Ver seção **Resultado smoke 2026-06-08** abaixo (preenchida após rodar scripts).
+Ver seção **Resultado smoke 2026-06-07 (pós-merge LGPD)** abaixo.
 
 ---
 
@@ -167,12 +171,14 @@ Sintoma: login 401/403 ou CORS no browser.
 
 ## Supabase migrations (aplicadas)
 
-**21 migrations** sincronizadas via `scripts/apply_migrations.py` (Jun/2026), incluindo:
+**22 migrations** sincronizadas via `scripts/apply_migrations.py` (Jun/2026), incluindo:
 
-- `20260610040000_conversation_metrics_observability.sql`
 - `20260610050000_conversation_metrics_sender_text.sql`
+- `20260610060000_lgpd_consent.sql` — colunas `patients.privacy_*`
 
-Verificar: `python scripts/list_db_migrations.py`
+Verificar: `python scripts/list_db_migrations.py` → **Total: 22**
+
+Colunas LGPD confirmadas: `privacy_notice_version`, `privacy_notice_shown_at`, `privacy_consent_at`, `privacy_consent_channel`.
 
 ## Pré-requisito 1º cliente pagante (backlog)
 
@@ -189,6 +195,16 @@ Documentado em [`TENANCY_AND_SCALE.md`](TENANCY_AND_SCALE.md):
 
 Secrets: Render Environment (sync off) — nunca commitar.
 
+**LGPD (Jun/2026):**
+
+| Variável | Valor prod | Notas |
+|----------|------------|-------|
+| `PRIVACY_POLICY_URL` | `https://flowia-landing.onrender.com/privacidade` | Configurado pós-deploy landing |
+| `PRIVACY_CONTACT_EMAIL` | *(default código)* `privacidade@exemplo.com` | **Trocar antes do 1º cliente pagante** |
+| `SCHEDULER_ENABLED` | `true` | Retenção LGPD + dedup webhook |
+| `CONVERSATION_METRICS_RETENTION_DAYS` | default `365` | Opcional no Dashboard |
+| `CHECKPOINT_RETENTION_DAYS` | default `90` | Opcional no Dashboard |
+
 ## Resultado smoke 2026-06-08
 
 Pós-deploy motor híbrido (`feat/hybrid-scheduling-agent` → `main`).
@@ -204,7 +220,36 @@ list_db_migrations.py  → 21 migrations (incl. observability + sender_id TEXT)
 
 **Nota:** primeira requisição após cold start Render pode timeout (~30s); repetir se `/health` falhar.
 
-**Pendente manual:** checklist #7 (CRUD agenda) e #8 (Chat Test badges no browser DEV).
+**Pendente manual:** drag-and-drop na Agenda (#7 UI) e badges visuais no browser DEV (#8 UI).
+
+---
+
+## Resultado smoke 2026-06-07 (pós-merge LGPD)
+
+Pós-merge PR #7 + migration LGPD + landing + env Render.
+
+```text
+apply_migrations.py     → OK (20260610060000_lgpd_consent.sql aplicada; Total: 22)
+list_db_migrations.py   → 22 migrations
+privacy_* columns       → OK (4 colunas em patients)
+Render flowia-api env   → PRIVACY_POLICY_URL + SCHEDULER_ENABLED=true; redeploy OK
+flowia-landing          → CRIADO (srv-d8jl0mhkh4rs73e8o0vg); /, /privacidade, /termos HTTP 200
+smoke_prod.py           → OK (health connected, dashboard HTTP 200)
+smoke_hybrid_prod.py    → PARCIAL — turno1 agent=compliance (aviso LGPD esperado); turno2 scheduling OK quando API estável
+smoke_agent.py          → OK (scheduling híbrido path=deterministic); 1ª msg RAG retorna aviso LGPD (esperado)
+fix export DSAR         → commit 717dda9 — removido appointments.notes inexistente
+L5 privacy-notice       → OK version=2026-06
+L1/L2 consent chat      → OK (compliance → scheduling mesma thread)
+L3/L4 export/erase      → OK format=flowia-dsar-v1 / status=erased (pós 717dda9)
+#7 CRUD agenda (API)    → OK create patient + appointment + reschedule
+#8 chat badges (API)    → OK path=deterministic triage=conversation (2º turno pós-consent)
+```
+
+**Consent no DB (amostra pós-smoke):** threads chat_test com `privacy_notice_shown_at` e `privacy_consent_at` preenchidos.
+
+**Nota smoke híbrido:** após LGPD, `smoke_hybrid_prod.py` turno1 deve passar a esperar `agent=compliance` na 1ª mensagem de thread nova — atualizar script em follow-up.
+
+**Pendente:** `PRIVACY_CONTACT_EMAIL` real antes do 1º cliente pagante; revisão jurídica DRAFTs em `docs/legal/`.
 
 ---
 
@@ -240,11 +285,10 @@ Esperado: pelo menos 1 linha com `scheduling_path=deterministic` após fluxo de 
 
 | Campo | Valor |
 |-------|-------|
-| Serviço Render | `flowia-landing` (Static Site) |
+| Serviço Render | `flowia-landing` (Static Site `srv-d8jl0mhkh4rs73e8o0vg`) |
 | URL | https://flowia-landing.onrender.com |
 | Código | [`apps/landing/`](../apps/landing/) |
-| Deploy | Automático via [`render.yaml`](../render.yaml) após merge em `main` |
-
-**Primeiro deploy:** Render Dashboard → Blueprint sync ou criar Static Site manual (`rootDir: apps/landing`).
+| Deploy | Criado via Render API Jun/2026; auto-deploy `main` |
+| Status | **Live** — `/`, `/privacidade`, `/termos` HTTP 200 |
 
 Copy e SEO: [`docs/marketing/FLOWIA_LANDING_COPY.md`](marketing/FLOWIA_LANDING_COPY.md).
