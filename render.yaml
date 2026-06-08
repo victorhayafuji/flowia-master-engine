@@ -75,3 +75,16 @@ services:
         sync: false
       - key: VITE_SUPABASE_KEY
         sync: false
+
+  - type: web
+    name: flowia-landing
+    runtime: static
+    plan: starter
+    region: oregon
+    rootDir: apps/landing
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    envVars:
+      - key: VITE_DEMO_EMAIL
+        value: contato@gaussix.com.br

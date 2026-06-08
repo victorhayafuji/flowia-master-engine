@@ -67,3 +67,17 @@ Outbound/inbound real requer credenciais Meta Business API. Webhook prod: `https
 **Lembretes:** `reminder_service.py` envia via `WhatsAppService` quando credenciais da org existem; falha de envio → `mark_failed`.
 
 **RESPONSE_POLISH A/B:** staging Render com `RESPONSE_POLISH_ENABLED=true` por 1 semana; comparar KPI em `/metrics/scheduling-observability` (decisão default em [`CLAUDE.md`](../CLAUDE.md) §33.1).
+
+## Manutenção mensal (produto maduro)
+
+Cadência recomendada enquanto WhatsApp Meta estiver pendente (~1–2h/semana):
+
+| Quando | Ação |
+|--------|------|
+| Após cada merge em `main` | `smoke_prod.py` + `smoke_hybrid_prod.py` — ver [`PRODUCTION.md`](PRODUCTION.md) |
+| Semanal | Checklist manual #7 e #8 (agenda CRUD + Chat Test/Observability DEV) |
+| Semanal | `list_db_migrations.py` — confirmar 21 migrations no remoto |
+| Opcional local | `simulate_whatsapp_webhook.py` — validar motor híbrido sem Meta |
+| CI | Backend pytest + dashboard E2E (`auth-nav`, `agenda`, `chat-test-scheduling`) + landing build |
+
+Registrar datas e OK em [`PRODUCTION.md`](PRODUCTION.md) tabela smoke.

@@ -35,7 +35,14 @@ desktop.ini
 
 # Testing artifacts
 *.log
+.coverage
+htmlcov/
+.pytest_cache/
 scratch/
 
 # Lint output
 lint_errors.*
+
+# Node (all apps in monorepo)
+node_modules/
+**/dist/
