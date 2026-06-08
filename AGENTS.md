@@ -34,6 +34,10 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 pytest --cov=packages --cov=apps/salon && ruff check packages apps/salon tests main.py
 cd apps/salon/dashboard && npm run dev && npm test && npm run lint && npm run build
 python scripts/check_env.py
+python scripts/test_booking_flow_http.py                  # multi-turn via /chat/test
+python scripts/simulate_whatsapp_webhook.py             # webhook fake (sem Meta)
+python scripts/test_scheduling_llm.py                   # LLM + tools (Gemini, ~30s)
+python scripts/test_scheduling_hybrid.py                # comparar tokens hibrido vs LLM puro
 python scripts/generate_prod_secrets.py   # stdout — secrets prod
 python scripts/apply_migrations.py        # supabase db push alternativo
 python scripts/list_db_migrations.py      # verificar migrations aplicadas

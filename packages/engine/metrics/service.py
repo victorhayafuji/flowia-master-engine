@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta
+from typing import Any
 
 from packages.auth_core.config import settings
 from packages.auth_core.database import db
@@ -48,13 +49,19 @@ def save_conversation_metric(
     ttq_seconds: float = None,
     sentiment_score: float = 0.0,
     is_frustrated: bool = False,
-    model_name: str = None
+    model_name: str = None,
+    *,
+    organization_id: str | None = None,
+    scheduling_path: str | None = None,
+    triage_source: str | None = None,
+    channel: str | None = None,
+    tools_called: list[str] | None = None,
 ):
     """Saves a conversation metric snapshot to Supabase."""
     model_name = model_name or settings.MODEL_NAME
     try:
         client = db.client
-        data = {
+        data: dict[str, Any] = {
             "thread_id": thread_id,
             "sender_id": sender_id,
             "agent_type": agent_type,
@@ -67,10 +74,26 @@ def save_conversation_metric(
             "ttq_seconds": ttq_seconds,
             "sentiment_score": sentiment_score,
             "is_frustrated": is_frustrated,
-            "model_name": model_name
+            "model_name": model_name,
+            "tools_called": tools_called or [],
         }
+        if organization_id:
+            data["organization_id"] = organization_id
+        if scheduling_path:
+            data["scheduling_path"] = scheduling_path
+        if triage_source:
+            data["triage_source"] = triage_source
+        if channel:
+            data["channel"] = channel
         client.table("conversation_metrics").insert(data).execute()
-        logger.info(f"📊 Metric saved for thread={thread_id}, tokens={tokens_total}")
+        logger.info(
+            "Metric saved | thread=%s tokens=%s path=%s triage=%s channel=%s",
+            thread_id,
+            tokens_total,
+            scheduling_path,
+            triage_source,
+            channel,
+        )
     except Exception as e:
         logger.error(f"Failed to save metric: {e}", exc_info=True)
 

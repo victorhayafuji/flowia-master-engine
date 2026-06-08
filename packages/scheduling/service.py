@@ -2,13 +2,20 @@ import logging
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from packages.auth_core.database import db
 from packages.auth_core.exceptions import BusinessLogicError, DoubleBookingError
 from packages.auth_core.tenant import get_current_org_id
 from packages.models.enums import AppointmentStatus
 from packages.scheduling.schemas import AppointmentBase, ScheduleBlockBase
+from packages.scheduling.timezone_utils import (
+    local_date_range_utc_bounds,
+    local_day_utc_bounds,
+    normalize_to_utc,
+    now_local_naive,
+    storage_iso,
+    to_local_naive,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +85,8 @@ class SchedulingService:
 
     def _get_day_appointments(self, professional_id: UUID, target_date: date) -> list[dict[str, Any]]:
         """Active appointments for a professional on a given day (excludes cancelled/no_show)."""
-        start_of_day = datetime.combine(target_date, datetime.min.time()).isoformat()
-        end_of_day = datetime.combine(target_date, datetime.max.time()).isoformat()
+        tzname = self._get_org_config()["timezone"]
+        start_of_day, end_of_day = local_day_utc_bounds(target_date, tzname)
         response = (
             self.db.client.table("appointments")
             .select("scheduled_at, duration_minutes, status")
@@ -121,13 +128,10 @@ class SchedulingService:
     def _to_local_naive(raw: str, tzname: str) -> datetime:
         """Converts a stored timestamp into a naive datetime in the org timezone."""
         dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        if dt.tzinfo is not None:
-            try:
-                dt = dt.astimezone(ZoneInfo(tzname))
-            except Exception:
-                pass
-            dt = dt.replace(tzinfo=None)
-        return dt
+        if dt.tzinfo is None:
+            # Legacy rows: treat naive DB values as org-local wall clock.
+            return dt
+        return to_local_naive(dt, tzname)
 
     async def get_available_slots(self, professional_id: UUID, target_date: date, service_duration: int) -> list[str]:
         """
@@ -177,11 +181,7 @@ class SchedulingService:
             ))
 
         # Antecedência mínima: descarta slots cedo demais para hoje.
-        try:
-            now_local = datetime.now(ZoneInfo(tzname)).replace(tzinfo=None)
-        except Exception:
-            now_local = datetime.now()
-        earliest = now_local + timedelta(hours=org_config["min_notice_hours"])
+        earliest = now_local_naive(tzname) + timedelta(hours=org_config["min_notice_hours"])
 
         available_slots: list[str] = []
         current = work_start
@@ -195,20 +195,69 @@ class SchedulingService:
 
         return available_slots
 
+    def _assert_entities_belong_to_org(self, appointment: AppointmentBase, org_id: str) -> None:
+        """Ensures patient, service and professional belong to the tenant."""
+        patient = (
+            self.db.client.table("patients")
+            .select("id")
+            .eq("id", str(appointment.patient_id))
+            .eq("organization_id", org_id)
+            .eq("is_active", True)
+            .maybe_single()
+            .execute()
+        )
+        if not patient.data:
+            raise BusinessLogicError("Cliente inválido para esta organização.")
+
+        service = (
+            self.db.client.table("service_catalog")
+            .select("id")
+            .eq("id", str(appointment.service_id))
+            .eq("organization_id", org_id)
+            .eq("is_active", True)
+            .maybe_single()
+            .execute()
+        )
+        if not service.data:
+            raise BusinessLogicError("Serviço inválido para esta organização.")
+
+        professional = (
+            self.db.client.table("professionals")
+            .select("id")
+            .eq("id", str(appointment.professional_id))
+            .eq("organization_id", org_id)
+            .eq("is_active", True)
+            .maybe_single()
+            .execute()
+        )
+        if not professional.data:
+            raise BusinessLogicError("Profissional inválido para esta organização.")
+
     async def create_appointment(self, appointment: AppointmentBase) -> dict[str, Any]:
         """
         Cria um agendamento garantindo que não exista conflito de horário.
         """
-        # Variável temporária naive para comparações locais
-        appt_time_naive = appointment.scheduled_at
-        if appt_time_naive.tzinfo is not None:
-            appt_time_naive = appt_time_naive.astimezone().replace(tzinfo=None)
+        from packages.auth_core.tenant import get_current_org_id
+        from packages.scheduling.eligibility import assert_professional_eligible
 
-        if appt_time_naive < datetime.now():
+        current_org_id = get_current_org_id()
+        if current_org_id and current_org_id != "ALL":
+            assert_professional_eligible(
+                current_org_id,
+                appointment.service_id,
+                appointment.professional_id,
+            )
+            self._assert_entities_belong_to_org(appointment, current_org_id)
+
+        org_config = self._get_org_config()
+        tzname = org_config["timezone"]
+        scheduled_utc = normalize_to_utc(appointment.scheduled_at, tzname)
+        sched_local = to_local_naive(scheduled_utc, tzname)
+
+        if sched_local < now_local_naive(tzname):
             raise BusinessLogicError("Não é possível criar agendamentos no passado.")
 
-        start_of_day = datetime.combine(appointment.scheduled_at.date(), datetime.min.time()).isoformat()
-        end_of_day = datetime.combine(appointment.scheduled_at.date(), datetime.max.time()).isoformat()
+        start_of_day, end_of_day = local_day_utc_bounds(sched_local.date(), tzname)
 
         conflict_query = self.db.client.table("appointments").select("scheduled_at, duration_minutes") \
             .eq("professional_id", str(appointment.professional_id)) \
@@ -218,8 +267,7 @@ class SchedulingService:
 
         conflicts = conflict_query.execute()
 
-        # appointment.scheduled_at is already in UTC or aware. Convert it to UTC naive for comparison
-        appt_time_utc = appointment.scheduled_at.astimezone(timezone.utc).replace(tzinfo=None) if appointment.scheduled_at.tzinfo else appointment.scheduled_at
+        appt_time_utc = scheduled_utc.replace(tzinfo=None)
         end_time_utc = appt_time_utc + timedelta(minutes=appointment.duration_minutes)
 
         for c in conflicts.data:
@@ -230,10 +278,9 @@ class SchedulingService:
             if (appt_time_utc < existing_end) and (end_time_utc > existing_start):
                 raise DoubleBookingError("O profissional já tem um agendamento conflitante neste horário.")
 
-        # Inserir no banco
+        # Inserir no banco (timestamptz em UTC)
         insert_data = appointment.model_dump(mode='json')
-        from packages.auth_core.tenant import get_current_org_id
-        current_org_id = get_current_org_id()
+        insert_data["scheduled_at"] = storage_iso(scheduled_utc)
         if current_org_id and current_org_id != 'ALL':
             insert_data['organization_id'] = current_org_id
 
@@ -279,9 +326,14 @@ class SchedulingService:
             raise ResourceNotFoundError(f"Agendamento {appointment_id} não encontrado.")
 
         row = existing.data
-        target_scheduled_at = new_scheduled_at or datetime.fromisoformat(
+        org_config = self._get_org_config()
+        tzname = org_config["timezone"]
+        raw_scheduled = new_scheduled_at or datetime.fromisoformat(
             row["scheduled_at"].replace("Z", "+00:00")
         )
+        target_scheduled_at = normalize_to_utc(raw_scheduled, tzname) if raw_scheduled else None
+        if target_scheduled_at is None:
+            raise BusinessLogicError("Horário inválido.")
         target_duration = duration_minutes if duration_minutes is not None else row["duration_minutes"]
 
         appointment = AppointmentBase(
@@ -293,8 +345,8 @@ class SchedulingService:
             status=AppointmentStatus(row.get("status", "confirmed")),
         )
 
-        start_of_day = datetime.combine(target_scheduled_at.date(), datetime.min.time()).isoformat()
-        end_of_day = datetime.combine(target_scheduled_at.date(), datetime.max.time()).isoformat()
+        sched_local = to_local_naive(target_scheduled_at, tzname)
+        start_of_day, end_of_day = local_day_utc_bounds(sched_local.date(), tzname)
         conflicts = (
             self.db.client.table("appointments")
             .select("id, scheduled_at, duration_minutes")
@@ -306,11 +358,7 @@ class SchedulingService:
             .execute()
         )
 
-        appt_time_utc = (
-            target_scheduled_at.astimezone(timezone.utc).replace(tzinfo=None)
-            if target_scheduled_at.tzinfo
-            else target_scheduled_at
-        )
+        appt_time_utc = target_scheduled_at.replace(tzinfo=None)
         end_time_utc = appt_time_utc + timedelta(minutes=target_duration)
 
         for c in conflicts.data or []:
@@ -323,7 +371,7 @@ class SchedulingService:
 
         update_payload: dict[str, Any] = {}
         if new_scheduled_at is not None:
-            update_payload["scheduled_at"] = target_scheduled_at.isoformat()
+            update_payload["scheduled_at"] = storage_iso(target_scheduled_at)
         if duration_minutes is not None:
             update_payload["duration_minutes"] = target_duration
 
@@ -340,7 +388,20 @@ class SchedulingService:
         if not result.data:
             from packages.auth_core.exceptions import BusinessLogicError
             raise BusinessLogicError("Erro ao reagendar.")
-        return result.data[0]
+        updated = {**row, **result.data[0]}
+
+        try:
+            from packages.scheduling.reminder_service import ReminderService
+
+            ReminderService().refresh_reminders_for_appointment(updated)
+        except Exception as exc:
+            logger.warning(
+                "Failed to refresh reminders for appointment %s: %s",
+                appointment_id,
+                exc,
+            )
+
+        return updated
 
     async def update_appointment_status(self, appointment_id: UUID, new_status: AppointmentStatus) -> dict[str, Any]:
         """
@@ -372,8 +433,8 @@ class SchedulingService:
         """
         Retorna todos os agendamentos de uma organização em um período.
         """
-        start_time = datetime.combine(start_date, datetime.min.time()).isoformat()
-        end_time = datetime.combine(end_date, datetime.max.time()).isoformat()
+        tzname = self._get_org_config()["timezone"]
+        start_time, end_time = local_date_range_utc_bounds(start_date, end_date, tzname)
 
         response = self.db.client.table("appointments").select("*, professional:professional_id(*), patient:patient_id(*), service:service_id(*)") \
             .gte("scheduled_at", start_time) \

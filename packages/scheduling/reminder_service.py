@@ -52,6 +52,11 @@ class ReminderService:
         logger.info("Cancelled %s pending reminders for appointment %s", count, appointment_id)
         return count
 
+    def refresh_reminders_for_appointment(self, appointment: dict[str, Any]) -> list[dict[str, Any]]:
+        """Cancel pending reminders and recreate them for the new schedule."""
+        self.cancel_reminders_for_appointment(appointment["id"])
+        return self.create_appointment_reminders(appointment)
+
     def process_pending_reminders(self) -> int:
         """Stub delivery: mark due reminders as sent and log payload for future WhatsApp hook."""
         now = datetime.now(timezone.utc)

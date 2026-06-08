@@ -66,6 +66,26 @@ def test_cancel_reminders_for_appointment(repository, mock_reminder_db, reminder
     assert count == 2
 
 
+def test_refresh_reminders_for_appointment(repository, reminder_service, mocker):
+    appointment = {
+        "id": str(uuid4()),
+        "organization_id": str(uuid4()),
+        "patient_id": str(uuid4()),
+        "scheduled_at": (datetime.now(timezone.utc) + timedelta(days=2)).isoformat(),
+    }
+    cancel = mocker.patch.object(reminder_service, "cancel_reminders_for_appointment", return_value=2)
+    create = mocker.patch.object(
+        reminder_service,
+        "create_appointment_reminders",
+        return_value=[{"id": "r-new"}],
+    )
+
+    reminders = reminder_service.refresh_reminders_for_appointment(appointment)
+    cancel.assert_called_once_with(appointment["id"])
+    create.assert_called_once_with(appointment)
+    assert reminders == [{"id": "r-new"}]
+
+
 def test_process_pending_reminders_marks_sent(repository, mock_reminder_db, reminder_service, mocker):
     pending = [
         {

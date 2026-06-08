@@ -39,6 +39,8 @@ MIGRATION_FILES = [
     "20260610010000_service_professionals.sql",
     "20260610020000_schedule_blocks.sql",
     "20260610030000_appointment_payments.sql",
+    "20260610040000_conversation_metrics_observability.sql",
+    "20260610050000_conversation_metrics_sender_text.sql",
 ]
 
 

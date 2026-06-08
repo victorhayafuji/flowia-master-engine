@@ -23,6 +23,14 @@ services:
         value: "true"
       - key: WEBHOOK_DEDUP_RETENTION_DAYS
         value: "7"
+      - key: SCHEDULING_DETERMINISTIC_ENABLED
+        value: "true"
+      - key: SCHEDULING_LLM_FALLBACK
+        value: smart
+      - key: INTENT_EXTRACTOR_ENABLED
+        value: "true"
+      - key: RESPONSE_POLISH_ENABLED
+        value: "false"
       - key: PYTHON_VERSION
         value: "3.12.0"
       # Set in Render Dashboard (sync: false) — never commit real values

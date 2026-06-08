@@ -91,7 +91,7 @@ class TestCalculateCost:
     def test_chat_response_includes_cost_fields(self, client, user_token, mocker):
         from unittest.mock import AsyncMock
 
-        async def fake_dispatch(message, thread_id=None):
+        async def fake_dispatch(message, thread_id=None, org_id=None):
             return {
                 "response": "R$ 299",
                 "agent": "sdr",
@@ -102,6 +102,8 @@ class TestCalculateCost:
                 "thread_id": "test-thread",
                 "handoff": False,
                 "messages_count": 4,
+                "scheduling_path": None,
+                "triage_source": "llm",
             }
 
         mocker.patch(

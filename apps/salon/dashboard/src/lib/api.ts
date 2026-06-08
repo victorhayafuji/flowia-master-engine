@@ -58,6 +58,18 @@ export const api = {
     })
     return parseResponse(res)
   },
+  put: async (endpoint: string, body: unknown, headers: HeadersInit = {}) => {
+    const res = await safeFetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: JSON.stringify(body),
+      credentials: 'include',
+    })
+    return parseResponse(res)
+  },
   upload: async (endpoint: string, formData: FormData, headers: HeadersInit = {}) => {
     const res = await safeFetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',

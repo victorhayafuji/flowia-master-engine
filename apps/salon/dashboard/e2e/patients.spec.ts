@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { loginAsOrgAdmin } from './mock-api'
+import { createMockState, loginAsOrgAdmin } from './mock-api'
 
 test.describe('Audit #2 — create client', () => {
   test('creates patient with name and phone', async ({ page }) => {
@@ -13,5 +13,26 @@ test.describe('Audit #2 — create client', () => {
 
     await expect(page.getByText('Ana Silva')).toBeVisible()
     await expect(page.getByText('11988887777')).toBeVisible()
+    await expect(page.getByText('0 faltas')).toBeVisible()
+  })
+
+  test('shows no-show history for patients with absences', async ({ page }) => {
+    const state = createMockState()
+    state.patients.push({
+      id: 'pat-risk',
+      name: 'João Risco',
+      phone: '11977776666',
+      created_at: new Date().toISOString(),
+      no_show_count: 3,
+      total_appointments: 8,
+      last_visit_at: '2026-05-01T14:00:00Z',
+    })
+
+    await loginAsOrgAdmin(page, state)
+    await page.goto('/patients')
+
+    await expect(page.getByText('João Risco')).toBeVisible()
+    await expect(page.getByTestId('patient-no-show-pat-risk')).toHaveText('3 faltas')
+    await expect(page.getByText('8 visitas')).toBeVisible()
   })
 })

@@ -9,9 +9,25 @@ type UserRole = 'org_admin' | 'super_admin' | 'professional'
 const PROFESSIONAL_ID = 'prof1'
 
 interface MockState {
-  patients: Array<{ id: string; name: string; phone: string; created_at: string }>
+  patients: Array<{
+    id: string
+    name: string
+    phone: string
+    created_at: string
+    no_show_count?: number
+    total_appointments?: number
+    last_visit_at?: string | null
+  }>
   services: Array<{ id: string; name: string; duration_minutes: number; price: number; professional_id?: string }>
-  professionals: Array<{ id: string; name: string; specialty?: string }>
+  professionals: Array<{
+    id: string
+    name: string
+    specialty?: string
+    working_hours?: Record<string, { start: string; end: string }>
+    break_times?: Array<{ start: string; end: string }>
+    appointment_buffer_minutes?: number
+  }>
+  serviceProfessionals: Record<string, string[]>
   appointments: Array<Record<string, unknown>>
   chatResponses: Record<string, string>
 }
@@ -21,11 +37,117 @@ export function createMockState(): MockState {
     patients: [],
     services: [],
     professionals: [],
+    serviceProfessionals: {},
     appointments: [],
     chatResponses: {
       'quanto custa corte feminino': 'O corte feminino custa R$ 120,00.',
       'quero agendar corte feminino amanhã': 'Temos horários às 10:00, 10:30 e 14:00. Qual prefere?',
+      'quero mechas sexta':
+        "Horários para 'Coloração Completa' em 2026-06-12 (Brasília / America/Sao_Paulo):\n- Ana Costa: 14:00, 14:30, 15:00\n\nQual horário você prefere? (horário de Brasília)",
     },
+  }
+}
+
+function buildMockChatResponse(message: string, state: MockState) {
+  const base = {
+    thread_id: 'thread-mock-e2e',
+    messages_count: 2,
+    handoff: false,
+    estimated_cost_brl: 0,
+  }
+
+  if (message.includes('quanto') && message.includes('corte')) {
+    return {
+      ...base,
+      response: state.chatResponses['quanto custa corte feminino'],
+      agent: 'receptionist',
+      tokens_used: 120,
+      tokens_in: 80,
+      tokens_out: 40,
+      estimated_cost_brl: 0.002,
+      scheduling_path: null,
+      triage_source: 'llm',
+    }
+  }
+
+  const hasPhone = /\d{10,13}/.test(message)
+  const hasName = /maria|joao|pedro|silva|nome/.test(message)
+  const hasTime = /\b([01]?\d|2[0-3]):[0-5]\d\b/.test(message)
+  const isScheduling =
+    message.includes('mecha') ||
+    message.includes('agendar') ||
+    message.includes('horário') ||
+    message.includes('horario') ||
+    hasTime ||
+    (hasPhone && hasName)
+
+  if (hasPhone && hasName && (hasTime || message.includes('telefone'))) {
+    return {
+      ...base,
+      response:
+        "SUCESSO! Agendamento confirmado para Maria Silva: 'Coloração Completa' em 12/06/2026 14:00.",
+      agent: 'scheduling',
+      tokens_used: 0,
+      tokens_in: 0,
+      tokens_out: 0,
+      scheduling_path: 'deterministic',
+      triage_source: 'conversation',
+    }
+  }
+
+  if (hasTime && isScheduling) {
+    return {
+      ...base,
+      response:
+        "Anotei Coloração Completa no dia 2026-06-12 às 14:00. Para confirmar, me informe seu nome completo e telefone com DDD.",
+      agent: 'scheduling',
+      tokens_used: 0,
+      tokens_in: 0,
+      tokens_out: 0,
+      scheduling_path: 'deterministic',
+      triage_source: 'conversation',
+    }
+  }
+
+  if (message.includes('mecha') || (message.includes('agendar') && message.includes('manicure'))) {
+    const response =
+      state.chatResponses['quero mechas sexta'] ||
+      state.chatResponses['quero agendar corte feminino amanhã']
+    return {
+      ...base,
+      response,
+      agent: 'scheduling',
+      tokens_used: 0,
+      tokens_in: 0,
+      tokens_out: 0,
+      scheduling_path: 'deterministic',
+      triage_source: message.includes('mecha') ? 'keyword' : 'keyword',
+    }
+  }
+
+  if (message.includes('agendar')) {
+    return {
+      ...base,
+      response: state.chatResponses['quero agendar corte feminino amanhã'],
+      agent: 'scheduling',
+      tokens_used: 0,
+      tokens_in: 0,
+      tokens_out: 0,
+      scheduling_path: 'deterministic',
+      triage_source: 'keyword',
+    }
+  }
+
+  return {
+    ...base,
+    response: 'Resposta mock do agente.',
+    agent: 'receptionist',
+    tokens_used: 10,
+    tokens_in: 5,
+    tokens_out: 5,
+    estimated_cost_brl: 0.01,
+    scheduling_path: null,
+    triage_source: 'llm',
   }
 }
 
@@ -84,6 +206,9 @@ export async function setupApiMocks(page: Page, role: UserRole = 'org_admin', st
         name: body.name,
         phone: body.phone,
         created_at: new Date().toISOString(),
+        no_show_count: 0,
+        total_appointments: 0,
+        last_visit_at: null,
       }
       state.patients.unshift(row)
       return route.fulfill({ json: { status: 'success', data: row } })
@@ -115,9 +240,80 @@ export async function setupApiMocks(page: Page, role: UserRole = 'org_admin', st
 
     if (path === '/organizations/professionals' && method === 'POST') {
       const body = route.request().postDataJSON() as { name: string; specialty?: string }
-      const row = { id: `prof-${state.professionals.length + 1}`, name: body.name, specialty: body.specialty }
+      const row = {
+        id: `prof-${state.professionals.length + 1}`,
+        name: body.name,
+        specialty: body.specialty,
+        appointment_buffer_minutes: 15,
+        working_hours: {
+          mon: { start: '08:00', end: '18:00' },
+          tue: { start: '08:00', end: '18:00' },
+          wed: { start: '08:00', end: '18:00' },
+          thu: { start: '08:00', end: '18:00' },
+          fri: { start: '08:00', end: '18:00' },
+        },
+        break_times: [],
+      }
       state.professionals.push(row)
       return route.fulfill({ json: { status: 'success', data: row } })
+    }
+
+    const profPutMatch = path.match(/^\/organizations\/professionals\/([^/]+)$/)
+    if (profPutMatch && method === 'PUT') {
+      const id = profPutMatch[1]
+      const body = route.request().postDataJSON() as Record<string, unknown>
+      const idx = state.professionals.findIndex((p) => p.id === id)
+      if (idx < 0) return route.fulfill({ status: 404, json: { detail: 'Not found' } })
+      state.professionals[idx] = { ...state.professionals[idx], ...body }
+      return route.fulfill({ json: { status: 'success', data: state.professionals[idx] } })
+    }
+
+    const svcProGetMatch = path.match(/^\/organizations\/services\/([^/]+)\/professionals$/)
+    if (svcProGetMatch && method === 'GET') {
+      const serviceId = svcProGetMatch[1]
+      const ids = state.serviceProfessionals[serviceId] || []
+      const data = ids.map((pid) => {
+        const pro = state.professionals.find((p) => p.id === pid)
+        return { professional_id: pid, professional: pro ? { id: pro.id, name: pro.name } : { id: pid, name: pid } }
+      })
+      return route.fulfill({ json: { status: 'success', data } })
+    }
+
+    if (svcProGetMatch && method === 'PUT') {
+      const serviceId = svcProGetMatch[1]
+      const body = route.request().postDataJSON() as { professional_ids: string[] }
+      state.serviceProfessionals[serviceId] = body.professional_ids || []
+      return route.fulfill({
+        json: { status: 'success', data: { service_id: serviceId, professional_ids: body.professional_ids } },
+      })
+    }
+
+    if (path === '/dashboard/stats' && method === 'GET') {
+      const totalNoShows = state.patients.reduce((sum, p) => sum + (p.no_show_count ?? 0), 0)
+      return route.fulfill({
+        json: {
+          status: 'success',
+          data: {
+            patients: state.patients.length,
+            totalNoShows,
+            appointmentsToday: state.appointments.length,
+            upcoming: state.appointments.slice(0, 5),
+          },
+        },
+      })
+    }
+
+    if (path === '/dashboard/today-board' && method === 'GET') {
+      return route.fulfill({
+        json: {
+          status: 'success',
+          data: {
+            date: new Date().toISOString().slice(0, 10),
+            counts: { total: 0, in_progress: 0, completed: 0, no_show: 0, upcoming: 0 },
+            board: [],
+          },
+        },
+      })
     }
 
     if (path.startsWith('/scheduling/calendar') && method === 'GET') {
@@ -140,25 +336,10 @@ export async function setupApiMocks(page: Page, role: UserRole = 'org_admin', st
     }
 
     if (path === '/chat/test' && method === 'POST') {
-      const body = route.request().postDataJSON() as { message: string }
+      const body = route.request().postDataJSON() as { message: string; thread_id?: string }
       const msg = body.message.toLowerCase()
-      let response = 'Resposta mock do agente.'
-      if (msg.includes('quanto') && msg.includes('corte')) {
-        response = state.chatResponses['quanto custa corte feminino']
-      } else if (msg.includes('agendar')) {
-        response = state.chatResponses['quero agendar corte feminino amanhã']
-      }
-      return route.fulfill({
-        json: {
-          response,
-          agent: 'recepcionista',
-          thread_id: 'thread-mock',
-          tokens_used: 10,
-          tokens_in: 5,
-          tokens_out: 5,
-          estimated_cost_brl: 0.01,
-        },
-      })
+      const chat = buildMockChatResponse(msg, state)
+      return route.fulfill({ json: chat })
     }
 
     return route.fulfill({ status: 404, json: { detail: `Unmocked ${method} ${path}` } })
