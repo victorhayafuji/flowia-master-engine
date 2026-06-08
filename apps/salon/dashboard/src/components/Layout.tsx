@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
-import { LayoutDashboard, Calendar, Settings, LogOut, Users, Database, MessageSquare } from "lucide-react"
+import { LayoutDashboard, Calendar, Settings, LogOut, Users, Database, MessageSquare, Activity } from "lucide-react"
 
 export function Layout() {
   const { signOut, user, organizationName, organizations, organizationId, setSelectedOrgId } = useAuth()
@@ -82,6 +82,11 @@ export function Layout() {
                 <Link to="/admin/chat-test">
                   <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/chat-test" ? "text-[var(--accent)]" : "text-slate-600 dark:text-slate-400 hover:text-[var(--accent)]"}`}>
                     <MessageSquare className="w-4 h-4" /> Chat Test (dev)
+                  </button>
+                </Link>
+                <Link to="/admin/observability">
+                  <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/observability" ? "text-[var(--accent)]" : "text-slate-600 dark:text-slate-400 hover:text-[var(--accent)]"}`}>
+                    <Activity className="w-4 h-4" /> Observabilidade (dev)
                   </button>
                 </Link>
               </>

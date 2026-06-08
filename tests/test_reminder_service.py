@@ -98,11 +98,53 @@ def test_process_pending_reminders_marks_sent(repository, mock_reminder_db, remi
         }
     ]
     mocker.patch.object(repository, "list_pending_due", return_value=pending)
+    mocker.patch.object(reminder_service, "_deliver_reminder")
     mark_sent = mocker.patch.object(repository, "mark_sent")
 
     processed = reminder_service.process_pending_reminders()
     assert processed == 1
     mark_sent.assert_called_once_with("r1")
+
+
+def test_process_pending_reminders_whatsapp_failure_marks_failed(
+    repository, mock_reminder_db, reminder_service, mocker
+):
+    pending = [
+        {
+            "id": "r1",
+            "organization_id": "org",
+            "appointment_id": "appt",
+            "patient_id": "pat",
+            "type": ReminderType.REMINDER_2H.value,
+            "scheduled_for": datetime.now(timezone.utc).isoformat(),
+        }
+    ]
+    mocker.patch.object(repository, "list_pending_due", return_value=pending)
+    mocker.patch.object(
+        reminder_service,
+        "_deliver_reminder",
+        side_effect=ValueError("WhatsApp outbound failed"),
+    )
+    mark_failed = mocker.patch.object(repository, "mark_failed")
+
+    processed = reminder_service.process_pending_reminders()
+    assert processed == 0
+    mark_failed.assert_called_once()
+    assert "WhatsApp outbound failed" in mark_failed.call_args[0][1]
+
+
+def test_build_reminder_message_24h():
+    from packages.scheduling.reminder_service import _build_reminder_message
+
+    msg = _build_reminder_message(
+        ReminderType.CONFIRMATION_24H.value,
+        service_name="Corte",
+        scheduled_label="10/06 às 14:00",
+        salon_name="Beauty Express",
+    )
+    assert "Beauty Express" in msg
+    assert "Corte" in msg
+    assert "10/06" in msg
 
 
 def test_process_pending_reminders_skips_past_slots(repository, mock_reminder_db, reminder_service):

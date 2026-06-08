@@ -109,11 +109,16 @@ LIMIT 10;
 
 ---
 
-## 6. Lembretes automáticos (Epic 1B — após outbound OK)
+## 6. Lembretes automáticos (Epic 1B)
 
-Hoje [`packages/scheduling/reminder_service.py`](../packages/scheduling/reminder_service.py) roda em **modo stub** (log + `mark_sent` sem envio real).
+[`packages/scheduling/reminder_service.py`](../packages/scheduling/reminder_service.py) envia lembretes via `WhatsAppService.send_text_message` em `process_pending_reminders`:
 
-**Próximo passo pós-WhatsApp:** integrar envio via `WhatsAppService.send_text_message` no `process_pending_reminders`, com tenant context por `organization_id`.
+- Resolve telefone do paciente + contexto do agendamento (serviço, horário, nome do salão)
+- Tenant context por `organization_id` antes do outbound
+- Falha de envio → `mark_failed`; sucesso → `mark_sent`
+- Tipos: `confirmation_24h`, `reminder_2h` (templates curtos em PT-BR)
+
+**Requisito:** credenciais WhatsApp da org (seção 3). Sem token válido, lembretes falham com erro registrado no banco.
 
 ---
 

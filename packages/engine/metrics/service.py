@@ -243,3 +243,68 @@ def get_tokens_daily(days: int = 7) -> list:
     except Exception as e:
         logger.error(f"Failed to fetch daily tokens: {e}", exc_info=True)
         return []
+
+
+def get_scheduling_observability(
+    organization_id: str | None = None,
+    days: int = 7,
+    channel: str | None = None,
+) -> dict:
+    """KPIs for hybrid scheduling: deterministic rate, channel split, token averages."""
+    if not db.wait_for_ready(timeout=3):
+        return {
+            "days": days,
+            "scheduling_turns": 0,
+            "deterministic_count": 0,
+            "llm_count": 0,
+            "deterministic_rate_pct": 0.0,
+            "by_channel": {},
+            "avg_tokens_scheduling": 0,
+        }
+
+    try:
+        client = db.client
+        since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        query = (
+            client.table("conversation_metrics")
+            .select("scheduling_path, channel, tokens_total, agent_type")
+            .gte("created_at", since)
+            .order("created_at", desc=True)
+            .limit(2000)
+        )
+        if organization_id and organization_id != "ALL":
+            query = query.eq("organization_id", organization_id)
+        if channel:
+            query = query.eq("channel", channel)
+
+        rows = query.execute().data or []
+
+        scheduling_rows = [
+            r for r in rows if r.get("scheduling_path") or r.get("agent_type") == "scheduling"
+        ]
+        deterministic = sum(1 for r in scheduling_rows if r.get("scheduling_path") == "deterministic")
+        llm = sum(1 for r in scheduling_rows if r.get("scheduling_path") == "llm")
+        total = len(scheduling_rows)
+
+        by_channel: dict[str, int] = {}
+        for row in rows:
+            ch = row.get("channel") or "unknown"
+            by_channel[ch] = by_channel.get(ch, 0) + 1
+
+        token_sum = sum(r.get("tokens_total") or 0 for r in scheduling_rows)
+        avg_tokens = round(token_sum / total, 1) if total else 0
+
+        return {
+            "days": days,
+            "organization_id": organization_id,
+            "channel_filter": channel,
+            "scheduling_turns": total,
+            "deterministic_count": deterministic,
+            "llm_count": llm,
+            "deterministic_rate_pct": round(deterministic / total * 100, 1) if total else 0.0,
+            "by_channel": by_channel,
+            "avg_tokens_scheduling": avg_tokens,
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch scheduling observability: {e}", exc_info=True)
+        raise e

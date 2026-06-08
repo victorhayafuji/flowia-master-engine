@@ -44,6 +44,7 @@ python scripts/list_db_migrations.py      # verificar migrations aplicadas
 python scripts/smoke_prod.py --api-url https://flowia-api.onrender.com --dashboard-url https://flowia-dashboard.onrender.com
 python scripts/smoke_hybrid_prod.py --api-url https://flowia-api.onrender.com  # PROD_SMOKE_PASSWORD no .env
 python scripts/smoke_agent.py --api-url https://flowia-api.onrender.com/api/v1
+python scripts/onboard_tenant.py --checklist   # runbook 1º cliente pagante
 start_flowia.bat   # Windows: backend + frontend
 ```
 

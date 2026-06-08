@@ -112,9 +112,9 @@ Paradigma detalhado em [`CLAUDE.md` §4.5](../CLAUDE.md). Ordem acordada:
 
 1. **Epic 4 — UI Catálogo** (concluído): horários/buffer/M:N no dashboard
 2. **Epic 1A — No-show audit** (concluído): `no_show_count` na UI Clientes + Overview; refresh reminders no reagendamento
-3. **Epic 1B — Lembretes WhatsApp:** bloqueado até credenciais Meta API (Cap. 5)
+3. **Epic 1B — Lembretes WhatsApp:** implementado em `reminder_service.py` via `WhatsAppService` — requer credenciais Meta por org (Cap. 5)
 4. **Epic 2 — Lei Salão Parceiro:** RBAC API + comissões — **adiado** até integração pagamentos/PDV
-5. **Epic 3 — IA booking** (concluído): multi-pro `check_availability`, upsert telefone, validação M:N no create; agenda via tools SQL (sem embedding)
+5. **Epic 3 — IA booking** (concluído): multi-pro `check_availability`, upsert telefone, validação M:N no create; **motor híbrido** (`routing.py` → `booking_executor` → `response_composer` → fallback LLM) + observability (`scheduling_path`, `triage_source`, `channel` em `conversation_metrics`)
 
 ---
-*Documento atualizado em: 07/06/2026*
+*Documento atualizado em: 08/06/2026 (pós-merge motor híbrido)*

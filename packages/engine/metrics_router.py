@@ -5,6 +5,7 @@ from packages.auth_core.system import get_system_health_metrics
 from packages.engine.metrics.service import (
     get_dashboard_kpis,
     get_recent_conversations,
+    get_scheduling_observability,
     get_tokens_daily,
 )
 
@@ -24,6 +25,20 @@ def get_conversations(limit: int = 20):
 @router.get("/metrics/tokens-daily", dependencies=[Depends(auth_required)])
 def get_daily_tokens(days: int = 7):
     return get_tokens_daily(days)
+
+
+@router.get("/metrics/scheduling-observability", dependencies=[Depends(auth_required)])
+def scheduling_observability(
+    org_id: str = Depends(validated_tenant_context),
+    days: int = 7,
+    channel: str | None = None,
+):
+    org_filter = org_id if org_id != "ALL" else None
+    return get_scheduling_observability(
+        organization_id=org_filter,
+        days=days,
+        channel=channel,
+    )
 
 
 @router.get("/metrics/system-health", dependencies=[Depends(auth_required)])

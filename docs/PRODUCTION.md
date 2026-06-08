@@ -139,7 +139,7 @@ Sintoma: login 401/403 ou CORS no browser.
 
 ## Supabase migrations (aplicadas)
 
-19 migrations sincronizadas via `scripts/apply_migrations.py` (Jun/2026), incluindo:
+**21 migrations** sincronizadas via `scripts/apply_migrations.py` (Jun/2026), incluindo:
 
 - `20260610040000_conversation_metrics_observability.sql`
 - `20260610050000_conversation_metrics_sender_text.sql`
@@ -177,3 +177,31 @@ list_db_migrations.py  → 21 migrations (incl. observability + sender_id TEXT)
 **Nota:** primeira requisição após cold start Render pode timeout (~30s); repetir se `/health` falhar.
 
 **Pendente manual:** checklist #7 (CRUD agenda) e #8 (Chat Test badges no browser DEV).
+
+---
+
+## WhatsApp Meta — checklist Semana 1
+
+Pré-requisito: conta Meta Business + número WhatsApp Business API. Runbook: [`WHATSAPP_SETUP.md`](WHATSAPP_SETUP.md).
+
+| # | Onde | Ação | Status |
+|---|------|------|--------|
+| W1 | Render `flowia-api` | `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | Pendente credenciais |
+| W2 | Supabase `organizations` | Beauty Express: `whatsapp_phone_id`, `whatsapp_access_token` | Pendente |
+| W3 | Meta Developer Console | Webhook URL `https://flowia-api.onrender.com/api/v1/webhook/whatsapp` | Pendente |
+| W4 | Celular real | 3 turnos agendamento → métricas `channel=whatsapp`, `scheduling_path=deterministic` | Pendente |
+| W5 | Este doc | Registrar resultado na tabela smoke abaixo | Pendente |
+
+Simulação local (sem Meta): `python scripts/simulate_whatsapp_webhook.py` + `SIM_WHATSAPP_ORG_ID` no `.env`.
+
+### Critério done WhatsApp E2E
+
+```sql
+SELECT thread_id, scheduling_path, triage_source, channel, created_at
+FROM conversation_metrics
+WHERE channel = 'whatsapp'
+ORDER BY created_at DESC
+LIMIT 5;
+```
+
+Esperado: pelo menos 1 linha com `scheduling_path=deterministic` após fluxo de agendamento no celular.

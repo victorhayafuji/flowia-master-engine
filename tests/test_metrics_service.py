@@ -30,3 +30,46 @@ def test_save_conversation_metric_includes_observability_fields(mocker):
     assert payload["triage_source"] == "keyword"
     assert payload["channel"] == "chat_test"
     assert payload["tools_called"] == []
+
+
+def test_get_scheduling_observability_counts_paths(mocker):
+    rows = [
+        {"scheduling_path": "deterministic", "channel": "chat_test", "tokens_total": 0, "agent_type": "scheduling"},
+        {"scheduling_path": "llm", "channel": "whatsapp", "tokens_total": 120, "agent_type": "scheduling"},
+        {"scheduling_path": None, "channel": "chat_test", "tokens_total": 50, "agent_type": "receptionist"},
+    ]
+
+    class FluentQuery:
+        def select(self, *_args, **_kwargs):
+            return self
+
+        def gte(self, *_args, **_kwargs):
+            return self
+
+        def order(self, *_args, **_kwargs):
+            return self
+
+        def limit(self, *_args, **_kwargs):
+            return self
+
+        def eq(self, *_args, **_kwargs):
+            return self
+
+        def execute(self):
+            return mocker.Mock(data=rows)
+
+    mock_client = mocker.Mock()
+    mock_client.table.return_value = FluentQuery()
+    mocker.patch("packages.engine.metrics.service.db.wait_for_ready", return_value=True)
+    mocker.patch("packages.engine.metrics.service.db.client", mock_client)
+
+    from packages.engine.metrics.service import get_scheduling_observability
+
+    result = get_scheduling_observability(days=7)
+
+    assert result["scheduling_turns"] == 2
+    assert result["deterministic_count"] == 1
+    assert result["llm_count"] == 1
+    assert result["deterministic_rate_pct"] == 50.0
+    assert result["by_channel"]["chat_test"] == 2
+    assert result["by_channel"]["whatsapp"] == 1
