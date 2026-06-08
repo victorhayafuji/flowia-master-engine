@@ -12,7 +12,7 @@ class _FixedToday(date):
 
 def test_resolve_extracted_fields_parses_weekday_date_hint(mocker):
     mocker.patch(
-        "packages.scheduling.booking_executor.list_catalog_services",
+        "packages.scheduling.guardrails.list_catalog_services",
         return_value=[
             {"id": "1", "name": "Coloração Completa", "duration_minutes": 120, "price": 200},
         ],
