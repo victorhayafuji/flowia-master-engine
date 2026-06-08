@@ -28,7 +28,7 @@ def export_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
 
     appointments = (
         db.client.table("appointments")
-        .select("id, scheduled_at, duration_minutes, status, notes, created_at")
+        .select("id, scheduled_at, duration_minutes, status, created_at")
         .eq("patient_id", pid)
         .execute()
         .data
