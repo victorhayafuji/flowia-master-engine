@@ -1008,7 +1008,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | 2 — Sales Analytics | **Futuro** | SG-Vendas, faturamento — **isolado do chatbot** |
 | 3 — Workspace Analítico | Concluído | Data Lake UI, SQL editor |
 | 4 — Agendamento Multi-Tenant | Concluído | RLS, lembretes, no-show |
-| 5 — Omnichannel WhatsApp | Bloqueado | Webhook prod pronto: `https://flowia-api.onrender.com/api/v1/whatsapp`; aguardando credenciais Meta API (doc setup futuro) |
+| 5 — Omnichannel WhatsApp | Bloqueado | Webhook prod: `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`; aguardando credenciais Meta — [`docs/WHATSAPP_SETUP.md`](docs/WHATSAPP_SETUP.md) |
 
 **Fase 2 salão:** pagamento, convênios — não implementar agora.
 

@@ -25,6 +25,7 @@
 | Ops / Deploy | [STAGING.md](STAGING.md) | Checklist staging |
 | Render | [RENDER.md](RENDER.md) | Deploy API + dashboard no Render |
 | Produção | [PRODUCTION.md](PRODUCTION.md) | URLs, smoke, rollback |
+| WhatsApp | [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) | Meta Cloud API por tenant |
 | Auditoria docs | [DOC_AUDIT_2026-06.md](DOC_AUDIT_2026-06.md) | Gaps documentação (Jun/2026) |
 | Segurança | [SECRET_ROTATION.md](SECRET_ROTATION.md) | Rotação de credentials |
 | Futuro | [ROADMAP.md](ROADMAP.md) | Capítulos 2+ (não MVP) |

@@ -10,7 +10,7 @@ Registro operacional do deploy Render (Jun/2026). Detalhes de deploy: [`RENDER.m
 |---------|-------------------------|----------------------------------------|
 | Supabase | Mesmo projeto do dev local (`vwhsivwoiiicydanypmo`) | Projeto Supabase **separado** + secrets novos |
 | Secrets | Copiados do `.env` local para Render | `generate_prod_secrets.py` — nunca reutilizar dev |
-| WhatsApp | Não configurado | Credenciais Meta por org |
+| WhatsApp | Não configurado | Credenciais Meta por org — ver [`WHATSAPP_SETUP.md`](WHATSAPP_SETUP.md) |
 
 ## URLs
 
@@ -19,36 +19,96 @@ Registro operacional do deploy Render (Jun/2026). Detalhes de deploy: [`RENDER.m
 | API Render | https://flowia-api.onrender.com | Web Service `flowia-api` (`srv-d8if4437uimc73ammat0`) |
 | Dashboard Render | https://flowia-dashboard.onrender.com | Static Site `flowia-dashboard` (`srv-d8if463tqb8s73b38rog`) |
 | Supabase | https://vwhsivwoiiicydanypmo.supabase.co | Piloto: mesmo projeto do dev local |
-| Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/whatsapp | Aguardando credenciais Meta |
+| Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/webhook/whatsapp | Aguardando credenciais Meta |
 
-## Smoke executado
+## Monitoramento via Render MCP (Cursor)
 
-Local (pré-deploy Render — validação dos scripts):
+Permite consultar deploys, logs e serviços sem abrir o Dashboard manualmente.
 
-```powershell
-venv\Scripts\python.exe scripts\smoke_prod.py --api-url http://127.0.0.1:8765
-# OK: health status ok, database connected
+1. Criar API key: [Render → Settings → API Keys](https://dashboard.render.com/u/*/settings#api-keys)
+2. Adicionar em `~/.cursor/mcp.json` ( **nunca commitar** a key):
+
+```json
+{
+  "mcpServers": {
+    "render": {
+      "url": "https://mcp.render.com/mcp",
+      "headers": {
+        "Authorization": "Bearer SUA_API_KEY"
+      }
+    }
+  }
+}
 ```
 
-Produção Render (2026-06-07):
+3. Reiniciar Cursor → selecionar **workspace** na primeira consulta MCP
+4. Validar: serviços `flowia-api` e `flowia-dashboard` listados; último deploy **live**
+
+Consultas úteis ao agente: status do deploy pós-merge, logs de startup (`Supabase conectado`), erros webhook.
+
+---
+
+## Smoke pós-deploy (comandos)
+
+Ordem recomendada após cada deploy em `main`:
 
 ```powershell
-venv\Scripts\python.exe scripts\smoke_prod.py --api-url https://flowia-api.onrender.com --dashboard-url https://flowia-dashboard.onrender.com
-venv\Scripts\python.exe scripts\smoke_agent.py --api-url https://flowia-api.onrender.com/api/v1
-# OK: health + dashboard HTTP 200; RAG via chat test
-# Login API: POST /api/v1/auth/login com username (não email) — 200 + cookie SameSite=None
+# 1. Health + dashboard estático
+venv\Scripts\python.exe scripts\smoke_prod.py `
+  --api-url https://flowia-api.onrender.com `
+  --dashboard-url https://flowia-dashboard.onrender.com
+
+# 2. Motor híbrido (login + chat/test + today-board)
+$env:PROD_SMOKE_PASSWORD = "sua-senha-piloto"
+venv\Scripts\python.exe scripts\smoke_hybrid_prod.py `
+  --api-url https://flowia-api.onrender.com `
+  --username dono@beauty-express.com
+
+# 3. Agente genérico (RAG + hybrid scheduling)
+venv\Scripts\python.exe scripts\smoke_agent.py `
+  --api-url https://flowia-api.onrender.com/api/v1 `
+  --password $env:PROD_SMOKE_PASSWORD
+
+# 4. Migrações aplicadas no Supabase remoto
+venv\Scripts\python.exe scripts\list_db_migrations.py
 ```
 
-Manual no browser: https://flowia-dashboard.onrender.com/login — `dono@beauty-express.com` / senha do seed local.
+**Senha:** usar env `PROD_SMOKE_PASSWORD` — nunca commitar. Piloto local: seed `dono@beauty-express.com`.
 
-| # | Teste | Data | OK? |
-|---|-------|------|-----|
-| 1 | `/health` database connected | 2026-06-07 | Sim |
-| 2 | Login org_admin (API) | 2026-06-07 | Sim (username + cookie) |
-| 3 | Dashboard HTTP 200 | 2026-06-07 | Sim |
-| 4 | SPA `/agenda` rewrite | 2026-06-07 | Sim (após PUT routes) |
-| 5 | CRUD cliente + agendamento | | Pendente browser |
-| 6 | super_admin sem rotas admin dev | | Pendente browser |
+### Validação Supabase (métricas híbrido)
+
+Após `smoke_hybrid_prod.py`, no SQL Editor:
+
+```sql
+SELECT thread_id, agent_type, scheduling_path, triage_source, channel, tokens_total, created_at
+FROM conversation_metrics
+ORDER BY created_at DESC
+LIMIT 5;
+```
+
+Esperado: `channel=chat_test`, `scheduling_path=deterministic`, `agent_type=scheduling`.
+
+---
+
+## Checklist smoke (pós-motor híbrido)
+
+| # | Teste | Automatizado | Data | OK? |
+|---|-------|--------------|------|-----|
+| 1 | `/health` database connected | `smoke_prod.py` | 2026-06-08 | Sim |
+| 2 | Login org_admin (API) | `smoke_hybrid_prod.py` | 2026-06-08 | Sim |
+| 3 | Dashboard HTTP 200 | `smoke_prod.py` | 2026-06-08 | Sim |
+| 4 | SPA `/agenda` rewrite | Manual browser | 2026-06-07 | Sim |
+| 5 | Hybrid chat `"Quero mechas sexta"` → `path=deterministic` | `smoke_hybrid_prod.py` | 2026-06-08 | Sim |
+| 6 | `GET /dashboard/today-board` | `smoke_hybrid_prod.py` | 2026-06-08 | Sim |
+| 7 | CRUD cliente + agendamento drag | Manual browser | | Pendente |
+| 8 | Chat Test badges (super_admin DEV) | Manual browser | | Pendente |
+| 9 | `conversation_metrics` observability | Supabase SQL | 2026-06-08 | Sim |
+
+### Última execução registrada
+
+Ver seção **Resultado smoke 2026-06-08** abaixo (preenchida após rodar scripts).
+
+---
 
 ## Rollback
 
@@ -79,9 +139,20 @@ Sintoma: login 401/403 ou CORS no browser.
 
 ## Supabase migrations (aplicadas)
 
-Todas as 17 migrations do repo foram sincronizadas via `scripts/apply_migrations.py` (Jun/2026).
+19 migrations sincronizadas via `scripts/apply_migrations.py` (Jun/2026), incluindo:
+
+- `20260610040000_conversation_metrics_observability.sql`
+- `20260610050000_conversation_metrics_sender_text.sql`
 
 Verificar: `python scripts/list_db_migrations.py`
+
+## Pré-requisito 1º cliente pagante (backlog)
+
+Documentado em [`TENANCY_AND_SCALE.md`](TENANCY_AND_SCALE.md):
+
+- Supabase projeto **separado** prod vs dev
+- Rotação secrets (`docs/SECRET_ROTATION.md`, `scripts/check_env.py`)
+- Cron TTL `webhook_message_dedup` (retenção 7 dias)
 
 ## Contatos / credenciais
 
@@ -89,3 +160,20 @@ Verificar: `python scripts/list_db_migrations.py`
 - super_admin plataforma: `admin@flowia.com` (setup local)
 
 Secrets: Render Environment (sync off) — nunca commitar.
+
+## Resultado smoke 2026-06-08
+
+Pós-deploy motor híbrido (`feat/hybrid-scheduling-agent` → `main`).
+
+```text
+smoke_prod.py          → OK (health connected, dashboard HTTP 200)
+smoke_hybrid_prod.py   → OK (login, auth/me org_admin, turno1 path=deterministic triage=conversation tokens=0, turno2 scheduling, today-board pros=2)
+smoke_agent.py         → OK (RAG + hybrid scheduling path=deterministic)
+list_db_migrations.py  → 21 migrations (incl. observability + sender_id TEXT)
+```
+
+**Thread smoke híbrido:** `29bcf654-21df-4070-8ac9-4ccd423ec936` — métricas gravadas com `scheduling_path=deterministic`.
+
+**Nota:** primeira requisição após cold start Render pode timeout (~30s); repetir se `/health` falhar.
+
+**Pendente manual:** checklist #7 (CRUD agenda) e #8 (Chat Test badges no browser DEV).

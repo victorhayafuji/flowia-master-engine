@@ -61,4 +61,4 @@ Se `.env` foi exposto: [`docs/SECRET_ROTATION.md`](SECRET_ROTATION.md).
 
 ## WhatsApp (pendente)
 
-Outbound/inbound real requer credenciais Meta Business API. Webhook prod: `https://flowia-api.onrender.com/api/v1/whatsapp`. Doc de setup: futuro (`WHATSAPP_SETUP.md`). Até lá, lembretes rodam em modo stub (log + status `sent` no banco).
+Outbound/inbound real requer credenciais Meta Business API. Webhook prod: `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`. Doc: [`WHATSAPP_SETUP.md`](WHATSAPP_SETUP.md). Até lá, lembretes rodam em modo stub (log + status `sent` no banco).

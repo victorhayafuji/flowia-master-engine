@@ -114,7 +114,7 @@ WhatsApp: org resolvida por `organizations.whatsapp_phone_id` — não confia no
 | 5 | WhatsApp | Preencher `organizations.whatsapp_phone_id`, `whatsapp_access_token`, etc. |
 | 6 | Smoke | Login dashboard + criar cliente/agendamento; chat quando Meta ativo |
 
-Webhook prod (único): `https://flowia-api.onrender.com/api/v1/whatsapp`
+Webhook prod (único): `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`
 
 Referência scripts: [`CLAUDE.md`](../CLAUDE.md) §35 · Deploy: [`RENDER.md`](RENDER.md)
 

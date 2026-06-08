@@ -165,4 +165,4 @@ Registro canônico: [`PRODUCTION.md`](PRODUCTION.md).
 | API | https://flowia-api.onrender.com |
 | Dashboard | https://flowia-dashboard.onrender.com |
 | Supabase (piloto) | https://vwhsivwoiiicydanypmo.supabase.co |
-| Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/whatsapp |
+| Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/webhook/whatsapp |
