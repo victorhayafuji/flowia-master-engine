@@ -11,6 +11,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 from packages.auth_core.config import settings
 from packages.auth_core.limiter import limiter
 from packages.auth_core.tenant import set_tenant_context
+from packages.compliance.consent import ConsentAction, evaluate_consent_gate
+from packages.compliance.logging_utils import mask_sender_id
 from packages.engine.checkpointer import master_engine
 from packages.engine.input_guard import (
     BLOCKED_USER_RESPONSE,
@@ -92,7 +94,7 @@ def process_message_in_background(payload: WhatsAppWebhookPayload):
 
                     verdict = assess_user_message(text_body)
                     if verdict == MessageVerdict.BLOCKED:
-                        logger.warning("Blocked message from %s (input guard)", sender_id)
+                        logger.warning("Blocked message from %s (input guard)", mask_sender_id(sender_id))
                         wa_service = WhatsAppService()
                         asyncio.run(wa_service.send_text_message(sender_id, BLOCKED_USER_RESPONSE))
                         continue
@@ -101,20 +103,42 @@ def process_message_in_background(payload: WhatsAppWebhookPayload):
 
                     # LGPD Compliance: Mask message content in logs
                     masked_body = (text_body[:15] + "...") if len(text_body) > 15 else text_body
-                    logger.info(f"Processing message from {sender_id}: {masked_body}")
-
-                    initial_state = {
-                        "messages": [HumanMessage(content=formatted_body)],
-                        "sender_id": sender_id,
-                        "handoff_requested": False,
-                    }
-                    if verdict == MessageVerdict.SUSPICIOUS:
-                        initial_state["audit_flag"] = "suspicious"
+                    logger.info(
+                        "Processing message from %s: %s",
+                        mask_sender_id(sender_id),
+                        masked_body,
+                    )
 
                     org_id = resolve_org_id_from_webhook_value(value)
                     if not org_id:
                         logger.error("Skipping message — organization unresolved for webhook")
                         continue
+
+                    with set_tenant_context(org_id):
+                        consent_action, notice_msg, lgpd_shown = evaluate_consent_gate(
+                            org_id, sender_id, "whatsapp"
+                        )
+
+                    if consent_action == ConsentAction.SEND_NOTICE and notice_msg:
+                        try:
+                            wa_service = WhatsAppService()
+                            asyncio.run(wa_service.send_text_message(sender_id, notice_msg))
+                        except ValueError as wa_err:
+                            logger.warning(
+                                "LGPD notice skipped for %s: %s",
+                                mask_sender_id(sender_id),
+                                wa_err,
+                            )
+                        continue
+
+                    initial_state = {
+                        "messages": [HumanMessage(content=formatted_body)],
+                        "sender_id": sender_id,
+                        "handoff_requested": False,
+                        "lgpd_shown": lgpd_shown,
+                    }
+                    if verdict == MessageVerdict.SUSPICIOUS:
+                        initial_state["audit_flag"] = "suspicious"
 
                     token_tracker = TurnTokenTracker()
                     config = {
@@ -137,17 +161,23 @@ def process_message_in_background(payload: WhatsAppWebhookPayload):
                                     can_resume, resume_err = can_resume_ai(sender_id)
                                     if not can_resume:
                                         logger.info(
-                                            "Resume rejected for %s: %s", sender_id, resume_err
+                                            "Resume rejected for %s: %s",
+                                            mask_sender_id(sender_id),
+                                            resume_err,
                                         )
                                         continue
                                     logger.info(
-                                        "HUMAN MODE DISABLED for %s. Resuming AI control.", sender_id
+                                        "HUMAN MODE DISABLED for %s. Resuming AI control.",
+                                        mask_sender_id(sender_id),
                                     )
                                     master_engine.update_state(config, {"handoff_requested": False})
                                     clear_handoff_session(sender_id)
                                     continue
                                 else:
-                                    logger.info(f"🤫 SILENT MODE: Human is talking to {sender_id}. Ignoring message.")
+                                    logger.info(
+                                        "SILENT MODE: Human is talking to %s. Ignoring message.",
+                                        mask_sender_id(sender_id),
+                                    )
                                     continue
                     except Exception as e:
                         logger.warning(f"Failed to check graph state for handoff: {e}")
@@ -169,12 +199,14 @@ def process_message_in_background(payload: WhatsAppWebhookPayload):
 
                             if final_state.get("audit_flag") == "blocked":
                                 logger.warning(
-                                    f"AUDIT BLOCKED response for {sender_id}. Fallback activated."
+                                    "AUDIT BLOCKED response for %s. Fallback activated.",
+                                    mask_sender_id(sender_id),
                                 )
                                 final_ai_msg = BLOCKED_USER_RESPONSE
                             elif final_state.get("audit_flag") is False:
                                 logger.warning(
-                                    f"AUDIT BLOCKED response for {sender_id}. Fallback activated."
+                                    "AUDIT BLOCKED response for %s. Fallback activated.",
+                                    mask_sender_id(sender_id),
                                 )
                                 final_ai_msg = (
                                     "Sinto muito, ocorreu um erro técnico ao processar sua resposta. "
@@ -213,22 +245,31 @@ def process_message_in_background(payload: WhatsAppWebhookPayload):
                                     if not sent:
                                         logger.warning(
                                             "WhatsApp outbound failed for %s (check org credentials)",
-                                            sender_id,
+                                            mask_sender_id(sender_id),
                                         )
                                 except ValueError as wa_err:
                                     logger.warning(
                                         "WhatsApp outbound skipped for %s: %s",
-                                        sender_id,
+                                        mask_sender_id(sender_id),
                                         wa_err,
                                     )
                     except Exception as llm_error:
-                        logger.critical(f"🚨 ENGINE FAILURE for {sender_id}: {llm_error}", exc_info=True)
+                        logger.critical(
+                            "ENGINE FAILURE for %s: %s",
+                            mask_sender_id(sender_id),
+                            llm_error,
+                            exc_info=True,
+                        )
                         final_ai_msg = FALLBACK_MESSAGE
 
                     masked_response = (
                         (final_ai_msg[:15] + "...") if len(final_ai_msg) > 15 else final_ai_msg
                     )
-                    logger.info(f"AI Response to {sender_id}: {masked_response}")
+                    logger.info(
+                        "AI Response to %s: %s",
+                        mask_sender_id(sender_id),
+                        masked_response,
+                    )
 
     except Exception as e:
         logger.error(f"Failed to process background message: {e}", exc_info=True)

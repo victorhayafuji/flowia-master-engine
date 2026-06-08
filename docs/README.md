@@ -30,6 +30,10 @@
 | Pitch sócio | [pitch/FLOWIA_SOCIO_OUTLINE.md](pitch/FLOWIA_SOCIO_OUTLINE.md) | Deck apresentação Gaussix/FlowIA |
 | Auditoria docs | [DOC_AUDIT_2026-06.md](DOC_AUDIT_2026-06.md) | Gaps documentação (Jun/2026) |
 | Segurança | [SECRET_ROTATION.md](SECRET_ROTATION.md) | Rotação de credentials |
+| **LGPD / Legal** | [legal/PRIVACIDADE.md](legal/PRIVACIDADE.md) | Política de privacidade (DRAFT) |
+| LGPD | [legal/ROPA.md](legal/ROPA.md) | Registro operações de tratamento |
+| LGPD | [legal/DSR_RUNBOOK.md](legal/DSR_RUNBOOK.md) | Pedidos titular (export/erase) |
+| LGPD | [legal/LGPD_FEATURE_CHECKLIST.md](legal/LGPD_FEATURE_CHECKLIST.md) | Checklist antes de merge |
 | Futuro | [ROADMAP.md](ROADMAP.md) | Capítulos 2+ (não MVP) |
 | Histórico | [archive/PLAN.md](archive/PLAN.md) | Plano de implementação executado |
 

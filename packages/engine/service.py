@@ -6,7 +6,8 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage
 
 from packages.auth_core.config import settings
-from packages.auth_core.tenant import get_current_org_id
+from packages.auth_core.tenant import get_current_org_id, set_tenant_context
+from packages.compliance.consent import ConsentAction, evaluate_consent_gate
 from packages.engine.checkpointer import master_engine
 from packages.engine.input_guard import MessageVerdict, assess_user_message, format_user_message_for_agent
 from packages.engine.metrics.service import calculate_cost, save_conversation_metric
@@ -47,6 +48,27 @@ async def dispatch_chat_test(
         if not effective_org or effective_org == "ALL":
             raise ValueError("org_id é obrigatório para chat test.")
         config["configurable"]["org_id"] = effective_org
+
+        with set_tenant_context(effective_org):
+            consent_action, notice_msg, lgpd_shown = evaluate_consent_gate(
+                effective_org, thread_id, "chat_test"
+            )
+
+        if consent_action == ConsentAction.SEND_NOTICE and notice_msg:
+            return {
+                "response": notice_msg,
+                "agent": "compliance",
+                "tokens_used": 0,
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "estimated_cost_brl": 0.0,
+                "thread_id": thread_id,
+                "handoff": False,
+                "messages_count": 0,
+                "lgpd_notice": True,
+            }
+
+        input_data["lgpd_shown"] = lgpd_shown
 
         logger.info(f"🚀 Dispatching to Master Engine (Async) | Thread: {thread_id}")
 
