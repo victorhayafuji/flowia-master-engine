@@ -40,7 +40,7 @@
 | `apps/salon/README.md` | Gap menor | **OK** |
 | `apps/salon/dashboard/README.md` | Legado | **OK** |
 | `apps/clinic/README.md` | OK | OK |
-| `knowledge/flowia_knowledge.md` | Legado | **OK** (banner marketing) |
+| `docs/marketing/flowia_knowledge.md` | Legado | **OK** (banner marketing) |
 | `.cursor/rules/*.mdc` (5) | OK | OK |
 | `.cursor/skills/*` (8) | Gap menor | **OK** |
 
@@ -76,7 +76,7 @@
 
 - Removidas referências `src/*` dos READMEs de `packages/`
 - Dashboard README substituído (Vite boilerplate → FlowIA)
-- `knowledge/flowia_knowledge.md` marcado como marketing
+- `docs/marketing/flowia_knowledge.md` marcado como marketing
 
 ## Pendências operacionais (não são gaps de doc)
 

@@ -5,7 +5,7 @@ Modos (do mais rápido ao mais fiel):
   python scripts/test_scheduling_conversation.py              # executor mockado (~1s)
   python scripts/test_scheduling_conversation.py --intent     # só parsing (~0.1s)
   python scripts/test_scheduling_conversation.py --live       # Supabase real (slots)
-  python scripts/test_scheduling_conversation.py --engine     # LangGraph + Gemini
+  python scripts/test_scheduling_conversation.py --engine     # LangGraph + OpenAI
   python scripts/test_scheduling_conversation.py --http       # API em localhost:8000
 
   python scripts/test_scheduling_conversation.py --list       # listar cenários
@@ -392,7 +392,7 @@ def build_parser() -> argparse.ArgumentParser:
     g = p.add_mutually_exclusive_group()
     g.add_argument("--intent", action="store_true", help="Só collect_booking_intent (~0.1s)")
     g.add_argument("--live", action="store_true", help="Executor + Supabase real (slots)")
-    g.add_argument("--engine", action="store_true", help="LangGraph + Gemini (lento)")
+    g.add_argument("--engine", action="store_true", help="LangGraph + OpenAI (lento)")
     g.add_argument("--http", action="store_true", help="POST /chat/test (API rodando)")
     p.add_argument("-s", "--scenario", metavar="ID", help="Rodar um cenário (ex: pedro_11h)")
     p.add_argument("--list", action="store_true", help="Listar cenários")

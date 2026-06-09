@@ -40,6 +40,7 @@ except ImportError:
 
 DEFAULT_BASE = os.getenv("FLOWIA_API_BASE", "http://127.0.0.1:8000/api/v1")
 DEFAULT_PHONE_NUMBER_ID = os.getenv("SIM_WHATSAPP_PHONE_ID", "123456789")
+DEFAULT_ORG_ID = os.getenv("SIM_WHATSAPP_ORG_ID", "22222222-2222-2222-2222-222222222222")
 DEFAULT_SENDER = os.getenv("SIM_WHATSAPP_SENDER", "5511998765432")
 DEFAULT_TURNS = (
     "Quero mechas sexta",
@@ -97,7 +98,12 @@ def main() -> int:
         default=DEFAULT_PHONE_NUMBER_ID,
         help="Must match organizations.whatsapp_phone_id",
     )
-    parser.add_argument("--sender", default=DEFAULT_SENDER, help="Simulated customer phone (thread_id)")
+    parser.add_argument("--sender", default=DEFAULT_SENDER, help="Simulated customer phone (sender_id)")
+    parser.add_argument(
+        "--org-id",
+        default=DEFAULT_ORG_ID,
+        help="Organization UUID (thread_id esperado = {org_id}:{sender})",
+    )
     parser.add_argument(
         "--wait",
         type=float,
@@ -117,6 +123,7 @@ def main() -> int:
 
     print(f"POST {url}")
     print(f"phone_number_id={args.phone_number_id} sender={args.sender}")
+    print(f"thread_id esperado em metrics/checkpoints: {args.org_id}:{args.sender}")
     if not app_secret:
         print("WHATSAPP_APP_SECRET vazio — request sem assinatura (ok se .env local assim)\n")
     else:
@@ -159,6 +166,10 @@ def main() -> int:
     print(
         "\nProcessamento roda em background — veja logs do uvicorn e "
         "conversation_metrics (channel=whatsapp, scheduling_path, triage_source)."
+    )
+    print(
+        f"SQL: SELECT thread_id, scheduling_path FROM conversation_metrics "
+        f"WHERE channel='whatsapp' AND thread_id LIKE '{args.org_id}:%' ORDER BY created_at DESC LIMIT 5;"
     )
     print("Resposta outbound só aparece se whatsapp_access_token estiver configurado na org.")
 

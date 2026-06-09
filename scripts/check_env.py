@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
 REQUIRED = [
-    "GOOGLE_API_KEY",
+    "OPENAI_API_KEY",
     "SUPABASE_URL",
     "SUPABASE_KEY",
     "SUPABASE_SERVICE_ROLE",

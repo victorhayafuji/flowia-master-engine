@@ -1,4 +1,5 @@
-import { Calendar, CheckCircle2, Clock, UserX, Users } from "lucide-react"
+import { Calendar, CheckCircle2, Clock, MessageCircle, UserX, Users } from "lucide-react"
+import { Link } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { GlassCard, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { useOverviewStats } from "./hooks/useOverviewStats"
@@ -21,6 +22,7 @@ const STATUS_LABELS: Record<string, string> = {
 export function Overview() {
   const { user, orgHeader } = useAuth()
   const stats = useOverviewStats(user, orgHeader)
+  const showAgentSummary = user?.role !== "professional"
 
   return (
     <div className="page-shell">
@@ -37,6 +39,41 @@ export function Overview() {
           <StatCard icon={<UserX className="w-4 h-4 text-rose-500" />} label="Faltas Hoje" value={stats.counts.no_show} />
           <StatCard icon={<UserX className="w-4 h-4 text-rose-600" />} label="Faltas no Cadastro" value={stats.totalNoShows} />
         </div>
+
+        {showAgentSummary && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
+                Assistente IA
+              </h2>
+              {stats.agentSummary.handoffsPending > 0 && (
+                <Link
+                  to="/patients?handoff=1"
+                  className="text-xs font-bold uppercase text-[var(--accent)] underline underline-offset-2"
+                >
+                  Ver atendimentos humanos pendentes
+                </Link>
+              )}
+            </div>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+              <StatCard
+                icon={<Users className="w-4 h-4 text-amber-600" />}
+                label="Precisa de humano"
+                value={stats.agentSummary.handoffsPending}
+              />
+              <StatCard
+                icon={<MessageCircle className="w-4 h-4 text-emerald-600" />}
+                label="Agenda via WhatsApp hoje"
+                value={stats.agentSummary.appointmentsWhatsappToday}
+              />
+              <StatCard
+                icon={<MessageCircle className="w-4 h-4 text-slate-500" />}
+                label="Conversas na semana"
+                value={stats.agentSummary.conversationsThisWeek}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2 flex-1 min-h-0">

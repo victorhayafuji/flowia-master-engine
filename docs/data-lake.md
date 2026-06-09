@@ -1,6 +1,6 @@
 # Fase 4 - Data Lake & Auto-Vetorização (IMPLEMENTADO)
 
-Pipeline Medallion Bronze → Silver → Gold com Supabase Storage, Gemini Vision OCR e pgvector.
+Pipeline Medallion Bronze → Silver → Gold com Supabase Storage, OpenAI Vision OCR e pgvector.
 
 ## Como usar
 
@@ -31,7 +31,7 @@ Org de referência: `apps/salon/seeds/vertical_orgs.py`
 Aprovado o uso de uma **Arquitetura Medallion em Micro Escala** (estilo "Blacktail da Ada Wong" - precisa, letal e sem o peso do Databricks). O fluxo utilizará o ecossistema atual (Supabase + Python) dividido em camadas lógicas:
 
 ### 1. Mock Data Generation (Fase Inicial)
-Antes de construir o pipeline, criaremos um script em Python (`scratch/generate_mocks.py`) capaz de gerar materiais sintéticos realistas (imagens e PDFs de teste). Isso nos permitirá testar as camadas abaixo sem depender de dados reais.
+Mocks sintéticos para dev: `apps/salon/seeds/datalake_mocks/generate.py` (texto; usado por `scripts/seed_datalake.py`).
 
 ### 2. Pipeline de Dados (Micro-Databricks)
 
@@ -47,7 +47,7 @@ graph TD
     end
 
     subgraph Silver Layer ["🥈 Silver (Cleaned)"]
-        D -->|Background Task picks PENDING| E[Gemini Vision OCR]
+        D -->|Background Task picks PENDING| E[OpenAI Vision OCR]
         E -->|Extracts & Cleans Text| F[table: docs_silver<br/>Status: SILVER_READY]
     end
 
@@ -69,12 +69,12 @@ graph TD
 
 #### 🥈 Camada Silver (Processamento & Limpeza)
 - **O que faz:** Extrai o texto e limpa ruídos.
-- **Como:** Uma rotina no backend pega os registros `PENDING` da camada Bronze e envia para o **Gemini Vision (OCR)**. O texto bruto retornado é limpo (remoção de caracteres inválidos, formatação Markdown consistente).
+- **Como:** Uma rotina no backend pega os registros `PENDING` da camada Bronze e envia para o **OpenAI Vision (OCR)** (`gpt-4o`). O texto bruto retornado é limpo (remoção de caracteres inválidos, formatação Markdown consistente).
 - **DB:** O texto limpo é salvo na tabela `docs_silver` (ou na mesma tabela com status `SILVER_READY`).
 
 #### 🥇 Camada Gold (Vetorização & RAG-Ready)
 - **O que faz:** Prepara o dado para consumo pela IA.
-- **Como:** O texto da camada Silver é "chunkado" (dividido em parágrafos lógicos). Cada chunk é transformado em vetor (Embedding).
+- **Como:** O texto da camada Silver é "chunkado" (dividido em parágrafos lógicos). Cada chunk é transformado em vetor via **`text-embedding-3-small`** (`EMBEDDING_MODEL_NAME`).
 - **DB:** Salvo na tabela `docs_gold_vectors` utilizando o **pgvector** no Supabase. O Chatbot consumirá exclusivamente esta tabela.
 
 ### 3. Orquestração (Controle de Estado)

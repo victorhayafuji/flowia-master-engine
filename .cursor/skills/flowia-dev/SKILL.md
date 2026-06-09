@@ -29,7 +29,10 @@ ruff check packages apps/salon tests main.py
 Env vars mínimas (espelha `.github/workflows/ci.yml`):
 
 ```
-GOOGLE_API_KEY=test-key
+OPENAI_API_KEY=test-key
+MODEL_NAME=gpt-4o-mini
+VISION_MODEL_NAME=gpt-4o
+EMBEDDING_MODEL_NAME=text-embedding-3-small
 SUPABASE_URL=https://example.supabase.co
 SUPABASE_KEY=test-anon-key
 SUPABASE_SERVICE_ROLE=test-service-role

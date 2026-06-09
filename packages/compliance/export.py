@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from packages.auth_core.conversation_thread import patient_thread_id_candidates
 from packages.auth_core.database import db
 
 logger = logging.getLogger(__name__)
@@ -35,11 +36,8 @@ def export_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
         or []
     )
 
-    thread_ids: list[str] = []
-    if patient.get("legacy_sender_id"):
-        thread_ids.append(patient["legacy_sender_id"])
-    if patient.get("phone"):
-        thread_ids.append(patient["phone"])
+    effective_org = org_id if org_id and org_id != "ALL" else str(patient.get("organization_id") or "")
+    thread_ids = patient_thread_id_candidates(effective_org, patient) if effective_org else []
 
     metrics: list[dict] = []
     for tid in thread_ids:

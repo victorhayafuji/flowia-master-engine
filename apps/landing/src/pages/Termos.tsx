@@ -25,7 +25,7 @@ export default function TermosPage() {
             sem finalidade legítima.
           </p>
           <p>
-            O assistente usa IA (Google Gemini). Confirmações de agendamento dependem de
+            O assistente usa IA (OpenAI). Confirmações de agendamento dependem de
             ferramentas validadas; respostas podem conter imprecisões.
           </p>
           <p>

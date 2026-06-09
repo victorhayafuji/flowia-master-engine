@@ -76,7 +76,7 @@ Prod: flowia-dashboard.onrender.com
 
 ## 6. Arquitetura
 
-- **Backend:** FastAPI + LangGraph + Gemini
+- **Backend:** FastAPI + LangGraph + OpenAI
 - **Frontend:** React (Neo-Swiss Brutalism)
 - **Dados:** Supabase Postgres + RLS + pgvector (RAG)
 - **Deploy:** Render (API + Static Sites)

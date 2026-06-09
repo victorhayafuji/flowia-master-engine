@@ -71,8 +71,9 @@ Cadência fixa (~1–2h) enquanto o produto amadurece sem WhatsApp Meta. Detalhe
 Requer `super_admin` + `npm run dev` (ou build preview):
 
 1. `/admin/chat-test` → enviar `"Quero mechas sexta"` → badges `path=deterministic`, `triage=keyword`
-2. `/admin/observability` → KPI determinístico + tabela conversas carrega
-3. Marcar #8 OK na tabela abaixo com data
+2. `/admin/observability` → KPI determinístico + tabela conversas carrega (super_admin; **prod e dev**)
+3. Overview como `org_admin` → cards *Assistente IA* (handoffs, WhatsApp hoje, conversas semana) — ver [`AGENT_OBSERVABILITY.md`](AGENT_OBSERVABILITY.md)
+4. Marcar #8 OK na tabela abaixo com data
 
 ---
 
@@ -257,10 +258,39 @@ L3/L4 export/erase      → OK format=flowia-dsar-v1 / status=erased (pós 717dd
 
 Pré-requisito: conta Meta Business + número WhatsApp Business API. Runbook: [`WHATSAPP_SETUP.md`](WHATSAPP_SETUP.md).
 
+**Infra código (Jun/2026):** `thread_id` org-scoped, UNIQUE `whatsapp_phone_id`, fila `whatsapp_inbound_jobs` + worker Render (`WHATSAPP_QUEUE_MODE`). Ativar worker separado após W3.
+
+### Migrations pendentes (aplicar antes do go-live WhatsApp)
+
+Arquivos locais aplicados no Supabase remoto **`vwhsivwoiiicydanypmo`** via MCP plugin (Jun/2026):
+
+| Migration | Conteúdo | Status remoto |
+|-----------|----------|---------------|
+| `whatsapp_phone_id_unique` | UNIQUE parcial em `organizations.whatsapp_phone_id` | **Aplicada** (`20260609200047`) |
+| `whatsapp_inbound_jobs` | Fila FIFO + RLS interno | **Aplicada** (`20260609200106`) |
+
+Validação: tabela `whatsapp_inbound_jobs` visível; índice `idx_organizations_whatsapp_phone_id_unique` ativo.
+
+**Ordem (referência local):**
+
+1. Pré-check: `py scripts/check_whatsapp_phone_duplicates.py` (ou SQL abaixo no Editor)
+2. Aplicar: Supabase Dashboard → SQL Editor → colar conteúdo dos dois arquivos **ou** `py scripts/apply_pending_whatsapp_migrations.py` (requer `SUPABASE_DB_URL` acessível)
+3. Validar: `SELECT to_regclass('public.whatsapp_inbound_jobs');` → não nulo
+
+```sql
+-- Pré-check duplicatas (deve retornar 0 linhas)
+SELECT whatsapp_phone_id, COUNT(*)
+FROM organizations
+WHERE whatsapp_phone_id IS NOT NULL AND whatsapp_phone_id <> ''
+GROUP BY whatsapp_phone_id HAVING COUNT(*) > 1;
+```
+
+Pré-check remoto (Jun/2026): **0 duplicatas** no projeto piloto.
+
 | # | Onde | Ação | Status |
 |---|------|------|--------|
 | W1 | Render `flowia-api` | `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | Pendente credenciais |
-| W2 | Supabase `organizations` | Beauty Express: `whatsapp_phone_id`, `whatsapp_access_token` | Pendente |
+| W2 | Supabase ou API | Beauty Express: `PATCH /api/v1/organizations/{id}/whatsapp` ou SQL — `whatsapp_phone_id`, `whatsapp_access_token` | Pendente |
 | W3 | Meta Developer Console | Webhook URL `https://flowia-api.onrender.com/api/v1/webhook/whatsapp` | Pendente |
 | W4 | Celular real | 3 turnos agendamento → métricas `channel=whatsapp`, `scheduling_path=deterministic` | Pendente |
 | W5 | Este doc | Registrar resultado na tabela smoke abaixo | Pendente |
@@ -277,7 +307,29 @@ ORDER BY created_at DESC
 LIMIT 5;
 ```
 
-Esperado: pelo menos 1 linha com `scheduling_path=deterministic` após fluxo de agendamento no celular.
+Esperado: pelo menos 1 linha com `scheduling_path=deterministic` após fluxo de agendamento no celular. `thread_id` esperado: `{organization_id}:{telefone}` (ex.: `22222222-...:5511999999999`).
+
+---
+
+## Observabilidade — parsing de datas (`date_parse`)
+
+O parser temporal em `packages/scheduling/date_parsing.py` emite logs estruturados (nível INFO, sem PII):
+
+```
+date_parse | outcome=resolved reason=- kind=weekday
+date_parse | outcome=clarify reason=week_without_weekday kind=clarification
+date_parse | outcome=none reason=- kind=-
+```
+
+| `outcome` | Significado |
+|-----------|-------------|
+| `resolved` | ISO futuro (booking) ou referência válida |
+| `clarify` | Ambiguidade — booking fail-closed; bot deve perguntar dia |
+| `none` | Sem data detectada |
+
+**Alerta operacional:** após deploy, buscar nos logs da API Render `date_parse | outcome=clarify`. Taxa alta em frases como `semana que vem` ou `sexta ou sábado` indica UX de clarificação funcionando; taxa inesperada em mensagens já resolvidas sugere regressão no parser.
+
+Razões de clarificação: `week_without_weekday`, `multiple_weekdays`, `past_this_week`, `week_hint_only`, `day_without_month`.
 
 ---
 

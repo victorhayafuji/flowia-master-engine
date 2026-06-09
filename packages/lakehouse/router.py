@@ -1,12 +1,11 @@
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
-from google import genai
 from pydantic import BaseModel
 
 from packages.auth_core.auth_service import get_user_by_username
-from packages.auth_core.config import settings
 from packages.auth_core.dependencies import admin_required, auth_required, validated_tenant_context
+from packages.auth_core.openai_client import generate_text_async
 from packages.auth_core.tenant import set_tenant_context
 from packages.lakehouse.governance import (
     ACTIVE_DICTIONARY,
@@ -209,13 +208,7 @@ async def generate_sql(request: Request, payload: GenerateSQLRequest):
             f"Pedido do usuário: {payload.prompt}"
         )
 
-        client = genai.Client(api_key=settings.GOOGLE_API_KEY)
-        response = await client.aio.models.generate_content(
-            model=settings.MODEL_NAME,
-            contents=prompt,
-        )
-
-        raw_sql = response.text or ""
+        raw_sql = await generate_text_async(prompt)
         cleaned_sql = raw_sql.strip()
 
         if cleaned_sql.startswith("```"):

@@ -8,14 +8,12 @@ from packages.auth_core.finance import get_usd_to_brl
 
 logger = logging.getLogger(__name__)
 
-# Pricing Table (USD per 1M tokens) - Reference: LangSmith/Provider Docs
+# Pricing Table (USD per 1M tokens) — OpenAI reference; see platform.openai.com/docs/pricing
 PRICING = {
-    "gemini-1.5-flash": {"in": 0.075, "out": 0.30},
-    "gemini-1.5-pro": {"in": 3.50, "out": 10.50},
-    "gemini-2.5-flash": {"in": 0.30, "out": 2.50},
-    "gpt-4o": {"in": 5.00, "out": 15.00},
     "gpt-4o-mini": {"in": 0.15, "out": 0.60},
-    "default": {"in": 0.10, "out": 0.40}
+    "gpt-4o": {"in": 5.00, "out": 15.00},
+    "text-embedding-3-small": {"in": 0.02, "out": 0.0},
+    "default": {"in": 0.15, "out": 0.60},
 }
 
 
@@ -185,8 +183,12 @@ def get_dashboard_kpis(organization_id: str | None = None) -> dict:
         raise e
 
 
-def get_recent_conversations(limit: int = 20, organization_id: str | None = None) -> list:
-    """Returns the most recent unique conversations for the dashboard table."""
+def get_recent_conversations(
+    limit: int = 20,
+    organization_id: str | None = None,
+    days: int = 7,
+) -> list:
+    """Returns recent unique conversations with per-turn and per-thread token totals."""
     if not db.wait_for_ready(timeout=3):
         return []
     try:
@@ -210,7 +212,37 @@ def get_recent_conversations(limit: int = 20, organization_id: str | None = None
             if len(thread_map) >= limit:
                 break
 
-        return list(thread_map.values())
+        threads = list(thread_map.values())
+        if not threads:
+            return []
+
+        thread_ids = [t["thread_id"] for t in threads if t.get("thread_id")]
+        since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        totals_query = (
+            client.table("conversation_metrics")
+            .select("thread_id, tokens_total")
+            .gte("created_at", since)
+            .in_("thread_id", thread_ids)
+            .limit(5000)
+        )
+        if organization_id and organization_id != "ALL":
+            totals_query = totals_query.eq("organization_id", organization_id)
+        totals_rows = totals_query.execute().data or []
+
+        thread_token_sums: dict[str, int] = {}
+        for row in totals_rows:
+            tid = row.get("thread_id")
+            if not tid:
+                continue
+            thread_token_sums[tid] = thread_token_sums.get(tid, 0) + (row.get("tokens_total") or 0)
+
+        for thread in threads:
+            tid = thread.get("thread_id")
+            turn_tokens = thread.get("tokens_total") or 0
+            thread["tokens_turn"] = turn_tokens
+            thread["tokens_thread_7d"] = thread_token_sums.get(tid, turn_tokens)
+
+        return threads
     except Exception as e:
         logger.error(f"Failed to fetch conversations: {e}", exc_info=True)
         return []

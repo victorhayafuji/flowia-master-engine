@@ -6,10 +6,10 @@ from collections.abc import Sequence
 from datetime import date
 
 from langchain_core.messages import BaseMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
 from packages.auth_core.config import settings
+from packages.engine.llm import get_chat_llm
 from packages.engine.routing import is_booking_conversation, message_text
 from packages.scheduling.booking_executor import _guess_service_query, resolve_booking_context
 from packages.scheduling.guardrails import (
@@ -61,7 +61,7 @@ def should_run_intent_extractor(
         return False
 
     combined = " ".join(texts)
-    ctx_date, ctx_service = resolve_booking_context(
+    ctx_date, ctx_service, _ = resolve_booking_context(
         messages, org_id, booking_date=booking_date, booking_service=booking_service
     )
     if ctx_date and ctx_service:
@@ -109,18 +109,16 @@ async def extract_booking_intent(
     recent = texts[-3:]
     conversation = "\n".join(f"Cliente: {t}" for t in recent)
 
-    llm = ChatGoogleGenerativeAI(
-        model=settings.MODEL_NAME,
-        temperature=0.0,
-        google_api_key=settings.GOOGLE_API_KEY,
-    ).with_structured_output(BookingExtract)
+    llm = get_chat_llm(temperature=0.0).with_structured_output(BookingExtract)
 
     prompt = (
         f"Você extrai dados de agendamento para o {salon_name}. "
         "Responda só com campos presentes ou inferíveis do texto — não invente horários livres. "
-        "date_hint em ISO YYYY-MM-DD quando possível. "
+        "date_hint: data coloquial PT-BR (ex: amanhã, sexta, 12/06) ou ISO YYYY-MM-DD quando possível. "
         "time_hint em HH:MM 24h. "
-        "user_acknowledgment: uma frase curta reconhecendo o pedido.\n\n"
+        "user_acknowledgment: uma frase curta reconhecendo o pedido. "
+        "Não repita datas ambíguas nem reformule a pergunta que o bot acabou de fazer. "
+        "Em respostas curtas do cliente (ex: 'não sei', 'pode ser sexta'), omita user_acknowledgment.\n\n"
         f"{conversation}"
     )
 

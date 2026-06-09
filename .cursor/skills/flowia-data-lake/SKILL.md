@@ -19,8 +19,8 @@ Pipeline Medallion em `packages/lakehouse/`. Doc: `docs/data-lake.md`.
 ## Fluxo
 
 1. Upload: `POST /api/v1/lakehouse/upload` (max 10MB)
-2. Background: OCR via Gemini Vision com semáforo async (`service.py`)
-3. Chunking + embeddings → pgvector
+2. Background: OCR via OpenAI Vision (`VISION_MODEL_NAME`, default `gpt-4o`) com semáforo async (`service.py`)
+3. Chunking + embeddings (`EMBEDDING_MODEL_NAME`, default `text-embedding-3-small`) → pgvector
 4. Sync pendentes: `POST /api/v1/lakehouse/sync`
 5. Busca RAG: `POST /api/v1/lakehouse/search`
 

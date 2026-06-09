@@ -24,6 +24,12 @@ class OrganizationBase(BaseModel):
     timezone: str = "America/Sao_Paulo"
     is_active: bool = True
 
+
+class OrganizationWhatsAppUpdate(BaseModel):
+    whatsapp_phone_id: str | None = None
+    whatsapp_access_token: str | None = None
+    whatsapp_business_id: str | None = None
+
 class ServiceCatalogBase(BaseModel):
     name: str
     description: str | None = None

@@ -1,4 +1,4 @@
-"""Teste de agendamento via LLM (Gemini + tools) — caminho real do produto.
+"""Teste de agendamento via LLM (OpenAI + tools) — caminho real do produto.
 
 Por padrao DESLIGA o booking_executor deterministico para forcar o agente
 scheduling a usar check_availability e book_time.
@@ -9,7 +9,7 @@ Uso:
   py -3 scripts/test_scheduling_llm.py --list
   py -3 scripts/test_scheduling_llm.py -v            # resposta completa
 
-Requisitos: .env com GOOGLE_API_KEY + Supabase (org demo Beauty Express).
+Requisitos: .env com OPENAI_API_KEY + Supabase (org demo Beauty Express).
 """
 from __future__ import annotations
 
@@ -283,8 +283,8 @@ async def main_async(args: argparse.Namespace) -> int:
     try:
         from packages.auth_core.config import settings
 
-        if not settings.GOOGLE_API_KEY:
-            print("GOOGLE_API_KEY ausente no .env")
+        if not settings.OPENAI_API_KEY:
+            print("OPENAI_API_KEY ausente no .env")
             return 1
         det = settings.SCHEDULING_DETERMINISTIC_ENABLED
         print(f"Modelo: {settings.MODEL_NAME} | SCHEDULING_DETERMINISTIC_ENABLED={det}")
@@ -317,7 +317,7 @@ async def main_async(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Teste LLM de agendamento (Gemini + tools)")
+    p = argparse.ArgumentParser(description="Teste LLM de agendamento (OpenAI + tools)")
     p.add_argument("-s", "--scenario", metavar="ID", help="Rodar um cenario")
     p.add_argument("--list", action="store_true", help="Listar cenarios")
     p.add_argument("-v", "--verbose", action="store_true", help="Resposta completa")

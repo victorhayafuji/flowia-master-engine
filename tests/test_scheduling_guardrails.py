@@ -128,6 +128,35 @@ class TestExtractBookingDateFromText:
         assert normalize_booking_date("sexta", reference=ref) == "2026-06-05"
         assert normalize_booking_date("sexta", reference=date(2026, 6, 6)) == "2026-06-12"
 
+    def test_june_12_after_coloracao_price_question(self):
+        ref = date(2026, 6, 7)
+        assert (
+            extract_booking_date_from_text("Sim, tem horário para 12 de junho?", reference=ref)
+            == "2026-06-12"
+        )
+
+    def test_amanha_in_message(self):
+        ref = date(2026, 6, 7)
+        assert (
+            extract_booking_date_from_text("Quero agendar manicure amanhã", reference=ref)
+            == "2026-06-08"
+        )
+
+    def test_amanha_standalone(self):
+        ref = date(2026, 6, 7)
+        assert normalize_booking_date("amanhã", reference=ref) == "2026-06-08"
+
+    def test_hoje_in_message(self):
+        ref = date(2026, 6, 7)
+        assert extract_booking_date_from_text("Tem horário hoje?", reference=ref) == "2026-06-07"
+
+    def test_depois_de_amanha(self):
+        ref = date(2026, 6, 7)
+        assert (
+            extract_booking_date_from_text("Corte depois de amanhã", reference=ref)
+            == "2026-06-09"
+        )
+
 
 class TestTimezoneParsing:
     def test_z_suffix_treated_as_local_wall_clock(self):

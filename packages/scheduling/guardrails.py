@@ -3,15 +3,72 @@ from __future__ import annotations
 
 import re
 import time
-import unicodedata
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from packages.scheduling.date_parsing import (
+    REFERENCE_PAST_LIMIT_DAYS,
+    normalize_booking_date,
+)
+from packages.scheduling.date_parsing import (
+    extract_booking_date_from_text as _extract_booking_date_raw,
+)
+from packages.scheduling.date_parsing import (
+    extract_reference_date_from_text as _extract_reference_date_raw,
+)
+from packages.scheduling.date_parsing import (
+    normalize_key as _normalize_key,
+)
 from packages.scheduling.eligibility import (
     _SERVICE_SEARCH_SYNONYMS,
     list_catalog_services,
 )
+
+# Re-export date parsing API for backward compatibility.
+__all_date_exports__ = (
+    "extract_booking_date_from_text",
+    "extract_reference_date_from_text",
+    "normalize_booking_date",
+    "resolve_date_detailed",
+)
+
+
+def extract_booking_date_from_text(
+    text: str,
+    org_settings: dict[str, Any] | None = None,
+    reference: date | None = None,
+) -> str | None:
+    ref = reference or date.today()
+    iso = _extract_booking_date_raw(text, org_settings=org_settings, reference=ref)
+    if not iso:
+        parsed_date, err = parse_booking_date(text, org_settings, reference=ref)
+        return parsed_date.isoformat() if parsed_date else None
+    parsed, err = validate_booking_date(iso, org_settings, reference=ref)
+    if parsed:
+        return parsed.isoformat()
+    if err == "past_date":
+        try:
+            stale = datetime.strptime(iso, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+        if stale.year < ref.year - 1:
+            coerced, coerce_err = _coerce_future_booking_date(stale, ref, org_settings)
+            if coerced:
+                return coerced.isoformat()
+    return None
+
+
+def extract_reference_date_from_text(
+    text: str,
+    org_settings: dict[str, Any] | None = None,
+    reference: date | None = None,
+) -> str | None:
+    iso = _extract_reference_date_raw(text, org_settings=org_settings, reference=reference)
+    if not iso:
+        return None
+    parsed, err = validate_reference_date(iso, org_settings, reference=reference)
+    return parsed.isoformat() if parsed else None
 
 GENERIC_INVALID_MSG = "Entrada inválida para agendamento."
 
@@ -47,12 +104,6 @@ _TRIVIAL_PHONES = frozenset(
 
 def normalize_phone(phone: str) -> str:
     return "".join(filter(str.isdigit, phone))
-
-
-def _normalize_key(text: str) -> str:
-    folded = unicodedata.normalize("NFKD", text)
-    ascii_text = "".join(c for c in folded if not unicodedata.combining(c))
-    return " ".join(ascii_text.lower().split())
 
 
 def sanitize_text_field(value: str | None, max_len: int) -> tuple[str | None, str | None]:
@@ -98,112 +149,6 @@ def validate_phone(phone: str) -> tuple[str | None, str | None]:
     return digits, None
 
 
-_PT_MONTHS: dict[str, int] = {
-    "janeiro": 1,
-    "fevereiro": 2,
-    "marco": 3,
-    "abril": 4,
-    "maio": 5,
-    "junho": 6,
-    "julho": 7,
-    "agosto": 8,
-    "setembro": 9,
-    "outubro": 10,
-    "novembro": 11,
-    "dezembro": 12,
-}
-
-_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_DMY_SLASH_RE = re.compile(r"^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$")
-_PT_DATE_RE = re.compile(r"^(\d{1,2})\s+de\s+(\w+)(?:\s+de\s+(\d{4}))?$")
-_PT_DATE_IN_TEXT_RE = re.compile(
-    r"\b(?:dia\s+)?(\d{1,2})\s+de\s+"
-    r"(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
-    r"(?:\s+de\s+(\d{4}))?\b",
-    re.I,
-)
-_ISO_DATE_IN_TEXT_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
-_DMY_IN_TEXT_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{4}))?\b")
-
-# Longest aliases first (segunda feira before segunda).
-_WEEKDAY_ALIASES: tuple[tuple[str, int], ...] = (
-    ("domingo", 6),
-    ("segunda feira", 0),
-    ("segunda", 0),
-    ("terca feira", 1),
-    ("terca", 1),
-    ("quarta feira", 2),
-    ("quarta", 2),
-    ("quinta feira", 3),
-    ("quinta", 3),
-    ("sexta feira", 4),
-    ("sexta", 4),
-    ("sabado", 5),
-)
-
-
-def _next_occurrence_of_weekday(weekday: int, reference: date) -> date:
-    """Next calendar occurrence of weekday (0=Mon … 6=Sun); same day if reference matches."""
-    days_ahead = (weekday - reference.weekday()) % 7
-    return reference + timedelta(days=days_ahead)
-
-
-def _parse_weekday_from_normalized(normalized: str, reference: date) -> str | None:
-    for alias, weekday in _WEEKDAY_ALIASES:
-        if re.search(rf"\b{re.escape(alias)}\b", normalized):
-            return _next_occurrence_of_weekday(weekday, reference).isoformat()
-    return None
-
-
-def _infer_year(day: int, month: int, reference: date) -> int:
-    candidate = date(reference.year, month, day)
-    if candidate >= reference:
-        return reference.year
-    return reference.year + 1
-
-
-def normalize_booking_date(
-    date_str: str,
-    reference: date | None = None,
-) -> str | None:
-    """Parse common PT/BR date strings into ISO YYYY-MM-DD."""
-    cleaned, err = sanitize_text_field(date_str, 40)
-    if err or not cleaned:
-        return None
-
-    ref = reference or date.today()
-    normalized = _normalize_key(cleaned)
-
-    if _ISO_DATE_RE.match(cleaned):
-        return cleaned
-
-    slash_match = _DMY_SLASH_RE.match(cleaned)
-    if slash_match:
-        day, month, year = (int(slash_match.group(i)) for i in (1, 2, 3))
-        try:
-            return date(year, month, day).isoformat()
-        except ValueError:
-            return None
-
-    pt_match = _PT_DATE_RE.match(normalized)
-    if pt_match:
-        day = int(pt_match.group(1))
-        month = _PT_MONTHS.get(pt_match.group(2))
-        if not month:
-            return None
-        year = int(pt_match.group(3)) if pt_match.group(3) else _infer_year(day, month, ref)
-        try:
-            return date(year, month, day).isoformat()
-        except ValueError:
-            return None
-
-    weekday_iso = _parse_weekday_from_normalized(normalized, ref)
-    if weekday_iso:
-        return weekday_iso
-
-    return None
-
-
 def _coerce_future_booking_date(
     parsed: date,
     reference: date,
@@ -215,52 +160,10 @@ def _coerce_future_booking_date(
             candidate = date(year, parsed.month, parsed.day)
         except ValueError:
             continue
-        validated, err = validate_date(candidate.isoformat(), org_settings)
+        validated, err = validate_date(candidate.isoformat(), org_settings, reference=reference)
         if validated:
             return validated, None
     return None, "past_date"
-
-
-def extract_booking_date_from_text(
-    text: str,
-    org_settings: dict[str, Any] | None = None,
-    reference: date | None = None,
-) -> str | None:
-    """Best-effort date extraction from free-form PT booking messages."""
-    if not text or not text.strip():
-        return None
-
-    ref = reference or date.today()
-    normalized = _normalize_key(text)
-
-    for iso_match in _ISO_DATE_IN_TEXT_RE.finditer(text):
-        parsed, err = parse_booking_date(iso_match.group(1), org_settings, reference=ref)
-        if parsed:
-            return parsed.isoformat()
-
-    for pt_match in _PT_DATE_IN_TEXT_RE.finditer(normalized):
-        day = pt_match.group(1)
-        month = pt_match.group(2)
-        year = pt_match.group(3)
-        fragment = f"{day} de {month}" + (f" de {year}" if year else "")
-        parsed, err = parse_booking_date(fragment, org_settings, reference=ref)
-        if parsed:
-            return parsed.isoformat()
-
-    for slash_match in _DMY_IN_TEXT_RE.finditer(text):
-        day, month, year = slash_match.group(1), slash_match.group(2), slash_match.group(3)
-        fragment = f"{day}/{month}/{year}" if year else f"{day}/{month}/{ref.year}"
-        parsed, err = parse_booking_date(fragment, org_settings, reference=ref)
-        if parsed:
-            return parsed.isoformat()
-
-    weekday_iso = _parse_weekday_from_normalized(normalized, ref)
-    if weekday_iso:
-        parsed, err = parse_booking_date(weekday_iso, org_settings, reference=ref)
-        if parsed:
-            return parsed.isoformat()
-
-    return None
 
 
 def parse_booking_date(
@@ -276,7 +179,7 @@ def parse_booking_date(
             parsed = datetime.strptime(iso, "%Y-%m-%d").date()
         except ValueError:
             return None, "date_format"
-        validated, err = validate_date(iso, org_settings)
+        validated, err = validate_booking_date(iso, org_settings, reference=ref)
         if validated:
             return validated, None
         if err == "past_date" and parsed.year < ref.year - 1:
@@ -285,7 +188,20 @@ def parse_booking_date(
                 return coerced, None
             return None, coerce_err or err
         return None, err
-    return validate_date(date_str, org_settings)
+    return validate_booking_date(date_str, org_settings, reference=ref)
+
+
+def parse_reference_date(
+    date_str: str,
+    org_settings: dict[str, Any] | None = None,
+    reference: date | None = None,
+) -> tuple[date | None, str | None]:
+    """Normalize colloquial dates for support/reference context (past allowed)."""
+    ref = reference or date.today()
+    iso = normalize_booking_date(date_str, reference=ref)
+    if iso:
+        return validate_reference_date(iso, org_settings, reference=ref)
+    return validate_reference_date(date_str, org_settings, reference=ref)
 
 
 def _scheduling_settings(org_settings: dict[str, Any] | None) -> dict[str, Any]:
@@ -296,7 +212,11 @@ def _scheduling_settings(org_settings: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def validate_date(date_str: str, org_settings: dict[str, Any] | None = None) -> tuple[date | None, str | None]:
+def validate_booking_date(
+    date_str: str,
+    org_settings: dict[str, Any] | None = None,
+    reference: date | None = None,
+) -> tuple[date | None, str | None]:
     cleaned, err = sanitize_text_field(date_str, 10)
     if err or not cleaned:
         return None, err or "empty"
@@ -305,12 +225,42 @@ def validate_date(date_str: str, org_settings: dict[str, Any] | None = None) -> 
     except ValueError:
         return None, "date_format"
     cfg = _scheduling_settings(org_settings)
-    today = date.today()
+    today = reference or date.today()
     if parsed < today:
         return None, "past_date"
     if parsed > today + timedelta(days=cfg["max_advance_days"]):
         return None, "too_far"
     return parsed, None
+
+
+def validate_reference_date(
+    date_str: str,
+    org_settings: dict[str, Any] | None = None,
+    reference: date | None = None,
+) -> tuple[date | None, str | None]:
+    cleaned, err = sanitize_text_field(date_str, 10)
+    if err or not cleaned:
+        return None, err or "empty"
+    try:
+        parsed = datetime.strptime(cleaned, "%Y-%m-%d").date()
+    except ValueError:
+        return None, "date_format"
+    cfg = _scheduling_settings(org_settings)
+    today = reference or date.today()
+    if parsed < today - timedelta(days=REFERENCE_PAST_LIMIT_DAYS):
+        return None, "too_old"
+    if parsed > today + timedelta(days=cfg["max_advance_days"]):
+        return None, "too_far"
+    return parsed, None
+
+
+def validate_date(
+    date_str: str,
+    org_settings: dict[str, Any] | None = None,
+    reference: date | None = None,
+) -> tuple[date | None, str | None]:
+    """Backward-compatible alias for booking date validation."""
+    return validate_booking_date(date_str, org_settings, reference=reference)
 
 
 def validate_datetime(

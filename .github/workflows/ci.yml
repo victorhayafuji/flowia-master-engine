@@ -24,7 +24,7 @@ jobs:
 
       - name: Run tests with coverage
         env:
-          GOOGLE_API_KEY: test-key
+          OPENAI_API_KEY: test-key
           SUPABASE_URL: https://example.supabase.co
           SUPABASE_KEY: test-anon-key
           SUPABASE_SERVICE_ROLE: test-service-role
@@ -34,7 +34,7 @@ jobs:
           DASHBOARD_JWT_SECRET: test-jwt-secret-for-ci-only-32chars
           CHECKPOINTER_BACKEND: memory
           SCHEDULER_ENABLED: false
-        run: pytest --cov=packages --cov=apps/salon --cov-report=term-missing --cov-fail-under=30
+        run: pytest -m "not llm_behavior" --cov=packages --cov=apps/salon --cov-report=term-missing --cov-fail-under=30
 
   frontend:
     runs-on: ubuntu-latest

@@ -72,12 +72,12 @@ URLs prod: dashboard + API em [`PRODUCTION.md`](../PRODUCTION.md)
 ```text
 WhatsApp / Chat → FastAPI (LangGraph) → Supabase (Postgres + RLS)
                       ↓
-              Gemini (triage, RAG, fallback)
+              OpenAI (triage, RAG, fallback)
                       ↓
               Executor determinístico (agenda)
 ```
 
-Stack: Python 3.12 · React · Supabase · Render · Google Gemini
+Stack: Python 3.12 · React · Supabase · Render · OpenAI
 
 ---
 

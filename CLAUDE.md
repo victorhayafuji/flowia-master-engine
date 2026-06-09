@@ -25,7 +25,7 @@
 **FlowIA Master Engine** é uma plataforma SaaS multi-tenant B2B para gestão inteligente de salões de beleza. Combina:
 
 - **Dashboard administrativo** — agenda, clientes, catálogo de serviços
-- **Assistente conversacional** — WhatsApp e chat de teste, powered by LangGraph + Google Gemini
+- **Assistente conversacional** — WhatsApp e chat de teste, powered by LangGraph + OpenAI
 - **Base de conhecimento (RAG)** — pipeline Medallion Bronze → Silver → Gold com busca semântica
 
 **Proposta de valor:** automatizar recepção, agendamento e suporte via IA, com isolamento rigoroso por salão (tenant), operação white-label por organização e credenciais WhatsApp próprias por cliente.
@@ -114,6 +114,8 @@ flowchart TB
 - Detecção de no-show via `no_show_service.py`
 - **Guardrails booking (fail-closed):** `packages/scheduling/guardrails.py` — sanitização de texto (blocklist SQL/jailbreak), telefone 10–13 dígitos, janela de datas (`max_advance_days` em `organizations.settings.scheduling`), resolução de serviço **somente via catálogo** (sem ILIKE user-controlled), rate limit in-process nas tools (20 `check_availability`/min, 3 `book_time`/h por sender)
 - **WhatsApp booking:** `book_time` vincula telefone ao `sender_phone` do webhook (impede agendar terceiros via prompt injection)
+- **Parsing de datas coloquiais PT-BR:** pacote `packages/scheduling/date_parsing/` — relativas (`hoje`, `amanhã`, `ontem`), weekday composto (`próxima sexta`), semana/fim de semana, offsets (`daqui a N dias`), dias úteis (`em N dias úteis`); modo `BOOKING` (só futuro) vs `REFERENCE` (passado para suporte); `guardrails.py` delega e valida janela
+- **Ambiguidade temporal (fail-closed):** frases como `semana que vem` (sem weekday), `sexta ou sábado`, `essa sexta` já passada e `essa semana` retornam `needs_clarification=True` via `resolve_date_detailed()` — booking **não** lista slots; engine injeta `[DATA AMBÍGUA]`; prompts determinísticos em `booking_executor` / `support_executor`
 
 ### 4.2 Atendimento WhatsApp / chat
 
@@ -127,6 +129,7 @@ flowchart TB
 - Sem CRM B2B / leads BANT no MVP salão (`PRODUCT_LINE=salon`)
 - Mensagens mascaradas nos logs (LGPD): primeiros 15 caracteres apenas
 - Dedup inbound por `message_id` (in-memory; ver limitações na Parte III)
+- **Datas de referência no suporte:** `support_executor.py` resolve passado (`faltei ontem`, `cancelar anteontem`) via `extract_reference_date_from_text`; injeta `[DATA REFERIDA PELO CLIENTE]` no prompt; resposta determinística consulta KB antes do LLM
 
 ### 4.3 Catálogo e clientes
 
@@ -139,7 +142,7 @@ flowchart TB
 - Upload de documentos alimenta pipeline Data Lake
 - Agente consulta via tool `search_kb` (vetores em `docs_gold_vectors`)
 - Dono do salão **não** gerencia pipeline — operador/dev em `/admin/data-lake`
-- OCR via Gemini Vision; concorrência limitada por semáforo async
+- OCR via OpenAI Vision (`gpt-4o`); concorrência limitada por semáforo async
 
 ### 4.5 Diretrizes Recuperador de Lucros (paradigma de desenvolvimento)
 
@@ -171,8 +174,9 @@ flowchart TB
 | Clientes (`/patients`) | Sim | Não | Sim | — | Ativo |
 | Catálogo (serviços + profissionais + horários/M:N) | Sim | Não | Sim | — | Ativo |
 | Data Lake (upload, sync, RAG) | Não | Não | Não | Sim | Ativo (dev) |
+| Observabilidade agente (lite) | Sim | Não | Sim | — | Ativo — Overview cards |
+| Observabilidade agente (técnica) | Não | Não | Sim | — | Ativo — `/admin/observability` |
 | Chat Test | Não | Não | Não | Sim | Ativo (dev) |
-| Observabilidade agente | Não | Não | Não | Sim | Ativo (dev) |
 | KPIs tokens/custo IA na Overview | Não | Não | Não | — | Removido |
 | CRM leads / SDR | Não | Não | Não | — | Desativado |
 | Prontuário clínico | Não | Não | Não | — | Removido da UI |
@@ -243,7 +247,7 @@ sequenceDiagram
 flowchart LR
   Dashboard[Dashboard React] -->|REST cookie JWT| API[FastAPI Backend]
   API --> Supabase[(Supabase PostgreSQL + Storage)]
-  API --> Gemini[Google Gemini]
+  API --> OpenAI[OpenAI API]
   WhatsApp[WhatsApp Meta API] -->|webhook| API
   API -->|outbound| WhatsApp
   Scheduler[APScheduler] --> API
@@ -262,9 +266,10 @@ flowchart LR
 | Runtime backend | Python | 3.12 (CI) |
 | Runtime frontend | Node.js | 20 (CI) |
 | API | FastAPI, Uvicorn, Pydantic | ≥0.109, v2 |
-| IA | LangGraph, LangChain, langchain-google-genai | ≥1.0, Gemini |
-| Modelo default | `MODEL_NAME` | gemini-2.5-flash |
-| Embeddings | `EMBEDDING_MODEL_NAME` | gemini-embedding-2 |
+| IA | LangGraph, LangChain, langchain-openai | ≥1.0, OpenAI |
+| Modelo default | `MODEL_NAME` | gpt-4o-mini |
+| Vision (OCR) | `VISION_MODEL_NAME` | gpt-4o |
+| Embeddings | `EMBEDDING_MODEL_NAME` | text-embedding-3-small |
 | DB | Supabase client, psycopg3, PostgresSaver | ≥2.3 |
 | Auth | python-jose, bcrypt, cookie HttpOnly | JWT dashboard |
 | Frontend | React, Vite, TypeScript, Tailwind | 18.3, 5.4, 5.6, 4.3 |
@@ -285,16 +290,22 @@ flowia-master-engine/
 │   ├── models/                  # Enums, DTOs
 │   ├── auth_core/               # Config, DB, JWT, tenant, limiter, auth router
 │   ├── scheduling/              # Agenda, tools booking, scheduler, reminders
+│   │   ├── date_parsing/        # PT-BR date resolution (types, normalize, resolve)
+│   │   ├── services/            # availability + appointments mixins
+│   │   ├── booking/             # BookingIntent, prompts (executor em booking_executor.py)
+│   │   └── service.py           # Facade SchedulingService
 │   ├── lakehouse/               # Pipeline Medallion, RAG, governance
 │   ├── engine/                  # LangGraph, chat, metrics, checkpointer, prompts
+│   │   ├── graph/               # state, nodes, edges, compile (facade: engine.py)
+│   │   └── engine.py            # Re-export API pública do grafo
 │   └── integrations/            # webhook/ (WhatsApp), payments/ (stub NoOp)
 ├── apps/
 │   ├── salon/                   # Produto ativo
 │   │   ├── api/                 # app_factory, dashboard router
-│   │   ├── domain/              # catalog (organizations), clients (patients)
+│   │   ├── domain/              # catalog (routers/), clients (patients)
 │   │   ├── dashboard/           # SPA React
 │   │   ├── prompts.py           # Prompts white-label salão
-│   │   └── seeds/               # vertical_orgs.py
+│   │   └── seeds/               # vertical_orgs.py, datalake_mocks/
 │   └── clinic/                  # Stub futuro
 ├── supabase/migrations/         # Schema versionado + RLS
 ├── tests/                       # pytest (conftest: CHECKPOINTER_BACKEND=memory)
@@ -309,11 +320,11 @@ flowia-master-engine/
 |--------|-------------------|------------------|
 | `packages/models` | `enums.py` | Vertical, status — DTOs Pydantic compartilhados |
 | `packages/auth_core` | `config`, `database`, `auth_service`, `auth_router`, `tenant`, `dependencies`, `limiter`, `exceptions` | Config, Supabase handler, JWT, tenant context, rate limit |
-| `packages/scheduling` | `router`, `service`, `repository`, `tools`, `scheduler`, `reminder_*`, `no_show_service` | CRUD agenda, tools LangGraph, jobs background |
+| `packages/scheduling` | `router`, `service` (facade), `services/`, `date_parsing/`, `booking/`, `booking_executor`, `repository`, `tools`, `scheduler`, `reminder_*`, `no_show_service` | CRUD agenda, tools LangGraph, jobs background |
 | `packages/lakehouse` | `router`, `service`, `governance` | Upload, OCR, embeddings, search, SQL guardrails |
-| `packages/engine` | `engine`, `service`, `chat_router`, `metrics_router`, `checkpointer`, `tools`, `prompts/` | Grafo LangGraph, chat test, métricas, RAG tools |
+| `packages/engine` | `graph/`, `engine` (facade), `service`, `chat_router`, `metrics_router`, `checkpointer`, `tools`, `prompts/` | Grafo LangGraph, chat test, métricas, RAG tools |
 | `packages/integrations` | `webhook/router`, `whatsapp`, `tenant_resolver`, `session_store`, `payments/` (stub) | Webhook Meta, outbound, resolução org, stub pagamentos |
-| `apps/salon/domain` | `catalog/`, `clients/` | Organizations, services, professionals, patients |
+| `apps/salon/domain` | `catalog/` (`routers/`, `helpers`), `clients/` | Organizations, services, professionals, patients |
 | `apps/salon/api` | `app_factory.py`, `routers/dashboard.py` | Composition root, stats dashboard |
 
 ## 11. Grafo de dependências
@@ -397,11 +408,12 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | GET | `/` | Listar clientes |
 | DELETE | `/{patient_id}` | Desativar cliente (soft delete) |
 
-### Organizations — `apps/salon/domain/catalog/router.py` (prefix `/organizations`)
+### Organizations — `apps/salon/domain/catalog/router.py` + `routers/` (prefix `/organizations`)
 
 | Método | Path | Descrição |
 |--------|------|-----------|
 | POST | `/` | Criar org (super_admin) |
+| PATCH | `/{organization_id}/whatsapp` | Credenciais Meta por org (super_admin) |
 | GET | `/` | Listar orgs |
 | POST/GET | `/services` | CRUD catálogo serviços (aceita `professional_ids` M:N) |
 | PUT | `/services/{service_id}` | Atualizar serviço (inclui `professional_ids`) |
@@ -466,6 +478,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 |--------|------|-----------|
 | GET | `/dashboard/stats` | Stats overview (scoped por `professional_id` se aplicável) |
 | GET | `/dashboard/today-board` | Painel operacional do dia: agendamentos por profissional, status, fim estimado |
+| GET | `/dashboard/agent-summary` | Observabilidade lite do agente (handoffs, WhatsApp hoje, conversas/semana) |
 
 ### System
 
@@ -480,7 +493,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 **organizations** — tenant root
 
 - `id`, `name`, `slug`, `vertical` (salon|dental|medical)
-- `whatsapp_phone_id`, `whatsapp_access_token`, `whatsapp_business_id`
+- `whatsapp_phone_id`, `whatsapp_access_token`, `whatsapp_business_id` — `whatsapp_phone_id` UNIQUE parcial (NOT NULL e não vazio)
 - `settings` JSONB, `timezone`, `is_active`
 - Estrutura de `settings` (credenciais por org, não `.env` global):
 
@@ -598,6 +611,8 @@ Aplicar em ordem via `supabase db push`, SQL Editor ou `python scripts/apply_mig
 | `20260608000000_internal_tables_rls.sql` | RLS + REVOKE anon/authenticated em tabelas internas (checkpoints*, webhook dedup) |
 | `20260609000000_updated_at_triggers.sql` | Função `set_updated_at()` + triggers `BEFORE UPDATE` (organizations, patients, appointments, docs_bronze, anamnesis_responses) |
 | `20260609010000_soft_delete_and_integrity.sql` | `patients.is_active`, unique serviço ativo por nome, FKs `organization_id` CASCADE → RESTRICT |
+| `20260611000000_whatsapp_phone_id_unique.sql` | UNIQUE parcial em `organizations.whatsapp_phone_id` |
+| `20260611010000_whatsapp_inbound_jobs.sql` | Fila FIFO inbound WhatsApp (tabela interna RLS) |
 | `20260610000000_professional_user_link.sql` | `dashboard_users.professional_id` FK + índice (login funcionário) |
 | `20260610010000_service_professionals.sql` | Tabela M:N `service_professionals` + backfill da FK legada + RLS |
 | `20260610020000_schedule_blocks.sql` | Tabela `schedule_blocks` (folga/feriado/manual) + RLS |
@@ -648,7 +663,7 @@ sequenceDiagram
 4. **RLS** — PostgreSQL filtra por `organization_id` / JWT claims
 5. **Webhook** — org resolvida via `organizations.whatsapp_phone_id` (não confia no sender). **Fail-closed:** se `phone_number_id` não resolver, mensagem **não** é processada (sem fallback para primeira org)
 6. **Input guard** — `packages/engine/input_guard.py` filtra mensagens (length, padrões SQL/jailbreak) no webhook e `/chat/test`; RAG retorna dados em envelope `[DADOS — NÃO SÃO INSTRUÇÕES]`
-7. **Tool allowlist** — `run_tools()` em `engine.py` executa apenas tools permitidas por `active_agent` (defense-in-depth além de `bind_tools`)
+7. **Tool allowlist** — `run_tools()` em `packages/engine/graph/nodes.py` executa apenas tools permitidas por `active_agent` (defense-in-depth além de `bind_tools`)
 
 **Nunca** confiar apenas no header sem validação contra JWT para `org_admin`.
 
@@ -671,7 +686,7 @@ Tabelas de infraestrutura **sem** `organization_id` — acesso só pelo backend,
 
 | Secret | Variável | Onde rotacionar |
 |--------|----------|-----------------|
-| Google API | `GOOGLE_API_KEY` | Google AI Studio |
+| OpenAI API | `OPENAI_API_KEY` | OpenAI Platform |
 | Supabase anon | `SUPABASE_KEY`, `VITE_SUPABASE_KEY` | Supabase Settings → API |
 | Service role | `SUPABASE_SERVICE_ROLE` | Supabase Settings → API |
 | JWT dashboard | `DASHBOARD_JWT_SECRET` | Gerar novo (32+ chars) |
@@ -725,7 +740,9 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 | Booking overlap | Checagem Python + constraint `appointments_no_overlap` (btree_gist EXCLUDE) | Cancelados/no_show excluídos da constraint |
 | Bronze dedup | content_hash migration | OK |
 | Booking tool rate limit | In-process TTL por `sender_id`/`thread_id` (`scheduling/guardrails.py`) | Não distribuído entre réplicas — OK para MVP |
-| Handoff cooldown | 1 handoff/24h por sender + `/resume` após 5 min (max 3/h) — `session_store.py` | In-memory; reinício do processo zera contadores |
+| Handoff cooldown | 1 handoff/24h por `{org_id}:{sender}` + `/resume` após 5 min (max 3/h) — `session_store.py` | In-memory; reinício do processo zera contadores |
+| Checkpoint thread legado | Leitura fallback phone-only (1 release); escrita sempre `{org_id}:{phone}` | Sem migração em massa de checkpoints |
+| WhatsApp fila | Tabela `whatsapp_inbound_jobs` FIFO + worker Render (`WHATSAPP_QUEUE_MODE=inline\|worker`) | Inline default até Meta live; serialização por thread_id |
 | Webhook tenant | Fail-closed sem `phone_number_id` válido | Mensagem ignorada (ack 200 Meta) |
 | LGPD retention | Purge checkpoints + conversation_metrics (scheduler) | Agendamentos anonimizados após erase; Data Lake Bronze sem purge automático por tenant |
 | Consentimento WhatsApp | Aviso 1ª msg; consent tácito 2ª msg | Opt-in explícito SIM/NÃO — fase 2 se exigido |
@@ -751,9 +768,23 @@ Documentar novas limitações nesta seção ao descobri-las.
 
 ## 22. LangGraph: grafo e triage
 
-**Arquivo central:** `packages/engine/engine.py`
+**Implementação:** `packages/engine/graph/` — `state.py`, `nodes.py`, `edges.py`, `compile.py`. Facade pública: `packages/engine/engine.py` (re-export de `compile_master_engine`, nós, `AgentState`, etc.).
 
-**Estado (`AgentState`):** messages, sender_id, handoff_requested, active_agent, bant_status (legado), audit_flag, lgpd_shown, etc.
+**Estado (`AgentState`):** messages, sender_id, handoff_requested, active_agent, bant_status (legado), audit_flag, lgpd_shown, slots de agendamento (`booking_*`), etc.
+
+**Memória de agendamento:** `packages/scheduling/booking_state_sync.py` — `sync_booking_state()` reconcilia checkpointer + re-parse do thread (state = cache, thread = reconciliação). Não é FSM linear rígido; dados podem entrar fora de ordem.
+
+| Campo | Papel |
+|-------|--------|
+| `booking_date` | ISO YYYY-MM-DD |
+| `booking_service` | Nome do catálogo |
+| `booking_time` | HH:MM Brasília |
+| `booking_patient_name` | Nome sanitizado |
+| `booking_patient_phone` | Telefone (quando extraído) |
+| `booking_step` | Hint UX: `awaiting_time`, `awaiting_patient`, `need_date`, etc. |
+| `booking_pending_clarification` | Clarificação aberta: `date` (ex.: amanhã ou sexta) — checkpoint explícito |
+| `booking_missing_fields` | Lista do que falta: `date`, `service`, `time`, `patient_name`, `patient_phone` |
+| `booking_active` | Thread em fluxo de agendamento |
 
 **Fluxo:**
 
@@ -799,13 +830,17 @@ flowchart TD
 | Módulo | Arquivo | Função |
 |--------|---------|--------|
 | Routing heurístico | `packages/engine/routing.py` | Keywords, sticky booking, weekday parsing |
-| Executor | `packages/scheduling/booking_executor.py` | `run_scheduling_turn()` — catálogo, slots, book |
+| Sync memória | `packages/scheduling/booking_state_sync.py` | `sync_booking_state()` — merge state + thread |
+| Flow recovery | `packages/scheduling/booking_flow_memory.py` | Digressão mid-flow → resposta educada + retoma |
+| Executor | `packages/scheduling/booking_executor.py` + `booking/` | `run_scheduling_turn()` — catálogo, slots, book |
 | Guardrails | `packages/scheduling/guardrails.py` | Datas coloquiais (`sexta`), telefone, serviço |
 | Composer | `packages/engine/response_composer.py` | Templates humanizados (grid horários, ack) |
 | Extractor | `packages/engine/intent_extractor.py` | LLM estruturado só se regex falhar |
 | Fallback | `packages/engine/scheduling_fallback.py` | `SCHEDULING_LLM_FALLBACK=smart` |
 
-**Estado LangGraph:** `booking_date`, `booking_service`, `booking_active`, `scheduling_path` (`deterministic`|`llm`), `triage_source` (`keyword`|`conversation`|`sticky`|`llm`).
+**Estado LangGraph:** `booking_date`, `booking_service`, `booking_time`, `booking_patient_name`, `booking_patient_phone`, `booking_step`, `booking_pending_clarification`, `booking_missing_fields`, `booking_active`, `scheduling_path` (`deterministic`|`llm`), `triage_source` (`keyword`|`conversation`|`sticky`|`llm`).
+
+**Checkpoint (`BookingStateSnapshot`):** `sync_booking_state()` materializa slots + `pending_clarification` + `missing_fields`; executor e intent extractor consultam o checkpoint antes de re-parse ambíguo do thread.
 
 **Resposta `/chat/test`:** campos `scheduling_path`, `triage_source` (badges na UI dev).
 
@@ -820,7 +855,7 @@ flowchart TD
 ```mermaid
 flowchart LR
   Upload[Upload Dashboard/API] --> Bronze[docs_bronze + Storage]
-  Bronze --> OCR[Gemini Vision OCR]
+  Bronze --> OCR[OpenAI Vision OCR]
   OCR --> Silver[docs_silver]
   Silver --> Embed[Embeddings]
   Embed --> Gold[docs_gold_vectors pgvector]
@@ -864,7 +899,7 @@ Registro: `register_salon_prompts()` no app_factory startup via `packages/engine
 | Produção | PostgresSaver | `CHECKPOINTER_BACKEND=auto`, `SUPABASE_DB_URL` |
 | Testes/CI | MemorySaver | `CHECKPOINTER_BACKEND=memory` |
 
-Thread ID = `sender_id` (WhatsApp) ou UUID (chat test). Histórico persiste por thread.
+Thread ID = `{organization_id}:{sender_phone}` (WhatsApp) ou `{organization_id}:{uuid}` (chat test com org). Helper: `packages/auth_core/conversation_thread.py`. Histórico persiste por thread.
 
 ## 27. Métricas de tokens e custo
 
@@ -948,6 +983,22 @@ src/
 
 Mock API: `e2e/mock-api.ts` para CI sem backend real.
 
+### Testes adversariais (backend pytest)
+
+Suíte em camadas — catálogo em `tests/fixtures/adversarial_matrix.py`:
+
+| Tier | Marker | CI | Cobertura |
+|------|--------|-----|-----------|
+| A | `adversarial` | Sim | `input_guard`, guardrails SQL, lakehouse `validate_sql_query`, RAG envelope |
+| B | `agent_flow` + `adversarial` | Sim | HTTP `/chat/test` blocked, webhook blocked, typos, multi-turn, RAG poison |
+| C | `llm_behavior` | Não (opt-in) | Tom raivoso/jailbreak com OpenAI real (`RUN_LLM_BEHAVIOR_TESTS=1`) |
+
+```bash
+py -3.12 scripts/run_adversarial_matrix.py
+py -3.12 -m pytest -m "not llm_behavior" -q
+RUN_LLM_BEHAVIOR_TESTS=1 py -3.12 -m pytest -m llm_behavior -q
+```
+
 ---
 
 # Parte VI — Operações
@@ -959,9 +1010,10 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | Variável | Obrigatória | Propósito |
 |----------|-------------|-----------|
 | `PRODUCT_LINE` | Sim | `salon` (MVP) ou `clinic` (futuro) |
-| `GOOGLE_API_KEY` | Sim | Gemini chat + OCR + embeddings |
-| `MODEL_NAME` | Sim | Modelo chat (gemini-2.5-flash) |
-| `EMBEDDING_MODEL_NAME` | Sim | Modelo embeddings |
+| `OPENAI_API_KEY` | Sim | OpenAI chat + OCR + embeddings |
+| `MODEL_NAME` | Sim | Modelo chat (gpt-4o-mini) |
+| `VISION_MODEL_NAME` | Sim (data lake) | OCR Bronze→Silver (`gpt-4o`) |
+| `EMBEDDING_MODEL_NAME` | Sim | Embeddings RAG (`text-embedding-3-small`) |
 | `SUPABASE_URL` | Sim | URL projeto Supabase |
 | `SUPABASE_KEY` | Sim | Anon key (backend) |
 | `SUPABASE_SERVICE_ROLE` | Sim | Service role (backend only) |
@@ -1139,6 +1191,11 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 
 | Item | Arquivo | Status |
 |------|---------|--------|
+| Monolito `date_parsing.py` | `packages/scheduling/date_parsing/` | **Resolvido** — subpacote types/normalize/resolve + API via pacote |
+| Monolito `SchedulingService` | `packages/scheduling/services/` + `service.py` | **Resolvido** — mixins availability/appointments + facade |
+| Monolito `booking_executor` | `packages/scheduling/booking/` + `booking_executor.py` | **Resolvido** — models/prompts extraídos; turn logic no executor |
+| Monolito `engine.py` | `packages/engine/graph/` + `engine.py` | **Resolvido** — state/nodes/edges/compile + facade |
+| Monolito catalog router | `apps/salon/domain/catalog/routers/` | **Resolvido** — organizations/services/professionals + helpers |
 | God class DataLake | `packages/lakehouse/service.py` | **Resolvido** — fachada + bronze/silver/gold/search |
 | Dictionary inline | `packages/lakehouse/governance.py` | **Resolvido** — `data/active_dictionary.json` (CRM filtrado) |
 | God component modais | `AgendaModals.tsx` | **Resolvido** — modals em `components/modals/` |
@@ -1169,7 +1226,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | Nova migration / tabela | §14 Modelo de dados, §15 Migrações |
 | Nova regra de negócio | §4 Regras, §5 Matriz |
 | Novo papel IA / prompt | §25 Prompts, §22 LangGraph |
-| Nova env var | §33 Variáveis |
+| Nova env var / modelo IA | §33 Variáveis · §9 Stack |
 | Mudança auth/tenant/RLS | §16–17 Segurança |
 | Paradigma negócio / epics Recuperador de Lucros | §4.5, §36, `docs/ROADMAP.md` |
 | Nova limitação concorrência | §20 Limitações |
@@ -1198,6 +1255,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.6 | Jun/2026 | Agenda Operacional (Gantt/timeline default), Semana por profissional, fix DnD slot, resize via `duration_minutes` |
 | 1.7 | Jun/2026 | Paradigma Recuperador de Lucros (§4.5) + roadmap epics 1A–4 documentados |
 | 1.8 | Jun/2026 | Motor híbrido agendamento (§23.1), observability metrics, smoke_hybrid_prod, WHATSAPP_SETUP |
+| 1.9 | Jun/2026 | Modelos IA documentados: OpenAI `gpt-4o-mini` / `gpt-4o` / `text-embedding-3-small` (substitui referências Gemini) |
 | 1.5 | Jun/2026 | Capítulo Agenda/Equipe/Integrações: motor de disponibilidade real (working_hours/breaks/buffer/timezone/blocks), M:N `service_professionals`, agenda dual (Semana/Equipe), Overview today-board, role `professional`, stub pagamentos |
 
 ---

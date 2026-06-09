@@ -16,7 +16,7 @@ Registro da auditoria **2026-06-08/09**. Complementa [`PRODUCTION.md`](PRODUCTIO
 **Ressalvas P0 antes do 1º pagante:**
 
 1. Supabase **dev + prod compartilhados** (`vwhsivwoiiicydanypmo`) — migrar Trilha B  
-2. Contas **pessoais** (Render/Supabase/Google) — migrar Trilha B  
+2. Contas **pessoais** (Render/Supabase/OpenAI) — migrar Trilha B  
 3. **`WHATSAPP_APP_SECRET` ausente em prod** — webhook POST aceita payload sem HMAC até Meta (ver A4)
 
 ---
@@ -122,7 +122,7 @@ Executar **após** Trilha A; **não** reutilizar secrets pessoais.
 
 - [ ] Render workspace corporativo + billing empresa
 - [ ] Supabase org corporativa
-- [ ] Google AI Studio / Cloud — projeto Gaussix
+- [ ] [OpenAI Platform](https://platform.openai.com/) — projeto/org Gaussix + billing
 - [ ] (Opcional) GitHub org + transferir repo
 
 ### B2. Supabase prod
@@ -140,7 +140,7 @@ Executar **após** Trilha A; **não** reutilizar secrets pessoais.
 - [ ] Env prod: ver tabela em [`PRODUCTION.md`](PRODUCTION.md) § LGPD
 - [ ] **`WHATSAPP_APP_SECRET`** definido antes de Meta
 - [ ] **`SIM_WHATSAPP_ORG_ID`** ausente
-- [ ] Rotacionar `DASHBOARD_JWT_SECRET`, `DASHBOARD_API_KEY`, `GOOGLE_API_KEY`
+- [ ] Rotacionar `DASHBOARD_JWT_SECRET`, `DASHBOARD_API_KEY`, `OPENAI_API_KEY`
 
 ### B4. Validação pós-migração
 

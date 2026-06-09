@@ -35,6 +35,22 @@ class TestSchedulingIntent:
         assert is_price_only_question("Quanto custa o corte feminino?")
         assert resolve_triage_agent([HumanMessage(content="Quanto custa o corte feminino?")], None) == "receptionist"
 
+    def test_coloracao_price_not_booking_after_welcome(self):
+        messages = [
+            HumanMessage(content="Sim, concordo"),
+            AIMessage(
+                content=(
+                    "Sou a assistente do Salão Beauty Express e estou aqui para ajudar "
+                    "com serviços e agendamentos."
+                )
+            ),
+            HumanMessage(content="Vocês fazem coloração? Qual o preço?"),
+        ]
+        assert is_price_only_question("Vocês fazem coloração? Qual o preço?")
+        assert not is_booking_conversation(messages)
+        assert resolve_triage_agent(messages, "receptionist") == "receptionist"
+        assert not should_force_scheduling_route(messages)
+
 
 class TestBookingConversation:
     def test_followup_after_agendar_request(self):
@@ -113,3 +129,41 @@ class TestResolveTriageAgent:
             HumanMessage(content="11987654320"),
         ]
         assert resolve_triage_agent(messages, "receptionist", booking_active=True) == "scheduling"
+
+
+class TestPostBookingRouting:
+    def _confirmed_thread(self):
+        return [
+            HumanMessage(content="Quero corte masculino dia 12 de junho"),
+            AIMessage(content="Com Maria Silva, estes horários estão livres:\n  • 11:00"),
+            HumanMessage(content="11:00"),
+            AIMessage(
+                content=(
+                    "Anotei Corte Masculino para sexta-feira, 12/06 às 11:00.\n\n"
+                    "Para finalizar, me passa seu nome completo e WhatsApp com DDD, por favor?"
+                )
+            ),
+            HumanMessage(content="João da Silva, 11987654444"),
+            AIMessage(
+                content=(
+                    "Pronto! Seu horário está confirmado para João da Silva: "
+                    "'Corte Masculino' em 12/06/2026 11:00 (America/Sao_Paulo)."
+                )
+            ),
+        ]
+
+    def test_thanks_routes_to_receptionist(self):
+        from packages.engine.routing import is_booking_confirmed_in_thread, is_post_booking_closing
+
+        messages = self._confirmed_thread() + [HumanMessage(content="Otimo, obrigado!")]
+        assert is_booking_confirmed_in_thread(messages)
+        assert is_post_booking_closing("Otimo, obrigado!")
+        assert not is_booking_conversation(messages)
+        assert resolve_triage_agent(messages, "scheduling", booking_active=True) == "receptionist"
+
+    def test_new_booking_after_confirm_stays_scheduling(self):
+        messages = self._confirmed_thread() + [
+            HumanMessage(content="Quero agendar manicure na sexta"),
+        ]
+        assert is_booking_conversation(messages)
+        assert resolve_triage_agent(messages, "receptionist", booking_active=False) == "scheduling"

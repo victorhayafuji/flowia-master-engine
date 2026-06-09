@@ -9,6 +9,6 @@
 - [ ] Smoke: primeira mensagem WhatsApp ou chat test retorna **aviso LGPD**
 - [ ] Segunda mensagem registra consentimento e fluxo normal
 - [ ] Dono do salão sabe usar Exportar/Eliminar em Clientes (DSR)
-- [ ] Subprocessadores Meta/Google ativos apenas se credenciais configuradas
+- [ ] Subprocessadores Meta/OpenAI ativos apenas se credenciais configuradas
 
 **Docs:** [`DSR_RUNBOOK.md`](DSR_RUNBOOK.md) · [`ROPA.md`](ROPA.md)

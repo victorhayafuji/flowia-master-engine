@@ -1,8 +1,6 @@
 import asyncio
 import logging
 
-from google import genai
-
 from packages.auth_core.config import settings
 from packages.lakehouse.bronze import BronzeLayer, DuplicateDocumentError
 from packages.lakehouse.gold import GoldLayer
@@ -40,8 +38,7 @@ class DataLakeService:
 
     def __init__(self):
         self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE)
-        self.ai_client = genai.Client(api_key=settings.GOOGLE_API_KEY)
-        self.vision_model = settings.MODEL_NAME
+        self.vision_model = settings.VISION_MODEL_NAME
         self.embedding_model = settings.EMBEDDING_MODEL_NAME
         self.ocr_semaphore = asyncio.Semaphore(5)
         self._ensure_bucket()

@@ -32,7 +32,7 @@ A **FlowIA** é uma agência de Automação de Inteligência Artificial focada e
   Não. Nós utilizamos a tecnologia RAG (Retrieval-Augmented Generation). O Agente só responde baseado nos documentos exatos que a empresa fornecer. Se a resposta não estiver no documento, ele diz que não sabe e passa para um humano.
   
 - **Quais plataformas vocês usam?**
-  Utilizamos modelos de linguagem do Google (Gemini 2.5) e OpenAI, hospedagem em Python (FastAPI), LangGraph para controle de fluxo e Supabase/PostgreSQL para segurança de dados.
+  Utilizamos modelos de linguagem da OpenAI, hospedagem em Python (FastAPI), LangGraph para controle de fluxo e Supabase/PostgreSQL para segurança de dados.
 
 - **Posso cancelar a mensalidade a qualquer momento?**
   Sim, não exigimos fidelidade nas mensalidades de manutenção. O cancelamento pode ser feito com aviso prévio de 30 dias.

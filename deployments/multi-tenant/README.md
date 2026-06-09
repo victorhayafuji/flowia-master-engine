@@ -23,7 +23,7 @@ Guia completo: [`docs/RENDER.md`](../../docs/RENDER.md)
 
 Templates produção (não commitar secrets):
 
-- [`.env.production.example`](.env.production.example) — API Render
+- [`.env.production.example`](.env.production.example) — API Render (`OPENAI_API_KEY`, `MODEL_NAME`, `VISION_MODEL_NAME`, `EMBEDDING_MODEL_NAME`)
 - [`render-dashboard.env.example`](render-dashboard.env.example) — build Vite
 
 ## Onboarding de novo salão

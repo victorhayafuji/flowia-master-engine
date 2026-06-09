@@ -21,6 +21,8 @@ interface ConversationRow {
   triage_source?: string | null
   channel?: string | null
   tokens_total?: number
+  tokens_turn?: number
+  tokens_thread_7d?: number
   created_at?: string
 }
 
@@ -55,7 +57,7 @@ export function AgentObservability() {
       const channelQuery = channelFilter ? `&channel=${encodeURIComponent(channelFilter)}` : ""
       const [kpiRes, convRes] = await Promise.all([
         api.get(`/metrics/scheduling-observability?days=7${channelQuery}`, orgHeader),
-        api.get("/metrics/conversations?limit=30", orgHeader),
+        api.get("/metrics/conversations?limit=30&days=7", orgHeader),
       ])
       setKpi(kpiRes as SchedulingKpi)
       setConversations(convRes as ConversationRow[])
@@ -78,7 +80,7 @@ export function AgentObservability() {
             <Activity className="w-6 h-6" /> Observabilidade do agente
           </h1>
           <p className="text-sm text-slate-500 mt-1 font-mono">
-            KPIs híbridos — últimos 7 dias (dev only)
+            KPIs híbridos — últimos 7 dias (plataforma Gaussix)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -156,6 +158,9 @@ export function AgentObservability() {
       <Card className="card-brutal">
         <CardHeader>
           <CardTitle className="text-sm font-black uppercase">Conversas recentes</CardTitle>
+          <p className="text-[10px] font-mono text-slate-500 mt-1 uppercase">
+            Uma linha por thread — último turno · tokens turno / acumulado 7d
+          </p>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
@@ -166,7 +171,8 @@ export function AgentObservability() {
                 <th className="py-2 pr-4">Path</th>
                 <th className="py-2 pr-4">Triage</th>
                 <th className="py-2 pr-4">Canal</th>
-                <th className="py-2 pr-4">Tokens</th>
+                <th className="py-2 pr-4">Tokens turno</th>
+                <th className="py-2 pr-4">Thread 7d</th>
               </tr>
             </thead>
             <tbody>
@@ -179,12 +185,13 @@ export function AgentObservability() {
                   </td>
                   <td className="py-2 pr-4">{row.triage_source ?? "—"}</td>
                   <td className="py-2 pr-4">{row.channel ?? "—"}</td>
-                  <td className="py-2 pr-4">{row.tokens_total ?? 0}</td>
+                  <td className="py-2 pr-4">{row.tokens_turn ?? row.tokens_total ?? 0}</td>
+                  <td className="py-2 pr-4 font-black">{row.tokens_thread_7d ?? row.tokens_total ?? 0}</td>
                 </tr>
               ))}
               {conversations.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className="py-4 text-slate-400">
+                  <td colSpan={7} className="py-4 text-slate-400">
                     Nenhuma conversa registrada
                   </td>
                 </tr>

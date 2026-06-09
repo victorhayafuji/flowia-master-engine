@@ -30,6 +30,10 @@ python scripts/seed_salon.py   # opcional — dados demo
 | `ALLOWED_ORIGINS` | URL HTTPS exata do dashboard Render |
 | `ALLOWED_HOSTS` | hostname da API Render |
 | `WEBHOOK_DEDUP_RETENTION_DAYS` | `7` |
+| `OPENAI_API_KEY` | secret prod ([OpenAI Platform](https://platform.openai.com/api-keys)) |
+| `MODEL_NAME` | `gpt-4o-mini` |
+| `VISION_MODEL_NAME` | `gpt-4o` |
+| `EMBEDDING_MODEL_NAME` | `text-embedding-3-small` |
 
 Testes e CI usam `CHECKPOINTER_BACKEND=memory` e `SCHEDULER_ENABLED=false`.
 

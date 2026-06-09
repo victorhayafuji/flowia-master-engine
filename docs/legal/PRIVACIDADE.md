@@ -38,13 +38,13 @@ O **FlowIA** é uma plataforma SaaS multi-tenant operada pela **Gaussix**, desti
 Dados podem ser processados por:
 
 - **Supabase** — banco de dados e storage (PostgreSQL)
-- **Google (Gemini)** — processamento de linguagem natural e embeddings
+- **OpenAI** — processamento de linguagem natural, OCR e embeddings
 - **Meta (WhatsApp Cloud API)** — mensagens
 - **Render** — hospedagem da API e dashboard
 
 Lista detalhada: [`SUBPROCESSORS.md`](SUBPROCESSORS.md).
 
-Transferências internacionais podem ocorrer (ex.: Google, Meta). Garantias contratuais padrão dos provedores aplicam-se conforme contrato SaaS.
+Transferências internacionais podem ocorrer (ex.: OpenAI, Meta). Garantias contratuais padrão dos provedores aplicam-se conforme contrato SaaS.
 
 ## 5. Retenção
 

@@ -91,17 +91,13 @@ class TestDataLakeVectorize:
     async def test_vectorize_inserts_one_record_per_chunk(self, mocker):
         mocker.patch.object(DataLakeService, "__init__", lambda self: None)
         service = DataLakeService()
-        service.embedding_model = "gemini-embedding-2"
+        service.embedding_model = "text-embedding-3-small"
         service.supabase = MagicMock()
 
-        mock_embedding = MagicMock()
-        mock_embedding.values = [0.1] * EMBEDDING_DIM
-
-        embed_response = MagicMock()
-        embed_response.embeddings = [mock_embedding]
-
-        service.ai_client = MagicMock()
-        service.ai_client.aio.models.embed_content = AsyncMock(return_value=embed_response)
+        mock_embed = mocker.patch(
+            "packages.lakehouse.gold.embed_text_async",
+            new=AsyncMock(return_value=[0.1] * EMBEDDING_DIM),
+        )
 
         doc = {
             "id": "silver-uuid-1",
@@ -112,7 +108,7 @@ class TestDataLakeVectorize:
         await service._vectorize_document(doc)
 
         chunks = DataLakeService._chunk_text(PRICE_TABLE_OCR)
-        assert service.ai_client.aio.models.embed_content.await_count == len(chunks)
+        assert mock_embed.await_count == len(chunks)
 
         insert_call = service.supabase.table.return_value.insert.call_args
         records = insert_call[0][0]

@@ -1,12 +1,9 @@
 """Silver layer: OCR and text extraction from Bronze documents."""
 import asyncio
-import io
 import logging
 from typing import TYPE_CHECKING, Any
 
-from google.genai import types as genai_types
-from PIL import Image
-
+from packages.auth_core.openai_client import extract_document_text_async
 from packages.lakehouse.helpers import BRONZE_BUCKET, clean_text
 
 if TYPE_CHECKING:
@@ -98,27 +95,8 @@ class SilverLayer:
         if mime_type.startswith("text/"):
             return clean_text(file_bytes.decode("utf-8", errors="replace"))
 
-        if mime_type.startswith("image/"):
-            img = await asyncio.to_thread(Image.open, io.BytesIO(file_bytes))
-            response = await self.service.ai_client.aio.models.generate_content(
-                model=self.service.vision_model,
-                contents=[
-                    "Extraia todo o texto desta imagem em Markdown estruturado. "
-                    "Preserve tabelas, listas e valores exatos.",
-                    img,
-                ],
-            )
-            return clean_text(response.text or "")
-
-        part = genai_types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
-        response = await self.service.ai_client.aio.models.generate_content(
-            model=self.service.vision_model,
-            contents=[
-                "Extraia todo o texto deste documento em Markdown estruturado.",
-                part,
-            ],
-        )
-        return clean_text(response.text or f"[Sem texto extraído de {file_name}]")
+        raw = await extract_document_text_async(file_bytes, mime_type, file_name)
+        return clean_text(raw or f"[Sem texto extraído de {file_name}]")
 
     async def _mark_bronze_error(self, bronze_id: str, message: str) -> None:
         await asyncio.to_thread(
