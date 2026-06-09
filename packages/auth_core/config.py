@@ -6,10 +6,12 @@ class Settings(BaseSettings):
     # Product line: salon (MVP) | clinic (future)
     PRODUCT_LINE: str = "salon"
 
-    # Google AI
-    GOOGLE_API_KEY: str
-    MODEL_NAME: str = "gemini-2.5-flash"
-    EMBEDDING_MODEL_NAME: str = "gemini-embedding-2"
+    # OpenAI (chat, OCR, embeddings)
+    OPENAI_API_KEY: str
+    MODEL_NAME: str = "gpt-4o-mini"
+    VISION_MODEL_NAME: str = "gpt-4o"
+    EMBEDDING_MODEL_NAME: str = "text-embedding-3-small"
+    EMBEDDING_DIMENSIONS: int = 768
 
     # Supabase
     SUPABASE_URL: str
@@ -39,6 +41,8 @@ class Settings(BaseSettings):
     # Local webhook simulation (scripts/simulate_whatsapp_webhook.py) — dev only
     SIM_WHATSAPP_ORG_ID: str = ""
     SIM_WHATSAPP_PHONE_ID: str = "123456789"
+    # WhatsApp inbound queue: inline (enqueue + process in API) | worker (dedicated worker consumes)
+    WHATSAPP_QUEUE_MODE: str = "inline"
 
     # LangSmith Observability
     LANGCHAIN_TRACING_V2: str = "false"

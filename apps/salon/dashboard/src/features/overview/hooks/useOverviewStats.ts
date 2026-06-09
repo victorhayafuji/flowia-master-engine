@@ -41,6 +41,19 @@ interface OverviewStats {
   upcoming: UpcomingAppt[]
   counts: BoardCounts
   board: BoardItem[]
+  agentSummary: AgentSummary
+}
+
+export interface AgentSummary {
+  handoffsPending: number
+  appointmentsWhatsappToday: number
+  conversationsThisWeek: number
+}
+
+const EMPTY_AGENT: AgentSummary = {
+  handoffsPending: 0,
+  appointmentsWhatsappToday: 0,
+  conversationsThisWeek: 0,
 }
 
 const EMPTY_COUNTS: BoardCounts = { total: 0, in_progress: 0, completed: 0, no_show: 0, upcoming: 0 }
@@ -53,6 +66,7 @@ export function useOverviewStats(user: unknown, orgHeader: Record<string, string
     upcoming: [],
     counts: EMPTY_COUNTS,
     board: [],
+    agentSummary: EMPTY_AGENT,
   })
 
   useEffect(() => {
@@ -88,8 +102,26 @@ export function useOverviewStats(user: unknown, orgHeader: Record<string, string
       }
     }
 
+    const fetchAgentSummary = async () => {
+      try {
+        const res = await api.get("/dashboard/agent-summary", orgHeader)
+        const data = res?.data || res
+        setStats((prev) => ({
+          ...prev,
+          agentSummary: {
+            handoffsPending: data.handoffsPending ?? 0,
+            appointmentsWhatsappToday: data.appointmentsWhatsappToday ?? 0,
+            conversationsThisWeek: data.conversationsThisWeek ?? 0,
+          },
+        }))
+      } catch (err) {
+        console.error("Erro ao buscar resumo do agente:", err)
+      }
+    }
+
     fetchStats()
     fetchBoard()
+    fetchAgentSummary()
   }, [user, orgHeader])
 
   return stats

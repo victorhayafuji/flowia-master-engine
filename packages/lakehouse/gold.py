@@ -3,6 +3,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+from packages.auth_core.openai_client import embed_text_async
 from packages.lakehouse.helpers import chunk_text, normalize_embedding
 
 if TYPE_CHECKING:
@@ -56,23 +57,12 @@ class GoldLayer:
 
             records = []
             for idx, chunk in enumerate(chunks):
-                emb_res = await self.service.ai_client.aio.models.embed_content(
-                    model=self.service.embedding_model,
-                    contents=chunk,
-                )
-                if not emb_res.embeddings or len(emb_res.embeddings) != 1:
-                    logger.error(
-                        "[GOLD] Embedding inesperado no chunk %d de %s (got %s)",
-                        idx,
-                        silver_id,
-                        len(emb_res.embeddings) if emb_res.embeddings else 0,
-                    )
-                    continue
+                emb_values = await embed_text_async(chunk)
                 records.append({
                     "silver_id": silver_id,
                     "chunk_index": idx,
                     "content": chunk,
-                    "embedding": normalize_embedding(emb_res.embeddings[0].values),
+                    "embedding": normalize_embedding(emb_values),
                     "organization_id": org_id,
                 })
 

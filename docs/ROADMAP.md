@@ -14,7 +14,7 @@ Este documento centraliza o planejamento estratégico e a arquitetura futura do 
 - **Foco:** Persistência, RAG Semântico e Roteamento SDR/Suporte.
 
 ### 🟢 Fase 4: Data Lake & Auto-Vetorização (CONCLUÍDO)
-- **Foco:** Ingestão de materiais brutos e OCR via Gemini Vision.
+- **Foco:** Ingestão de materiais brutos e OCR via OpenAI Vision.
 - **Entregas:** Upload Bronze (Supabase Storage), pipeline Silver/Gold assíncrono, busca RAG tenant-aware, dashboard `/data-lake`.
 
 ### 🔵 Fase 5: Expansão Omnichannel (BLOQUEADO — aguardando API WhatsApp)
@@ -69,7 +69,7 @@ Integração com o **Data Warehouse Executivo** para consultas estratégicas via
    - Exibição de esquemas (nome da coluna, tipo, descrição) e prévia em tabela (data sample).
 2. **SQL Editor com Assistente de IA:**
    - Editor de queries SQL integrado com botão de execução rápida.
-   - Geração de SQL por IA (Gemini) a partir de instruções em linguagem natural.
+   - Geração de SQL por IA (OpenAI) a partir de instruções em linguagem natural.
    - Visualização por gráficos dinâmica integrada (Chart.js) para agregações numéricas.
 3. **Data Lineage (Linhagem de Dados):**
    - Grafo de fluxo SVG interativo e animado mostrando a linhagem Bronze -> Silver -> Gold -> Dashboard.

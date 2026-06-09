@@ -85,7 +85,17 @@ venv\Scripts\python.exe scripts\check_env.py
 | `WEBHOOK_DEDUP_RETENTION_DAYS` | `7` |
 | `ALLOWED_ORIGINS` | `["https://SEU-DASHBOARD.onrender.com"]` |
 | `ALLOWED_HOSTS` | `["SEU-API.onrender.com"]` |
-| `GOOGLE_API_KEY`, `SUPABASE_*`, `DASHBOARD_*`, `WHATSAPP_VERIFY_TOKEN` | secrets prod |
+| `OPENAI_API_KEY` | secret prod ([OpenAI Platform](https://platform.openai.com/api-keys)) |
+| `MODEL_NAME` | `gpt-4o-mini` (default) |
+| `VISION_MODEL_NAME` | `gpt-4o` (OCR data lake) |
+| `EMBEDDING_MODEL_NAME` | `text-embedding-3-small` (RAG) |
+| `SUPABASE_*`, `DASHBOARD_*`, `WHATSAPP_VERIFY_TOKEN` | secrets prod |
+| `WHATSAPP_QUEUE_MODE` | `inline` na API (default); worker Render usa `worker` |
+
+### Worker WhatsApp (`flowia-whatsapp-worker`)
+
+Background worker no Blueprint consome `whatsapp_inbound_jobs` (FIFO). Ativar após webhook Meta validado; API permanece com `WHATSAPP_QUEUE_MODE=inline` até go-live ou escalar worker explicitamente.
+
 
 **Não definir:** `DEV_*`, `VITE_DEV_*`.
 

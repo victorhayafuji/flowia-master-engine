@@ -5,9 +5,9 @@ import logging
 import re
 from datetime import date
 
-from langchain_google_genai import ChatGoogleGenerativeAI
-
 from packages.auth_core.config import settings
+from packages.engine.llm import get_chat_llm
+from packages.scheduling.guardrails import extract_booking_date_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,146 @@ def format_date_label_pt(date_iso: str) -> str:
     parsed = date.fromisoformat(date_iso)
     weekday = _WEEKDAY_PT[parsed.weekday()]
     return f"{weekday}, {parsed.strftime('%d/%m')}"
+
+
+def factual_indicates_no_availability(factual: str) -> bool:
+    lower = factual.lower()
+    return any(
+        phrase in lower
+        for phrase in (
+            "não há horários",
+            "nao ha horarios",
+            "não encontrei horários",
+            "nao encontrei horarios",
+            "não ha horarios livres",
+            "nao ha horarios livres",
+        )
+    )
+
+
+def is_availability_question(user_message: str) -> bool:
+    t = user_message.lower().strip()
+    if not t:
+        return False
+    hints = ("tem hor", "tem vaga", "algum hor", "disponib", "horário", "horario")
+    if "?" in user_message:
+        return any(h in t for h in hints)
+    return any(h in t for h in hints)
+
+
+_MID_FLOW_SHORT_REPLIES = frozenset(
+    {
+        "nao sei",
+        "não sei",
+        "nao sei ainda",
+        "não sei ainda",
+        "sim",
+        "ok",
+        "pode",
+        "claro",
+        "quero",
+    }
+)
+
+_CLARIFICATION_MARKERS = (
+    "qual dia você prefere",
+    "qual dia voce prefere",
+    "escolha fica com você",
+    "escolha fica com voce",
+    "os dois dias funcionam",
+    "qual prefere:",
+)
+
+
+def _is_mid_flow_short_reply(text: str) -> bool:
+    normalized = text.lower().strip().rstrip("?!.")
+    if normalized in _MID_FLOW_SHORT_REPLIES:
+        return True
+    if len(text.split()) <= 4 and text.endswith("?"):
+        from packages.scheduling.booking_flow_memory import is_date_choice_opinion_question
+
+        if is_date_choice_opinion_question(text):
+            return True
+    if re.match(r"^pode ser\b", normalized):
+        return True
+    return False
+
+
+def _factual_is_self_contained_question(human_factual: str) -> bool:
+    lower = human_factual.lower()
+    if any(marker in lower for marker in _CLARIFICATION_MARKERS):
+        return True
+    if "qual serviço" in lower or "qual servico" in lower:
+        return True
+    if "estes horários estão livres" in lower or "estes horarios estao livres" in lower:
+        return True
+    if "nome completo e whatsapp" in lower:
+        return True
+    return False
+
+
+def _ack_overlaps_factual(ack: str, human_factual: str) -> bool:
+    ack_lower = ack.lower()
+    factual_lower = human_factual.lower()
+    if "entendi" not in ack_lower and "gostaria" not in ack_lower and "deseja" not in ack_lower:
+        return False
+    if "qual dia" in factual_lower or "qual prefere" in factual_lower:
+        if any(token in ack_lower for token in ("amanhã", "amanha", "sexta", "agendar")):
+            return True
+    return False
+
+
+def should_use_template_acknowledgment(
+    *,
+    user_message: str,
+    factual: str,
+    human_factual: str,
+) -> bool:
+    factual_lower = factual.lower()
+    human_lower = human_factual.lower()
+
+    if factual.strip().upper().startswith("SUCESSO"):
+        return False
+    if any(
+        phrase in factual_lower
+        for phrase in (
+            "para continuar o agendamento",
+            "não consegui concluir",
+            "nao consegui concluir",
+            "informe serviço, data",
+            "informe servico, data",
+        )
+    ):
+        return False
+    if "anotei" in factual_lower and "nome completo" in human_lower:
+        return False
+    if any(
+        phrase in human_lower
+        for phrase in (
+            "horário está confirmado",
+            "horario esta confirmado",
+            "estes horários estão livres",
+            "estes horarios estao livres",
+            "qual horário funciona melhor",
+            "qual horario funciona melhor",
+        )
+    ):
+        msg = user_message.lower()
+        if not any(token in msg for token in ("mecha", "luzes", "balayage")):
+            return False
+
+    if factual_indicates_no_availability(factual) or factual_indicates_no_availability(human_factual):
+        return False
+    if is_availability_question(user_message):
+        msg = user_message.lower()
+        if any(token in msg for token in ("mecha", "luzes", "balayage")):
+            return True
+        return False
+    if _factual_is_self_contained_question(human_factual):
+        msg = user_message.lower()
+        if not any(token in msg for token in ("mecha", "luzes", "balayage")):
+            return False
+    return True
 
 
 def build_template_acknowledgment(
@@ -53,7 +193,7 @@ def build_template_acknowledgment(
         return f"Ótimo! Sobre {booking_service}, me conta para qual data você prefere?"
 
     if date_label:
-        return f"Certo! Para {date_label}, qual serviço você gostaria de fazer?"
+        return None
 
     if msg and any(w in msg for w in ("agendar", "marcar", "horário", "horario", "vaga")):
         name = salon_name or "salão"
@@ -63,6 +203,7 @@ def build_template_acknowledgment(
 
 
 _MAX_SLOTS_PER_ROW = 3
+
 
 def _parse_professional_slot_line(line: str) -> tuple[str, list[str]] | None:
     """Parse 'Ana Costa: 13:00, 13:15, ...' into name + ordered unique times."""
@@ -93,7 +234,7 @@ def format_time_grid(times: list[str], *, per_row: int = _MAX_SLOTS_PER_ROW) -> 
     return "\n".join(rows)
 
 
-def format_availability_blocks(slot_lines: list[str]) -> str:
+def format_availability_blocks(slot_lines: list[str], *, date_label: str | None = None) -> str:
     """Turn tool output lines into a structured, human-readable availability block."""
     professionals: list[tuple[str, list[str]]] = []
     for line in slot_lines:
@@ -104,17 +245,19 @@ def format_availability_blocks(slot_lines: list[str]) -> str:
     if not professionals:
         return ""
 
+    prefix = f"Para {date_label}, " if date_label else ""
+
     if len(professionals) == 1:
         name, times = professionals[0]
         if len(times) == 1:
-            body = f"Tenho {times[0]} com {name}."
+            body = f"{prefix}Tenho {times[0]} com {name}."
         else:
-            body = f"Com {name}, estes horários estão livres:\n{format_time_grid(times)}"
+            body = f"{prefix}Com {name}, estes horários estão livres:\n{format_time_grid(times)}"
     else:
         chunks = []
         for name, times in professionals:
             chunks.append(f"Com {name}:\n{format_time_grid(times)}")
-        body = "\n\n".join(chunks)
+        body = f"{prefix}\n\n" + "\n\n".join(chunks) if prefix else "\n\n".join(chunks)
 
     return f"{body}\n\nQual horário funciona melhor para você?"
 
@@ -139,7 +282,10 @@ def humanize_scheduling_factual(
             for line in text.splitlines()
             if line.strip().startswith("-") and _TIME_PATTERN.search(line)
         ]
-        formatted = format_availability_blocks(slot_lines)
+        formatted = format_availability_blocks(
+            slot_lines,
+            date_label=format_date_label_pt(booking_date) if booking_date else None,
+        )
         if formatted:
             return formatted
 
@@ -154,7 +300,7 @@ def humanize_scheduling_factual(
             time_hhmm = match.group(3)
             date_label = format_date_label_pt(match.group(2))
             return (
-                f"Anotei {service} para {date_label} às {time_hhmm}.\n\n"
+                f"Quase lá! Anotei {service} para {date_label} às {time_hhmm}.\n\n"
                 "Para finalizar, me passa seu nome completo e WhatsApp com DDD, por favor?"
             )
 
@@ -167,6 +313,30 @@ def humanize_scheduling_factual(
         )
 
     if text.upper().startswith("SUCESSO"):
+        match = re.search(
+            r"confirmado para\s+(.+?):\s*'(.+?)'\s+com\s+(.+?)\s+em\s+(.+?)\.",
+            text,
+            re.I,
+        )
+        if match:
+            name = match.group(1).strip()
+            service = match.group(2).strip()
+            professional = match.group(3).strip()
+            when = match.group(4).strip()
+            return (
+                f"Pronto! Seu horário está confirmado, {name}: "
+                f"{service} com {professional} em {when}."
+            )
+        match = re.search(
+            r"confirmado para\s+(.+?):\s*'(.+?)'\s+em\s+(.+?)\.",
+            text,
+            re.I,
+        )
+        if match:
+            name = match.group(1).strip()
+            service = match.group(2).strip()
+            when = match.group(3).strip()
+            return f"Pronto! Seu horário está confirmado, {name}: {service} em {when}."
         human = text.replace("SUCESSO! ", "", 1)
         human = human.replace("Agendamento confirmado", "Seu horário está confirmado", 1)
         return f"Pronto! {human}".strip()
@@ -197,6 +367,46 @@ def factual_guard(polished: str, original_factual: str) -> bool:
     return required.issubset(_extract_factual_tokens(polished))
 
 
+def should_skip_stored_acknowledgment(
+    user_message: str,
+    stored_ack: str | None,
+    *,
+    org_id: str | None = None,
+) -> bool:
+    """Drop stale LLM ack when the client sends a short mid-flow data reply."""
+    if not stored_ack or not user_message.strip():
+        return False
+    msg = user_message.strip()
+    if len(msg) >= 72:
+        return False
+
+    if extract_booking_date_from_text(msg, reference=date.today()):
+        return True
+
+    if org_id:
+        from packages.scheduling.booking_executor import _is_catalog_service_reply
+
+        if _is_catalog_service_reply(msg, org_id):
+            return True
+
+    from packages.scheduling.timezone_utils import extract_booking_time_from_text
+
+    if extract_booking_time_from_text(msg) and len(msg.split()) <= 4:
+        return True
+
+    from packages.scheduling.booking_flow_memory import is_date_choice_opinion_question
+
+    if is_date_choice_opinion_question(msg) and not extract_booking_date_from_text(
+        msg, reference=date.today()
+    ):
+        return True
+
+    if _is_mid_flow_short_reply(msg):
+        return True
+
+    return False
+
+
 def compose_scheduling_reply(
     factual: str,
     user_acknowledgment: str | None = None,
@@ -205,21 +415,33 @@ def compose_scheduling_reply(
     booking_service: str | None = None,
     booking_date: str | None = None,
     user_message: str = "",
+    org_id: str | None = None,
 ) -> str:
+    if should_skip_stored_acknowledgment(user_message, user_acknowledgment, org_id=org_id):
+        user_acknowledgment = None
+
     human_factual = humanize_scheduling_factual(
         factual,
         booking_service=booking_service,
         booking_date=booking_date,
     )
-    ack = user_acknowledgment or build_template_acknowledgment(
-        salon_name=salon_name,
-        booking_service=booking_service,
-        booking_date=booking_date,
+
+    ack = user_acknowledgment
+    if ack is None and should_use_template_acknowledgment(
         user_message=user_message,
-    )
+        factual=factual,
+        human_factual=human_factual,
+    ):
+        ack = build_template_acknowledgment(
+            salon_name=salon_name,
+            booking_service=booking_service,
+            booking_date=booking_date,
+            user_message=user_message,
+        )
+
     if ack:
         ack = ack.strip()
-        if ack and ack not in human_factual:
+        if ack and ack not in human_factual and not _ack_overlaps_factual(ack, human_factual):
             return f"{ack}\n\n{human_factual.strip()}"
     return human_factual.strip()
 
@@ -234,11 +456,7 @@ async def polish_scheduling_reply(
     if not settings.RESPONSE_POLISH_ENABLED:
         return composed
 
-    llm = ChatGoogleGenerativeAI(
-        model=settings.MODEL_NAME,
-        temperature=0.3,
-        google_api_key=settings.GOOGLE_API_KEY,
-    )
+    llm = get_chat_llm(temperature=0.3)
     prompt = (
         f"Reescreva a resposta do assistente do {salon_name or 'salão'} de forma natural e cordial. "
         "Mantenha TODOS os horários (HH:MM) e datas exatamente iguais. "

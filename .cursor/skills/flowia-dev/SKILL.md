@@ -26,10 +26,13 @@ pytest --cov=packages --cov=apps/salon
 ruff check packages apps/salon tests main.py
 ```
 
-Env vars mínimas (espelha `.github/workflows/ci.yml`):
+Env vars mínimas **somente para pytest/CI** (não exportar no shell antes do uvicorn — Pydantic prioriza process env sobre `.env`):
 
 ```
-GOOGLE_API_KEY=test-key
+OPENAI_API_KEY=test-key
+MODEL_NAME=gpt-4o-mini
+VISION_MODEL_NAME=gpt-4o
+EMBEDDING_MODEL_NAME=text-embedding-3-small
 SUPABASE_URL=https://example.supabase.co
 SUPABASE_KEY=test-anon-key
 SUPABASE_SERVICE_ROLE=test-service-role
@@ -40,6 +43,8 @@ DASHBOARD_JWT_SECRET=test-jwt-secret-for-ci-only-32chars
 CHECKPOINTER_BACKEND=memory
 SCHEDULER_ENABLED=false
 ```
+
+Após rodar pytest neste terminal, limpe placeholders ou abra terminal novo antes do Chat Test / uvicorn.
 
 ## Testes frontend
 

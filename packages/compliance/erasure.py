@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from packages.auth_core.config import settings
+from packages.auth_core.conversation_thread import patient_thread_id_candidates
 from packages.auth_core.database import db
 
 logger = logging.getLogger(__name__)
@@ -66,17 +67,11 @@ def erase_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
         raise ValueError("Cliente não encontrado")
 
     patient = patient_res.data[0]
-    thread_ids = list(
-        {
-            tid
-            for tid in (
-                patient.get("legacy_sender_id"),
-                patient.get("phone"),
-                _anonymized_phone(patient_id),
-            )
-            if tid
-        }
-    )
+    effective_org = org_id if org_id and org_id != "ALL" else str(patient.get("organization_id") or "")
+    thread_ids = patient_thread_id_candidates(effective_org, patient) if effective_org else []
+    anon = _anonymized_phone(patient_id)
+    if anon not in thread_ids:
+        thread_ids.append(anon)
 
     checkpoints_removed = 0
     for tid in thread_ids:

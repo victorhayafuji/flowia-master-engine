@@ -8,7 +8,7 @@ Este documento descreve a arquitetura do Flowia Master Engine, um sistema multi-
 flowchart LR
     Dashboard[Dashboard React] -->|REST + cookie JWT| API[FastAPI Backend]
     API --> Supabase[(Supabase PostgreSQL)]
-    API --> Gemini[Google Gemini]
+    API --> OpenAI[OpenAI API]
     WhatsApp[WhatsApp API] -->|webhook| API
 ```
 
@@ -19,7 +19,7 @@ flowchart LR
     User[Browser] --> StaticSite[Render Static Site flowia-dashboard]
     StaticSite -->|VITE_API_URL| WebService[Render Web Service flowia-api]
     WebService --> Supabase[(Supabase)]
-    WebService --> Gemini[Gemini]
+    WebService --> OpenAI[OpenAI]
     Meta[Meta WhatsApp] -->|webhook| WebService
 ```
 
@@ -153,8 +153,18 @@ Modelo **multi-tenant** com `organization_id` em entidades de negócio.
 ## 6. Integrações
 
 - **WhatsApp:** webhook + outbound Graph API
-- **Gemini:** chat engine e OCR do data lake
+- **OpenAI:** chat, OCR e embeddings (via `OPENAI_API_KEY`)
 - **Slack:** handoff (opcional)
+
+### Modelos OpenAI (defaults — `.env`)
+
+| Variável | Default | Uso |
+|----------|---------|-----|
+| `MODEL_NAME` | `gpt-4o-mini` | LangGraph, triage, intent extractor, polish |
+| `VISION_MODEL_NAME` | `gpt-4o` | OCR Data Lake (Bronze → Silver) |
+| `EMBEDDING_MODEL_NAME` | `text-embedding-3-small` | Vetores RAG (`docs_gold_vectors`) |
+
+Implementação: `packages/engine/llm.py`, `packages/auth_core/openai_client.py`, `packages/lakehouse/service.py`. Fonte: [`CLAUDE.md`](../CLAUDE.md) §9 e §33.
 
 ## 7. Qualidade e CI
 

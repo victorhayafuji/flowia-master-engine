@@ -90,6 +90,13 @@ export function Layout() {
                 Termos
               </a>
             </div>
+            {user?.role === "super_admin" && (
+              <Link to="/admin/observability">
+                <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/observability" ? "text-[var(--accent)]" : "text-slate-600 dark:text-slate-400 hover:text-[var(--accent)]"}`}>
+                  <Activity className="w-4 h-4" /> Observabilidade (plataforma)
+                </button>
+              </Link>
+            )}
             {isDev && user?.role === "super_admin" && (
               <>
                 <Link to="/admin/data-lake">
@@ -100,11 +107,6 @@ export function Layout() {
                 <Link to="/admin/chat-test">
                   <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/chat-test" ? "text-[var(--accent)]" : "text-slate-600 dark:text-slate-400 hover:text-[var(--accent)]"}`}>
                     <MessageSquare className="w-4 h-4" /> Chat Test (dev)
-                  </button>
-                </Link>
-                <Link to="/admin/observability">
-                  <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/observability" ? "text-[var(--accent)]" : "text-slate-600 dark:text-slate-400 hover:text-[var(--accent)]"}`}>
-                    <Activity className="w-4 h-4" /> Observabilidade (dev)
                   </button>
                 </Link>
               </>

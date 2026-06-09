@@ -1,6 +1,6 @@
 # Flowia Master Engine
 
-Plataforma SaaS multi-tenant para salões de beleza: dashboard administrativo, agendamento inteligente e assistente conversacional (LangGraph + Gemini).
+Plataforma SaaS multi-tenant para salões de beleza: dashboard administrativo, agendamento inteligente e assistente conversacional (LangGraph + OpenAI).
 
 **Documentação completa:** [`CLAUDE.md`](CLAUDE.md) — fonte da verdade do projeto (negócio + arquitetura + segurança).
 
@@ -34,7 +34,7 @@ Windows (backend + frontend): `start_flowia.bat`
 
 ## Stack
 
-FastAPI · LangGraph · Gemini · Supabase (PostgreSQL + RLS) · React 18 · Vite 5 · Tailwind 4
+FastAPI · LangGraph · OpenAI (`gpt-4o-mini` · `gpt-4o` · `text-embedding-3-small`) · Supabase (PostgreSQL + RLS) · React 18 · Vite 5 · Tailwind 4
 
 ## Documentação
 

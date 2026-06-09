@@ -32,7 +32,7 @@ export default function PrivacidadePage() {
 
           <h2 className="text-xl font-black uppercase">Subprocessadores</h2>
           <p>
-            Supabase, Google (Gemini), Meta (WhatsApp), Render — podem processar dados fora do
+            Supabase, OpenAI, Meta (WhatsApp), Render — podem processar dados fora do
             Brasil conforme contratos dos provedores.
           </p>
 

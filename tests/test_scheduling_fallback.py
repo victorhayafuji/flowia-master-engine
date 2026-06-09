@@ -9,7 +9,7 @@ ORG = "22222222-2222-2222-2222-222222222222"
 def test_no_fallback_when_service_and_date_resolved(mocker):
     mocker.patch(
         "packages.engine.scheduling_fallback.resolve_booking_context",
-        return_value=("2026-06-10", "Coloração"),
+        return_value=("2026-06-10", "Coloração", None),
     )
     mocker.patch(
         "packages.engine.scheduling_fallback._guess_service_query",
@@ -22,7 +22,7 @@ def test_no_fallback_when_service_and_date_resolved(mocker):
 def test_fallback_for_colloquial_service_without_match(mocker):
     mocker.patch(
         "packages.engine.scheduling_fallback.resolve_booking_context",
-        return_value=("2026-06-10", None),
+        return_value=("2026-06-10", None, None),
     )
     mocker.patch(
         "packages.engine.scheduling_fallback._guess_service_query",

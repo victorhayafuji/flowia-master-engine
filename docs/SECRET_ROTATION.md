@@ -6,7 +6,7 @@ Execute este checklist se o arquivo `.env` foi compartilhado, commitado por enga
 
 | Secret | Onde rotacionar | Variável `.env` |
 |--------|-----------------|-----------------|
-| Google API Key | [Google AI Studio](https://aistudio.google.com/apikey) | `GOOGLE_API_KEY` |
+| OpenAI API Key | [OpenAI Platform](https://platform.openai.com/api-keys) | `OPENAI_API_KEY` |
 | Supabase anon key | Supabase → Settings → API | `SUPABASE_KEY`, `VITE_SUPABASE_KEY` |
 | Supabase service role | Supabase → Settings → API | `SUPABASE_SERVICE_ROLE` |
 | JWT secret | Gerar novo (32+ chars aleatórios) | `DASHBOARD_JWT_SECRET` |
@@ -21,7 +21,7 @@ Execute este checklist se o arquivo `.env` foi compartilhado, commitado por enga
 2. Reinicie backend e frontend (`start_flowia.bat` ou uvicorn + `npm run dev`).
 3. Todos os usuários precisarão fazer login novamente (JWT antigo invalida).
 4. Atualize secrets no **Render Dashboard** → serviço `flowia-api` / `flowia-dashboard` → Environment (sync off). Redeploy após alterar `VITE_*` no Static Site.
-5. Revogue as chaves antigas nos painéis (Google, Supabase, Meta) — não apenas substitua.
+5. Revogue as chaves antigas nos painéis (OpenAI, Supabase, Meta) — não apenas substitua.
 
 ## Gerar novos valores localmente
 

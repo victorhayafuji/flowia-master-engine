@@ -162,3 +162,70 @@ async def get_today_board(
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/dashboard/agent-summary", dependencies=[Depends(auth_required)])
+async def get_agent_summary(
+    org_id: str = Depends(validated_tenant_context),
+    prof_scope: str | None = Depends(professional_scope),
+):
+    """Lite agent observability for salon owners — counts only, no PII or token data."""
+    if prof_scope:
+        return {
+            "status": "success",
+            "data": {
+                "handoffsPending": 0,
+                "appointmentsWhatsappToday": 0,
+                "conversationsThisWeek": 0,
+            },
+        }
+
+    try:
+        _, today, end_today = _day_bounds(org_id)
+        since_week = (datetime.utcnow() - timedelta(days=7)).isoformat()
+
+        handoffs_pending = 0
+        if org_id and org_id != "ALL":
+            handoff_query = (
+                db.client.table("patients")
+                .select("id", count="exact")
+                .eq("organization_id", org_id)
+                .eq("is_active", True)
+                .not_.is_("handoff_requested_at", "null")
+            )
+            handoffs_pending = handoff_query.execute().count or 0
+
+        appt_query = (
+            db.client.table("appointments")
+            .select("id", count="exact")
+            .eq("source", "whatsapp")
+            .gte("scheduled_at", today.isoformat())
+            .lte("scheduled_at", end_today.isoformat())
+        )
+        if org_id and org_id != "ALL":
+            appt_query = appt_query.eq("organization_id", org_id)
+        appointments_whatsapp_today = appt_query.execute().count or 0
+
+        metrics_query = (
+            db.client.table("conversation_metrics")
+            .select("thread_id")
+            .gte("created_at", since_week)
+            .limit(5000)
+        )
+        if org_id and org_id != "ALL":
+            metrics_query = metrics_query.eq("organization_id", org_id)
+        metric_rows = metrics_query.execute().data or []
+        conversations_this_week = len(
+            {row["thread_id"] for row in metric_rows if row.get("thread_id")}
+        )
+
+        return {
+            "status": "success",
+            "data": {
+                "handoffsPending": handoffs_pending,
+                "appointmentsWhatsappToday": appointments_whatsapp_today,
+                "conversationsThisWeek": conversations_this_week,
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e

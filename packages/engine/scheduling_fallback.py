@@ -36,7 +36,7 @@ def needs_scheduling_llm_fallback(
     combined = " ".join(texts)
     last = texts[-1].lower().strip()
 
-    ctx_date, ctx_service = resolve_booking_context(
+    ctx_date, ctx_service, _ = resolve_booking_context(
         messages, org_id, booking_date=booking_date, booking_service=booking_service
     )
     date_iso = extract_booking_date_from_text(combined) or ctx_date

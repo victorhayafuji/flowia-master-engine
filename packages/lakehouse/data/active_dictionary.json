@@ -194,7 +194,7 @@
       },
       "model_name": {
         "type": "text",
-        "description": "Nome do modelo de LLM utilizado (ex: gemini-2.5-flash)."
+        "description": "Nome do modelo de LLM utilizado (ex: gpt-4o-mini)."
       },
       "sentiment_score": {
         "type": "double precision",

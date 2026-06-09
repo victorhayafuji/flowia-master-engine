@@ -117,4 +117,26 @@ class TestSearchKbTenant:
             match_threshold=0.3,
             match_count=3,
         )
-        assert "Nenhuma informação" in result
+        assert "Nenhuma informação foi encontrada" in result
+
+    def test_search_kb_catalog_fallback_when_rag_empty(self, mocker):
+        mock_service = mocker.MagicMock()
+        mock_service.search_knowledge.return_value = []
+        mocker.patch("packages.engine.tools.DataLakeService", return_value=mock_service)
+        mocker.patch(
+            "packages.scheduling.catalog_search.list_catalog_services",
+            return_value=[
+                {
+                    "id": "svc-2",
+                    "name": "Coloração Completa",
+                    "duration_minutes": 120,
+                    "price": 250.0,
+                }
+            ],
+        )
+
+        with set_tenant_context(ORG_A):
+            result = search_kb.invoke({"query": "Vocês fazem coloração? Qual o preço?"})
+
+        assert "R$ 250,00" in result
+        assert "Coloração Completa" in result

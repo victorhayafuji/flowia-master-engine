@@ -32,7 +32,7 @@ O salão é responsável por informar seus clientes, obter bases legais aplicáv
 
 ## 5. Disponibilidade e IA
 
-O assistente usa modelos de IA (Google Gemini). Respostas podem conter imprecisões; confirmações de agendamento dependem de ferramentas validadas (`book_time`). A Gaussix não garante disponibilidade 100% (dependência de terceiros: Meta, Google, Supabase, Render).
+O assistente usa modelos de IA (OpenAI). Respostas podem conter imprecisões; confirmações de agendamento dependem de ferramentas validadas (`book_time`). A Gaussix não garante disponibilidade 100% (dependência de terceiros: Meta, OpenAI, Supabase, Render).
 
 ## 6. Propriedade intelectual
 

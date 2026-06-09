@@ -8,6 +8,7 @@
 | Documento | Quando usar |
 |-----------|-------------|
 | [**CLAUDE.md**](../CLAUDE.md) | **Sempre** — contexto completo de negócio, arquitetura, segurança, IA e ops |
+| Modelos IA | [`CLAUDE.md`](../CLAUDE.md) §9 · §33 · [`ARCHITECTURE.md`](ARCHITECTURE.md) §6 | OpenAI: `gpt-4o-mini`, `gpt-4o`, `text-embedding-3-small` |
 | [**TENANCY_AND_SCALE.md**](TENANCY_AND_SCALE.md) | **Novo salão pagante**, isolamento RLS, escala 200+, tier enterprise |
 | [AGENTS.md](../AGENTS.md) | Operação Cursor: comandos, rules, skills |
 | [README.md](../README.md) | Quick start para humanos |
@@ -31,6 +32,7 @@
 | Auditoria docs | [DOC_AUDIT_2026-06.md](DOC_AUDIT_2026-06.md) | Gaps documentação (Jun/2026) |
 | Segurança | [SECRET_ROTATION.md](SECRET_ROTATION.md) | Rotação de credentials |
 | Go-live | [SECURITY_GO_LIVE_CHECKLIST.md](SECURITY_GO_LIVE_CHECKLIST.md) | Auditoria piloto + checklist corporativo |
+| Observabilidade IA | [AGENT_OBSERVABILITY.md](AGENT_OBSERVABILITY.md) | Personas, métricas lite vs plataforma |
 | **LGPD / Legal** | [legal/PRIVACIDADE.md](legal/PRIVACIDADE.md) | Política de privacidade (DRAFT) |
 | LGPD | [legal/ROPA.md](legal/ROPA.md) | Registro operações de tratamento |
 | LGPD | [legal/DSR_RUNBOOK.md](legal/DSR_RUNBOOK.md) | Pedidos titular (export/erase) |

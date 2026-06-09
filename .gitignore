@@ -11,6 +11,7 @@ build/
 # Virtual Environment
 venv/
 .venv/
+.venv-lock/
 ENV/
 
 # Environment Variables (CRITICAL - contains API keys and secrets)
@@ -40,6 +41,8 @@ desktop.ini
 htmlcov/
 .pytest_cache/
 scratch/
+_read_dump.txt
+_s*.txt
 
 # Lint output
 lint_errors.*

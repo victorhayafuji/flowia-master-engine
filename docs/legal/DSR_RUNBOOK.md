@@ -38,7 +38,7 @@ Bundle inclui: cadastro patient, agendamentos, metadados de conversas (sem corpo
 3. Sistema executa:
    - Anonimiza PII em `patients` (`[Removido]`, phone hash, `is_active=false`)
    - Purga `conversation_metrics` do thread
-   - Purga checkpoints LangGraph (`thread_id` = telefone WhatsApp)
+   - Purga checkpoints LangGraph (`thread_id` = `{organization_id}:{telefone WhatsApp}`; legado phone-only durante transição)
 4. Agendamentos históricos permanecem com vínculo anonimizado (estatística operacional do salão).
 
 ## Revogação de consentimento

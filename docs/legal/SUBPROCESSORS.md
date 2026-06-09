@@ -5,7 +5,7 @@
 | Subprocessador | Serviço | Dados tratados | Localização | Finalidade |
 |----------------|---------|----------------|-------------|------------|
 | **Supabase Inc.** | PostgreSQL, Storage, Auth (backend) | Todos os dados de negócio | EUA (região do projeto) | Persistência multi-tenant |
-| **Google LLC** | Gemini API | Mensagens, docs OCR, embeddings | EUA / global | IA conversacional, RAG |
+| **OpenAI** | OpenAI API | Mensagens, docs OCR, embeddings | EUA | IA conversacional, RAG |
 | **Meta Platforms** | WhatsApp Cloud API | Mensagens, phone_id | EUA / global | Canal WhatsApp |
 | **Render Services Inc.** | Web hosting | Tráfego HTTP, env vars | EUA | API + dashboard + landing |
 

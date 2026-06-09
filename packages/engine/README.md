@@ -4,3 +4,4 @@ LangGraph master engine, token tracking, chat routers, checkpointer, prompts reg
 
 - Grafo: `engine.py` · Checkpointer: `checkpointer.py`
 - Chat test: `chat_router.py` · Métricas: `metrics_router.py`
+- LLM: `llm.py` → OpenAI `MODEL_NAME` (default `gpt-4o-mini`)

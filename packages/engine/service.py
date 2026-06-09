@@ -6,6 +6,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage
 
 from packages.auth_core.config import settings
+from packages.auth_core.conversation_thread import build_thread_id
 from packages.auth_core.tenant import get_current_org_id, set_tenant_context
 from packages.compliance.consent import ConsentAction, evaluate_consent_gate
 from packages.engine.checkpointer import master_engine
@@ -31,9 +32,20 @@ async def dispatch_chat_test(
         verdict = assess_user_message(message)
         formatted_message = format_user_message_for_agent(message)
 
+        effective_org = org_id or get_current_org_id()
+        if not effective_org or effective_org == "ALL":
+            raise ValueError("org_id é obrigatório para chat test.")
+
+        if not thread_id.startswith(f"{effective_org}:"):
+            thread_id = build_thread_id(effective_org, thread_id)
+
         token_tracker = TurnTokenTracker()
         config = {
-            "configurable": {"thread_id": thread_id, "channel": "chat_test"},
+            "configurable": {
+                "thread_id": thread_id,
+                "channel": "chat_test",
+                "org_id": effective_org,
+            },
             "callbacks": [token_tracker],
         }
 
@@ -43,11 +55,6 @@ async def dispatch_chat_test(
         }
         if verdict == MessageVerdict.SUSPICIOUS:
             input_data["audit_flag"] = "suspicious"
-
-        effective_org = org_id or get_current_org_id()
-        if not effective_org or effective_org == "ALL":
-            raise ValueError("org_id é obrigatório para chat test.")
-        config["configurable"]["org_id"] = effective_org
 
         with set_tenant_context(effective_org):
             consent_action, notice_msg, lgpd_shown = evaluate_consent_gate(
@@ -147,6 +154,7 @@ async def dispatch_chat_test(
             "handoff": final_state.get("handoff_requested", False),
             "messages_count": len(messages),
             "scheduling_path": final_state.get("scheduling_path"),
+            "receptionist_path": final_state.get("receptionist_path"),
             "triage_source": final_state.get("triage_source"),
         }
 

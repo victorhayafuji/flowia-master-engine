@@ -175,8 +175,8 @@ Cliente exige DB isolado / contrato enterprise / compliance?
 | Salões ativos | Infra (mesma stack) | Ações |
 |---------------|---------------------|-------|
 | **1–10** | Render Starter, Supabase Free/Pro, API scale=1 | Separar Supabase prod; WhatsApp por org |
-| **10–50** | Supabase Pro | Monitoramento; índices pgvector; alertas custo Gemini |
-| **50–200** | API autoscale ou +instâncias | Background Worker para scheduler (lembretes, dedup purge) |
+| **10–50** | Supabase Pro | Monitoramento; índices pgvector; alertas custo OpenAI |
+| **50–200** | API autoscale + `flowia-whatsapp-worker` | Fila FIFO `whatsapp_inbound_jobs`; `WHATSAPP_QUEUE_MODE=worker` na API |
 | **200+** | Pooler Postgres, retenção Bronze | Opcional read replica; **mesmo** modelo multi-tenant |
 
 Gargalos prováveis: burst webhook, conexões DB (checkpointer + API), custo tokens — **não** RLS em si.

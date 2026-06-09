@@ -2,6 +2,7 @@
 import logging
 from typing import TYPE_CHECKING, Any
 
+from packages.auth_core.openai_client import embed_text
 from packages.lakehouse.helpers import dedupe_search_results, normalize_embedding
 
 if TYPE_CHECKING:
@@ -23,11 +24,7 @@ class SearchLayer:
     ) -> list[dict[str, Any]]:
         """Semantic search in Gold layer, optionally filtered by organization."""
         try:
-            emb_res = self.service.ai_client.models.embed_content(
-                model=self.service.embedding_model,
-                contents=query,
-            )
-            query_embedding = normalize_embedding(emb_res.embeddings[0].values)
+            query_embedding = normalize_embedding(embed_text(query))
 
             rpc_params: dict[str, Any] = {
                 "query_embedding": query_embedding,

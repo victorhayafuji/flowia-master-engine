@@ -10,7 +10,8 @@ SaaS multi-tenant para salões (`PRODUCT_LINE=salon`).
 |--------|---------|
 | Runtime | Python 3.12, Node 20 |
 | API | FastAPI ≥0.109, Uvicorn ≥0.27, Pydantic v2 |
-| AI | LangGraph ≥1.0, langchain-google-genai ≥4.0, Gemini |
+| AI | LangGraph ≥1.0, langchain-openai, OpenAI |
+| Modelos | `gpt-4o-mini` (chat), `gpt-4o` (OCR), `text-embedding-3-small` (RAG) — ver `CLAUDE.md` §9 |
 | DB | Supabase ≥2.3, PostgreSQL + RLS, psycopg3 |
 | Frontend | React 18.3, Vite 5.4, TS 5.6, Tailwind 4.3, React Router 7.16 |
 | Test/Lint | pytest 8, ruff, vitest 2, Playwright, ESLint 9 |
@@ -36,7 +37,7 @@ cd apps/salon/dashboard && npm run dev && npm test && npm run lint && npm run bu
 python scripts/check_env.py
 python scripts/test_booking_flow_http.py                  # multi-turn via /chat/test
 python scripts/simulate_whatsapp_webhook.py             # webhook fake (sem Meta)
-python scripts/test_scheduling_llm.py                   # LLM + tools (Gemini, ~30s)
+python scripts/test_scheduling_llm.py                   # LLM + tools (OpenAI, ~30s)
 python scripts/test_scheduling_hybrid.py                # comparar tokens hibrido vs LLM puro
 python scripts/generate_prod_secrets.py   # stdout — secrets prod
 python scripts/apply_migrations.py        # supabase db push alternativo
@@ -79,3 +80,12 @@ Regras em [`.cursor/rules/`](.cursor/rules/) · Skills em [`.cursor/skills/`](.c
 Skills carregam sob demanda via `@nome` no chat (`disable-model-invocation: true`).
 
 Docs: [`CLAUDE.md`](CLAUDE.md) · [`docs/TENANCY_AND_SCALE.md`](docs/TENANCY_AND_SCALE.md) · [`docs/README.md`](docs/README.md) · [`ROADMAP`](docs/ROADMAP.md) · [`PRODUCTION`](docs/PRODUCTION.md)
+
+## Adversarial tests
+
+```bash
+py -3.12 scripts/run_adversarial_matrix.py
+py -3.12 -m pytest tests/test_engine_input_guard.py tests/test_lakehouse_governance.py tests/test_search_kb_security.py tests/test_prompt_guardrails_static.py tests/test_chat_security.py tests/test_webhook_input_guard.py tests/test_agent_flow_adversarial.py -m "not llm_behavior" -q
+RUN_LLM_BEHAVIOR_TESTS=1 py -3.12 -m pytest tests/test_agent_behavior_llm.py -m llm_behavior -q
+```
+

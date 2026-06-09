@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { useSearchParams } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { api } from "@/shared/lib/api"
 import { Search, Phone, Plus, Download, Trash2 } from "lucide-react"
@@ -11,10 +12,14 @@ interface Patient {
   no_show_count?: number
   total_appointments?: number
   last_visit_at?: string | null
+  handoff_requested_at?: string | null
+  handoff_reason?: string | null
 }
 
 export function Patients() {
   const { user, organizationId, orgHeader } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const handoffOnly = searchParams.get("handoff") === "1"
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -104,10 +109,24 @@ export function Patients() {
     }
   }
 
-  const filteredPatients = patients.filter(p =>
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.phone?.includes(searchTerm)
-  )
+  const filteredPatients = useMemo(() => {
+    return patients.filter((p) => {
+      if (handoffOnly && !p.handoff_requested_at) return false
+      return (
+        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.phone?.includes(searchTerm)
+      )
+    })
+  }, [patients, handoffOnly, searchTerm])
+
+  const toggleHandoffFilter = () => {
+    if (handoffOnly) {
+      searchParams.delete("handoff")
+    } else {
+      searchParams.set("handoff", "1")
+    }
+    setSearchParams(searchParams, { replace: true })
+  }
 
   return (
     <div className="page-shell">
@@ -158,7 +177,16 @@ export function Patients() {
           </div>
         </div>
 
-        <div className="z-10 font-mono text-sm font-bold uppercase tracking-widest text-[var(--foreground)]/50 text-right w-full md:w-auto">
+        <div className="z-10 font-mono text-sm font-bold uppercase tracking-widest text-[var(--foreground)]/50 text-right w-full md:w-auto flex flex-wrap items-center gap-3 justify-end">
+          <button
+            type="button"
+            onClick={toggleHandoffFilter}
+            className={`px-3 py-1 border-2 border-[var(--border)] text-xs uppercase ${
+              handoffOnly ? "bg-[var(--accent)] text-[var(--foreground)]" : "bg-[var(--surface)]"
+            }`}
+          >
+            {handoffOnly ? "Filtro: handoff ativo" : "Só handoffs"}
+          </button>
           Total: <span className="text-[var(--foreground)] text-xl">{filteredPatients.length}</span>
         </div>
       </div>
@@ -188,7 +216,14 @@ export function Patients() {
                   
                   <div className="space-y-1">
                     <div className="font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/40 group-hover:text-[var(--background)]/50">Identificação</div>
-                    <div className="font-black uppercase text-xl md:text-2xl tracking-tight truncate">{p.name || 'NÃO ESPECIFICADO'}</div>
+                    <div className="font-black uppercase text-xl md:text-2xl tracking-tight truncate flex items-center gap-2">
+                      {p.name || 'NÃO ESPECIFICADO'}
+                      {p.handoff_requested_at && (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 border-2 border-amber-600 text-amber-700 group-hover:border-[var(--background)] group-hover:text-[var(--background)]">
+                          Handoff
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-1">

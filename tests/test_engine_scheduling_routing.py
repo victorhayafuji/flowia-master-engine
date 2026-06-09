@@ -51,7 +51,7 @@ async def test_receptionist_escape_delegates_to_scheduling(mocker):
     from packages.engine.engine import receptionist_node
 
     mock_sched = mocker.patch(
-        "packages.engine.engine.scheduling_node",
+        "packages.engine.graph.nodes.scheduling_node",
         new_callable=mocker.AsyncMock,
         return_value={
             "messages": [AIMessage(content="Slots: 14:00")],
@@ -59,7 +59,7 @@ async def test_receptionist_escape_delegates_to_scheduling(mocker):
             "booking_active": True,
         },
     )
-    mocker.patch("packages.engine.engine._invoke_agent")
+    mocker.patch("packages.engine.graph.nodes._invoke_agent")
 
     state = {"messages": [HumanMessage(content="Quero agendar corte na sexta")]}
     result = await receptionist_node(state, {})

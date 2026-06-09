@@ -31,10 +31,12 @@ services:
         value: "true"
       - key: RESPONSE_POLISH_ENABLED
         value: "false"
+      - key: WHATSAPP_QUEUE_MODE
+        value: inline
       - key: PYTHON_VERSION
         value: "3.12.0"
       # Set in Render Dashboard (sync: false) — never commit real values
-      - key: GOOGLE_API_KEY
+      - key: OPENAI_API_KEY
         sync: false
       - key: SUPABASE_URL
         sync: false
@@ -53,6 +55,40 @@ services:
       - key: ALLOWED_ORIGINS
         sync: false
       - key: ALLOWED_HOSTS
+        sync: false
+
+  - type: worker
+    name: flowia-whatsapp-worker
+    runtime: python
+    plan: starter
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m packages.integrations.webhook.worker
+    autoDeploy: true
+    envVars:
+      - key: PRODUCT_LINE
+        value: salon
+      - key: CHECKPOINTER_BACKEND
+        value: auto
+      - key: WHATSAPP_QUEUE_MODE
+        value: worker
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: DASHBOARD_JWT_SECRET
         sync: false
 
   - type: web

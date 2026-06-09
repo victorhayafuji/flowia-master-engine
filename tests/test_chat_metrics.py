@@ -84,8 +84,17 @@ class TestResolveTurnTokens:
 
 
 class TestCalculateCost:
-    def test_calculate_cost_returns_positive_brl(self):
-        cost = calculate_cost(1000, 500, "gemini-2.5-flash", usd_to_brl=5.0)
+
+    def test_calculate_cost_gpt4o_mini(self):
+        cost = calculate_cost(1000, 500, "gpt-4o-mini", usd_to_brl=5.0)
+        assert cost > 0
+
+    def test_calculate_cost_gpt4o(self):
+        cost = calculate_cost(1000, 500, "gpt-4o", usd_to_brl=5.0)
+        assert cost > 0
+
+    def test_calculate_cost_unknown_model_uses_default(self):
+        cost = calculate_cost(1000, 500, "unknown-model", usd_to_brl=5.0)
         assert cost > 0
 
     def test_chat_response_includes_cost_fields(self, client, user_token, mocker):

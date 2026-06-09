@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { AuthProvider } from "@/features/auth/AuthContext"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 import { AdminDevRoute } from "./components/AdminDevRoute"
+import { AdminPlatformRoute } from "./components/AdminPlatformRoute"
 import { OrgAdminRoute } from "./components/OrgAdminRoute"
 import { Layout } from "./components/Layout"
 import { Login } from "./pages/Login"
@@ -51,6 +52,14 @@ function App() {
               <Route path="/data-lake" element={<Navigate to="/admin/data-lake" replace />} />
               <Route path="/chat-test" element={<Navigate to="/admin/chat-test" replace />} />
 
+              <Route element={<AdminPlatformRoute />}>
+                <Route path="/admin/observability" element={
+                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                    <AgentObservability />
+                  </Suspense>
+                } />
+              </Route>
+
               <Route element={<AdminDevRoute />}>
                 <Route path="/admin/data-lake" element={
                   <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
@@ -60,11 +69,6 @@ function App() {
                 <Route path="/admin/chat-test" element={
                   <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
                     <ChatTest />
-                  </Suspense>
-                } />
-                <Route path="/admin/observability" element={
-                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
-                    <AgentObservability />
                   </Suspense>
                 } />
               </Route>

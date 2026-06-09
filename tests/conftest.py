@@ -112,3 +112,40 @@ def mock_regular_user():
         "role": "org_admin",
         "organization_id": ORG_A,
     }
+
+
+@pytest.fixture
+def agent_flow(mocker, mock_db):
+    """Simulador multi-turno do Chat Test — ver tests/support/agent_flow.py."""
+    from tests.support.agent_flow import AgentFlowConfig, AgentFlowSimulator, install_agent_flow_mocks
+
+    org_table = mocker.MagicMock()
+    org_chain = mocker.MagicMock()
+    org_chain.select.return_value = org_chain
+    org_chain.eq.return_value = org_chain
+    org_chain.limit.return_value = org_chain
+    org_chain.maybe_single.return_value = org_chain
+    org_chain.execute.return_value = mocker.MagicMock(
+        data={"name": "Beauty Express"}
+    )
+    org_table.select.return_value = org_chain
+
+    def _table(name):
+        if name == "organizations":
+            return org_table
+        chain = mocker.MagicMock()
+        chain.select.return_value = chain
+        chain.eq.return_value = chain
+        chain.limit.return_value = chain
+        chain.maybe_single.return_value = chain
+        chain.execute.return_value = mocker.MagicMock(data=[])
+        return chain
+
+    mock_db.client.table.side_effect = _table
+
+    def _factory(**overrides):
+        cfg = AgentFlowConfig(**overrides)
+        install_agent_flow_mocks(mocker, cfg)
+        return AgentFlowSimulator(cfg)
+
+    return _factory

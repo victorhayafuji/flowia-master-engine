@@ -5,6 +5,8 @@ import re
 
 from langchain_core.messages import BaseMessage
 
+from packages.scheduling.date_parsing import get_temporal_hint_phrases, has_temporal_date_hint
+
 _SCHEDULING_KEYWORDS = (
     "agendar",
     "agendamento",
@@ -31,6 +33,12 @@ _SUPPORT_KEYWORDS = (
     "pagamento",
     "estacionamento",
     "alergia",
+    "faltei",
+    "faltou",
+    "nao fui",
+    "não fui",
+    "compareci",
+    "atrasei",
 )
 
 _MENU_SCHEDULING = frozenset({"1", "agendar", "marcar", "agendamento", "horario", "horário"})
@@ -50,21 +58,10 @@ _WEEKDAY_HINTS = (
     "amanhã",
     "amanha",
     "hoje",
+    "ontem",
 )
 
-_TEMPORAL_HINTS = (
-    "semana que vem",
-    "semana proxima",
-    "semana próxima",
-    "proxima semana",
-    "próxima semana",
-    "esse sabado",
-    "esse sábado",
-    "essa semana",
-    "de tarde",
-    "de manha",
-    "de manhã",
-)
+_TEMPORAL_HINTS = tuple(sorted(get_temporal_hint_phrases()))
 
 _BOOKING_VISIT_HINTS = (
     "preciso ir",
@@ -112,14 +109,95 @@ _SERVICE_HINTS = (
 
 _PHONE_PATTERN = re.compile(r"\d{10,13}")
 _TIME_PATTERN = re.compile(r"\d{1,2}:\d{2}|(?:às|as)\s*\d{1,2}")
+_TIME_OF_DAY_HINTS = (
+    "de tarde",
+    "de manha",
+    "de manhã",
+    "a tarde",
+    "a manha",
+    "a manhã",
+    "pela manha",
+    "pela manhã",
+    "pela tarde",
+)
+_AI_SCHEDULING_SIGNAL = re.compile(
+    r"\b("
+    r"agendar|agendamento|"
+    r"hor[aá]rio|hor[aá]rios|"
+    r"colora[cç][aã]o|"
+    r"telefone|nome completo"
+    r")\b",
+    re.I,
+)
 
 
 def _normalize(text: str) -> str:
     return text.lower().strip()
 
 
+_POST_BOOKING_CLOSING_HINTS = (
+    "obrigad",
+    "brigad",
+    "valeu",
+    "agrade",
+    "otimo",
+    "ótimo",
+    "show",
+    "legal",
+    "perfeito",
+    "maravilha",
+    "até logo",
+    "ate logo",
+    "tchau",
+)
+
+_BOOKING_CONFIRMED_HINTS = (
+    "horário está confirmado",
+    "horario esta confirmado",
+    "seu horário está confirmado",
+    "seu horario esta confirmado",
+    "agendamento confirmado",
+    "pronto! seu horário",
+    "pronto! seu horario",
+)
+
+
+def is_post_booking_closing(text: str) -> bool:
+    """Short gratitude/closing after booking — not a new scheduling request."""
+    t = _normalize(text)
+    if not t or len(t) > 96:
+        return False
+    if wants_new_booking_after_confirm(text):
+        return False
+    return any(hint in t for hint in _POST_BOOKING_CLOSING_HINTS)
+
+
+def wants_new_booking_after_confirm(text: str) -> bool:
+    """Explicit new booking signal after a prior confirmation."""
+    return (
+        has_scheduling_intent(text)
+        or has_implicit_scheduling_intent(text)
+        or has_temporal_scheduling_intent(text)
+        or has_time_or_slot_question(text)
+        or is_booking_data_reply(text)
+    )
+
+
+def is_booking_confirmed_in_thread(messages: list[BaseMessage]) -> bool:
+    """True when a recent assistant message confirms a completed booking."""
+    for msg in reversed(messages[-16:]):
+        if msg.type != "ai":
+            continue
+        ai = _normalize(message_text(msg))
+        if any(hint in ai for hint in _BOOKING_CONFIRMED_HINTS):
+            return True
+        if ai.startswith("pronto!") and "confirmado" in ai:
+            return True
+    return False
+
+
 def message_text(message: BaseMessage) -> str:
-    """Extract plain text from HumanMessage/AIMessage content (str or Gemini blocks)."""
+    """Extract plain text from HumanMessage/AIMessage content (str or multimodal blocks)."""
     content = message.content
     if isinstance(content, str):
         return content
@@ -139,6 +217,11 @@ def has_scheduling_intent(text: str) -> bool:
     return any(keyword in t for keyword in _SCHEDULING_KEYWORDS)
 
 
+def has_support_with_date_intent(text: str) -> bool:
+    """Cancel/absence/policy message that mentions a reference date."""
+    return has_support_intent(text) and has_temporal_date_hint(text)
+
+
 def has_support_intent(text: str) -> bool:
     t = _normalize(text)
     return any(keyword in t for keyword in _SUPPORT_KEYWORDS)
@@ -148,8 +231,7 @@ def has_implicit_scheduling_intent(text: str) -> bool:
     """Service + date/day without explicit 'agendar' (e.g. 'coloração na sexta')."""
     t = _normalize(text)
     has_day = (
-        any(day in t for day in _WEEKDAY_HINTS)
-        or any(day in t for day in _TEMPORAL_HINTS)
+        has_temporal_date_hint(text)
         or bool(re.search(r"\d{1,2}/\d{1,2}", t))
         or bool(re.search(r"\d{4}-\d{2}-\d{2}", t))
     )
@@ -160,7 +242,7 @@ def has_implicit_scheduling_intent(text: str) -> bool:
 def has_temporal_scheduling_intent(text: str) -> bool:
     """Colloquial visit + time window without explicit 'agendar'."""
     t = _normalize(text)
-    has_temporal = any(h in t for h in _TEMPORAL_HINTS) or any(d in t for d in _WEEKDAY_HINTS)
+    has_temporal = has_temporal_date_hint(text)
     has_service = any(h in t for h in _SERVICE_HINTS)
     has_visit = any(v in t for v in _BOOKING_VISIT_HINTS) or has_scheduling_intent(t)
     return has_temporal and (has_service or has_visit)
@@ -175,8 +257,7 @@ def has_price_and_scheduling_intent(text: str) -> bool:
         or has_implicit_scheduling_intent(t)
         or has_temporal_scheduling_intent(t)
         or has_time_or_slot_question(t)
-        or any(d in t for d in _WEEKDAY_HINTS)
-        or any(h in t for h in _TEMPORAL_HINTS)
+        or has_temporal_date_hint(text)
     )
     return has_price and has_schedule
 
@@ -198,6 +279,8 @@ def is_price_only_question(text: str) -> bool:
 def has_time_or_slot_question(text: str) -> bool:
     t = _normalize(text)
     if _TIME_PATTERN.search(t):
+        return True
+    if any(phrase in t for phrase in _TIME_OF_DAY_HINTS):
         return True
     return any(
         phrase in t
@@ -224,6 +307,15 @@ def is_booking_conversation(messages: list[BaseMessage]) -> bool:
     if not human_texts:
         return False
 
+    last_raw = message_text([m for m in messages if m.type == "human"][-1])
+    if has_support_intent(last_raw) or has_support_with_date_intent(last_raw):
+        return False
+
+    if is_booking_confirmed_in_thread(messages):
+        human_only = [m for m in messages if m.type == "human"]
+        last_raw = message_text(human_only[-1])
+        return wants_new_booking_after_confirm(last_raw)
+
     combined = " ".join(human_texts)
     if has_scheduling_intent(combined) or has_implicit_scheduling_intent(combined):
         return True
@@ -244,20 +336,10 @@ def is_booking_conversation(messages: list[BaseMessage]) -> bool:
         if msg.type != "ai":
             continue
         ai = _normalize(message_text(msg))
-        if any(phrase in ai for phrase in _EXECUTOR_AI_HINTS) or any(
-            phrase in ai
-            for phrase in (
-                "agendar",
-                "agendamento",
-                "coloração",
-                "coloracao",
-                "horário",
-                "horario",
-                "telefone",
-                "nome completo",
-                "tipo de",
-            )
-        ):
+        if any(phrase in ai for phrase in _EXECUTOR_AI_HINTS):
+            return True
+        # Word boundaries — avoid "agendamentos" in generic welcome matching "agendar".
+        if _AI_SCHEDULING_SIGNAL.search(ai):
             return True
     return False
 
@@ -268,7 +350,10 @@ def should_force_scheduling_route(
     booking_active: bool = False,
 ) -> bool:
     """True when thread must enter scheduling_node (skip receptionist LLM)."""
-    if resolve_triage_agent(messages, None, booking_active=booking_active) == "scheduling":
+    resolved = resolve_triage_agent(messages, None, booking_active=booking_active)
+    if resolved == "support":
+        return False
+    if resolved == "scheduling":
         return True
     return is_booking_conversation(messages)
 
@@ -282,6 +367,8 @@ def triage_source_for(
     if was_booking_active:
         human_msgs = [m for m in messages if m.type == "human"]
         if human_msgs and not is_price_only_question(message_text(human_msgs[-1])):
+            if is_booking_confirmed_in_thread(messages):
+                return "keyword"
             return "sticky"
     if is_booking_conversation(messages):
         return "conversation"
@@ -319,10 +406,20 @@ def resolve_triage_agent(
     if last_human in _MENU_RECEPTIONIST:
         return "receptionist"
 
-    if has_support_intent(last_human):
+    if is_price_only_question(message_text(human_msgs[-1])):
+        return "receptionist"
+
+    if is_booking_confirmed_in_thread(messages):
+        if wants_new_booking_after_confirm(message_text(human_msgs[-1])):
+            return "scheduling"
+        return "receptionist"
+
+    if has_support_intent(last_human) or has_support_with_date_intent(last_human):
         return "support"
 
     if booking_active and not is_price_only_question(message_text(human_msgs[-1])):
+        if is_booking_confirmed_in_thread(messages):
+            return "receptionist"
         return "scheduling"
 
     if (

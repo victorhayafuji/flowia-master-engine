@@ -48,8 +48,8 @@ async def ensure_organization(org_meta: dict) -> None:
 
 
 async def run_pipeline(org_id: str, search_query: str, ensure_org: bool) -> None:
-    from scratch.generate_mocks import generate_documents
-    from scratch.vertical_orgs import VERTICAL_ORGS
+    from apps.salon.seeds.datalake_mocks import generate_documents
+    from apps.salon.seeds.vertical_orgs import VERTICAL_ORGS
     from packages.lakehouse.service import DataLakeService, DuplicateDocumentError
 
     vertical = "salon"
@@ -99,7 +99,7 @@ async def run_pipeline(org_id: str, search_query: str, ensure_org: bool) -> None
 
 
 def main() -> int:
-    from scratch.vertical_orgs import VERTICAL_ORGS
+    from apps.salon.seeds.vertical_orgs import VERTICAL_ORGS
 
     meta = VERTICAL_ORGS["salon"]
     parser = argparse.ArgumentParser(description="Seed Data Lake — Salão Beauty Express")
