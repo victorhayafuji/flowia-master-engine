@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from packages.auth_core.auth_service import get_user_by_username
 from packages.auth_core.config import settings
-from packages.auth_core.dependencies import auth_required, validated_tenant_context
+from packages.auth_core.dependencies import admin_required, auth_required, validated_tenant_context
 from packages.auth_core.tenant import set_tenant_context
 from packages.lakehouse.governance import (
     ACTIVE_DICTIONARY,
@@ -163,7 +163,7 @@ async def get_catalog(request: Request):
     return {"status": "success", "catalog": ACTIVE_DICTIONARY}
 
 
-@router.post("/lakehouse/query")
+@router.post("/lakehouse/query", dependencies=[Depends(admin_required)])
 async def query_lakehouse(
     request: Request,
     payload: QueryRequest,
@@ -187,7 +187,7 @@ async def query_lakehouse(
     return {"status": "success", "data": result_or_error, "rows": result_or_error}
 
 
-@router.post("/lakehouse/generate-sql", dependencies=[Depends(auth_required)])
+@router.post("/lakehouse/generate-sql", dependencies=[Depends(admin_required)])
 async def generate_sql(request: Request, payload: GenerateSQLRequest):
     try:
         schema_context = ""

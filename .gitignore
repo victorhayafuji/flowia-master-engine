@@ -17,6 +17,7 @@ ENV/
 .env
 .env.local
 .env.production
+deployments/**/.env
 .cursor/mcp.json
 
 # IDE

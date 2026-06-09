@@ -1,9 +1,10 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from packages.auth_core.dependencies import validated_tenant_context
+from packages.auth_core.limiter import limiter
 from packages.auth_core.tenant import set_tenant_context
 from packages.engine.input_guard import (
     BLOCKED_USER_RESPONSE,
@@ -37,8 +38,10 @@ class ChatTestResponse(BaseModel):
     triage_source: str | None = None
 
 @router.post("/chat/test", response_model=ChatTestResponse)
+@limiter.limit("30/minute")
 async def test_chat(
-    request: ChatTestRequest,
+    request: Request,
+    payload: ChatTestRequest,
     org_id: str = Depends(validated_tenant_context),
 ):
     """Test endpoint to chat with the agent directly from the dashboard."""
@@ -48,9 +51,9 @@ async def test_chat(
             detail="Selecione uma organização específica para testar o chat.",
         )
 
-    verdict = assess_user_message(request.message)
+    verdict = assess_user_message(payload.message)
     if verdict == MessageVerdict.BLOCKED:
-        thread_id = request.thread_id or "blocked"
+        thread_id = payload.thread_id or "blocked"
         return ChatTestResponse(
             response=BLOCKED_USER_RESPONSE,
             agent="blocked",
@@ -61,5 +64,5 @@ async def test_chat(
         )
 
     with set_tenant_context(org_id):
-        result = await dispatch_chat_test(request.message, request.thread_id, org_id=org_id)
+        result = await dispatch_chat_test(payload.message, payload.thread_id, org_id=org_id)
     return ChatTestResponse(**result)

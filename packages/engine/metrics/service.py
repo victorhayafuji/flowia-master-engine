@@ -216,7 +216,7 @@ def get_recent_conversations(limit: int = 20, organization_id: str | None = None
         return []
 
 
-def get_tokens_daily(days: int = 7) -> list:
+def get_tokens_daily(days: int = 7, organization_id: str | None = None) -> list:
     """Returns daily token consumption for charts with optimized query."""
     if not db.wait_for_ready(timeout=3):
         return []
@@ -224,13 +224,16 @@ def get_tokens_daily(days: int = 7) -> list:
         client = db.client
         since = (datetime.utcnow() - timedelta(days=days)).date().isoformat()
 
-        # Optimized: Fetch only needed columns and limit to avoid hanging
-        response = client.table("conversation_metrics") \
-            .select("created_at, tokens_total") \
-            .gte("created_at", since) \
-            .order("created_at", desc=True) \
-            .limit(1000) \
-            .execute()
+        query = (
+            client.table("conversation_metrics")
+            .select("created_at, tokens_total")
+            .gte("created_at", since)
+            .order("created_at", desc=True)
+            .limit(1000)
+        )
+        if organization_id and organization_id != "ALL":
+            query = query.eq("organization_id", organization_id)
+        response = query.execute()
 
         rows = response.data or []
 

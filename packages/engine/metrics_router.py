@@ -24,8 +24,9 @@ def get_conversations(limit: int = 20, org_id: str = Depends(validated_tenant_co
 
 
 @router.get("/metrics/tokens-daily", dependencies=[Depends(auth_required)])
-def get_daily_tokens(days: int = 7):
-    return get_tokens_daily(days)
+def get_daily_tokens(days: int = 7, org_id: str = Depends(validated_tenant_context)):
+    org_filter = org_id if org_id != "ALL" else None
+    return get_tokens_daily(days, organization_id=org_filter)
 
 
 @router.get("/metrics/scheduling-observability", dependencies=[Depends(auth_required)])
