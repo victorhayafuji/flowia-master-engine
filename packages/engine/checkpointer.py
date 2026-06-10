@@ -51,6 +51,7 @@ async def init_checkpointer_async() -> None:
             autocommit=True,
             prepare_threshold=0,
             row_factory=dict_row,
+            connect_timeout=15,
         )
         saver = AsyncPostgresSaver(_async_pg_conn)
         await saver.setup()

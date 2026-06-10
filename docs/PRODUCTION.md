@@ -77,6 +77,10 @@ Requer `super_admin` + `npm run dev` (ou build preview):
 
 ---
 
+## Health check Render
+
+O probe HTTP exige resposta em menos de **5s** em `/health`. A API sobe o listener imediatamente e aquece checkpointer/Supabase/scheduler em **background** (`apps/salon/api/startup_warmup.py`). Rotas de negócio retornam **503** até `ready=true` no JSON de `/health`.
+
 ## Smoke pós-deploy (comandos)
 
 Ordem recomendada após cada deploy em `main`:

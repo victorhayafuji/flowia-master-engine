@@ -28,37 +28,13 @@ _APP_VERSION = "1.1.0"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from packages.engine.checkpointer import init_checkpointer_async, shutdown_checkpointer_async
+    from apps.salon.api.startup_warmup import shutdown_warmup, start_background_warmup
 
     logger = logging.getLogger("uvicorn")
-    logger.info("[FlowIA] Aquecendo motores...")
-    await init_checkpointer_async()
-    try:
-        from packages.auth_core.database import SupabaseHandler
-
-        db = SupabaseHandler()
-        if db.is_ready:
-            db.client.table("conversation_metrics").select("id").limit(1).execute()
-            logger.info("[FlowIA] Supabase conectado!")
-        else:
-            logger.error("[FlowIA] Supabase offline")
-    except Exception as e:
-        logger.error("[FlowIA] Erro no aquecimento: %s", e)
-
-    from packages.scheduling.scheduler import get_scheduler, start_scheduler
-
-    start_scheduler()
-    if sched := get_scheduler():
-        from packages.compliance.retention import register_retention_jobs
-        from packages.integrations.webhook.dedup import register_dedup_purge_job
-
-        register_dedup_purge_job(sched)
-        register_retention_jobs(sched)
+    logger.info("[FlowIA] API online — aquecimento em background")
+    start_background_warmup()
     yield
-    from packages.scheduling.scheduler import stop_scheduler
-
-    stop_scheduler()
-    await shutdown_checkpointer_async()
+    await shutdown_warmup()
     logger.info("[FlowIA] Desligando...")
 
 
@@ -92,6 +68,17 @@ def _register_middleware(app: FastAPI) -> None:
         allow_headers=["*"],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
+
+    @app.middleware("http")
+    async def warmup_gate(request: Request, call_next):
+        from apps.salon.api.startup_warmup import is_ready
+
+        if request.url.path != "/health" and not is_ready():
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Service starting — retry shortly"},
+            )
+        return await call_next(request)
 
     @app.middleware("http")
     async def add_security_headers(request, call_next):
@@ -148,25 +135,17 @@ def create_salon_app() -> FastAPI:
 
     @app.get("/health", tags=["System"])
     def health_check():
-        uptime_seconds = round(time.monotonic() - _APP_START_TIME, 1)
-        db_status = "unknown"
-        try:
-            from packages.auth_core.database import SupabaseHandler
+        from apps.salon.api.startup_warmup import get_warmup_snapshot
 
-            db = SupabaseHandler()
-            if db.is_ready:
-                db.client.table("conversation_metrics").select("id").limit(1).execute()
-                db_status = "connected"
-            else:
-                db_status = "disconnected"
-        except Exception:
-            db_status = "error"
+        warmup = get_warmup_snapshot()
         return {
             "status": "ok",
+            "ready": warmup["ready"],
             "version": _APP_VERSION,
             "model": settings.MODEL_NAME,
-            "database": db_status,
-            "uptime_seconds": uptime_seconds,
+            "database": warmup["database"],
+            "checkpointer": warmup["checkpointer"],
+            "uptime_seconds": round(time.monotonic() - _APP_START_TIME, 1),
             "product_line": settings.PRODUCT_LINE,
         }
 

@@ -39,14 +39,22 @@ def main() -> int:
     with httpx.Client(timeout=30.0, follow_redirects=True) as client:
         health_url = f"{origin}/health"
         try:
-            resp = client.get(health_url)
-            resp.raise_for_status()
-            payload = resp.json()
+            payload: dict = {}
+            for attempt in range(12):
+                resp = client.get(health_url)
+                resp.raise_for_status()
+                payload = resp.json()
+                if payload.get("ready") and payload.get("database") == "connected":
+                    break
+                if attempt < 11:
+                    import time
+
+                    time.sleep(5)
             print(f"OK health {health_url}: {json.dumps(payload, ensure_ascii=False)}")
             if payload.get("status") != "ok":
                 failures.append("health status != ok")
             if payload.get("database") != "connected":
-                failures.append("database != connected")
+                failures.append("database != connected (warmup timeout)")
         except Exception as exc:
             failures.append(f"health check failed: {exc}")
 

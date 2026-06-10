@@ -29,8 +29,10 @@ def mock_db(mocker):
 
 
 @pytest.fixture
-def app(mock_db):
+def app(mock_db, mocker):
     """Creates a fresh FastAPI app with mocked DB for each test."""
+    mocker.patch("apps.salon.api.startup_warmup.is_ready", return_value=True)
+
     from packages.engine.checkpointer import shutdown_checkpointer
 
     shutdown_checkpointer()
