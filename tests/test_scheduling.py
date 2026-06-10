@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock
 from uuid import uuid4
@@ -34,9 +34,24 @@ def _mock_response(data):
 _WORKDAY = date(2026, 6, 10)
 
 
-def _stub_availability(service, *, working_hours, break_times=None, buffer=0,
-                       appointments=None, blocks=None, slot_step=30, min_notice_hours=0):
+def _stub_availability(
+    service,
+    mocker,
+    *,
+    working_hours,
+    break_times=None,
+    buffer=0,
+    appointments=None,
+    blocks=None,
+    slot_step=30,
+    min_notice_hours=0,
+):
     """Patches the small DB helpers so get_available_slots can run in isolation."""
+    # Freeze "now" before slot window so tests stay deterministic in CI (any clock time).
+    mocker.patch(
+        "packages.scheduling.services.availability.now_local_naive",
+        return_value=datetime.combine(_WORKDAY, time(7, 0)),
+    )
     service._get_professional_schedule = lambda _pid: {
         "working_hours": working_hours,
         "break_times": break_times or [],
@@ -240,9 +255,10 @@ async def test_reschedule_appointment_updates_duration(scheduling_service, mock_
 
 
 @pytest.mark.asyncio
-async def test_slots_respect_professional_working_hours(scheduling_service):
+async def test_slots_respect_professional_working_hours(scheduling_service, mocker):
     _stub_availability(
         scheduling_service,
+        mocker,
         working_hours={"wed": {"start": "09:00", "end": "11:00"}},
         slot_step=30,
     )
@@ -252,9 +268,10 @@ async def test_slots_respect_professional_working_hours(scheduling_service):
 
 
 @pytest.mark.asyncio
-async def test_slots_empty_on_day_off(scheduling_service):
+async def test_slots_empty_on_day_off(scheduling_service, mocker):
     _stub_availability(
         scheduling_service,
+        mocker,
         working_hours={"mon": {"start": "08:00", "end": "18:00"}},  # no wed key
     )
     slots = await scheduling_service.get_available_slots(uuid4(), _WORKDAY, 30)
@@ -262,9 +279,10 @@ async def test_slots_empty_on_day_off(scheduling_service):
 
 
 @pytest.mark.asyncio
-async def test_slots_exclude_break_times(scheduling_service):
+async def test_slots_exclude_break_times(scheduling_service, mocker):
     _stub_availability(
         scheduling_service,
+        mocker,
         working_hours={"wed": {"start": "09:00", "end": "12:00"}},
         break_times=[{"start": "10:00", "end": "11:00"}],
         slot_step=30,
@@ -276,9 +294,10 @@ async def test_slots_exclude_break_times(scheduling_service):
 
 
 @pytest.mark.asyncio
-async def test_slots_apply_buffer_around_appointment(scheduling_service):
+async def test_slots_apply_buffer_around_appointment(scheduling_service, mocker):
     _stub_availability(
         scheduling_service,
+        mocker,
         working_hours={"wed": {"start": "09:00", "end": "12:00"}},
         buffer=15,
         appointments=[{"scheduled_at": "2026-06-10T10:00:00", "duration_minutes": 30, "status": "confirmed"}],
@@ -293,9 +312,10 @@ async def test_slots_apply_buffer_around_appointment(scheduling_service):
 
 
 @pytest.mark.asyncio
-async def test_slots_exclude_schedule_blocks(scheduling_service):
+async def test_slots_exclude_schedule_blocks(scheduling_service, mocker):
     _stub_availability(
         scheduling_service,
+        mocker,
         working_hours={"wed": {"start": "09:00", "end": "12:00"}},
         blocks=[{"professional_id": None, "starts_at": "2026-06-10T09:00:00", "ends_at": "2026-06-10T10:00:00"}],
         slot_step=30,
