@@ -37,7 +37,7 @@
 | LGPD | [legal/ROPA.md](legal/ROPA.md) | Registro operações de tratamento |
 | LGPD | [legal/DSR_RUNBOOK.md](legal/DSR_RUNBOOK.md) | Pedidos titular (export/erase) |
 | LGPD | [legal/LGPD_FEATURE_CHECKLIST.md](legal/LGPD_FEATURE_CHECKLIST.md) | Checklist antes de merge |
-| Futuro | [ROADMAP.md](ROADMAP.md) | Capítulos 2+ (não MVP) |
+| Futuro | [ROADMAP.md](ROADMAP.md) · [CLAUDE.md Parte VIII](../CLAUDE.md#parte-viii--futuras-implementações-não-mvp) | Visão pós-MVP — **não implementar sem aprovação** |
 | Histórico | [archive/PLAN.md](archive/PLAN.md) | Plano de implementação executado |
 
 ## Cursor

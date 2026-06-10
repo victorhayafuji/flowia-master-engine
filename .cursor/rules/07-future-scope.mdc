@@ -1,0 +1,25 @@
+---
+description: Guardrail — Parte VIII e visões pós-MVP não são escopo de implementação automática
+alwaysApply: true
+---
+
+# Future Scope Guardrail
+
+## Não implementar sem pedido explícito
+
+- [`CLAUDE.md` Parte VIII](../../CLAUDE.md#parte-viii--futuras-implementações-não-mvp) e blueprint §45 são **documentação de visão futura**.
+- **Não criar** código, migrations, endpoints, tabelas, prompts de produção ou UI para Customer Journey Intelligence (CJI) salvo **pedido explícito** do usuário com aprovação de produto.
+- Escopo ativo de implementação: **Partes I–VII** do `CLAUDE.md` (MVP salão).
+
+## Sinais de que é futuro (não codar)
+
+- Seções §41–§45, `docs/ROADMAP.md` Cap. 6, status **Futuro / Pós-MVP / DEFERIDO**
+- Pacotes ou paths propostos como `packages/customer_journey/` — **não existem** até aprovação
+- `ReminderType.POST_SERVICE`, `RECALL`, etc. — enums existem; **wire não implementado**
+- `anamnesis_*` — schema only; fluxo de produto **não ativo**
+
+## Se o usuário pedir implementação
+
+1. Confirmar fase(s) e atualizar status na Parte VIII (Futuro → Em desenvolvimento)
+2. LGPD: `docs/legal/LGPD_FEATURE_CHECKLIST.md` + ROPA antes de merge
+3. Respeitar boundaries: `packages/*` não importa `apps/salon`; router em `app_factory.py`

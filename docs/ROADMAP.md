@@ -115,6 +115,77 @@ Paradigma detalhado em [`CLAUDE.md` §4.5](../CLAUDE.md). Ordem acordada:
 3. **Epic 1B — Lembretes WhatsApp:** implementado em `reminder_service.py` via `WhatsAppService` — requer credenciais Meta por org (Cap. 5)
 4. **Epic 2 — Lei Salão Parceiro:** RBAC API + comissões — **adiado** até integração pagamentos/PDV
 5. **Epic 3 — IA booking** (concluído): multi-pro `check_availability`, upsert telefone, validação M:N no create; **motor híbrido** (`routing.py` → `booking_executor` → `response_composer` → fallback LLM) + observability (`scheduling_path`, `triage_source`, `channel` em `conversation_metrics`)
+6. **Epic CJI — Customer Journey Intelligence** (**futuro / não priorizado**): jornada pré/durante/pós-atendimento — ver Capítulo 6 e [`CLAUDE.md` Parte VIII](../CLAUDE.md#parte-viii--futuras-implementações-não-mvp)
 
 ---
-*Documento atualizado em: 08/06/2026 (pós-merge motor híbrido)*
+
+## 🧭 CAPÍTULO 6: Customer Journey Intelligence (FUTURO — pós-MVP salão)
+
+**Alias PT:** Jornada Inteligente do Cliente · **Status:** Futuro / Pós-MVP / **Não implementar agora**
+
+**Objetivo:** orquestrar a jornada completa do cliente com IA — da confirmação do agendamento ao recall pós-visita — aumentando LTV e produtividade do profissional.
+
+**Restrições:**
+
+- **Não é prioridade de implementação** — foco atual permanece em estabilizar e operar o MVP salão (`PRODUCT_LINE=salon`).
+- **Não reativa** CRM B2B / leads / SDR — régua de relacionamento é retenção de clientes do salão, não pipeline de vendas B2B.
+- Fonte canônica detalhada: [`CLAUDE.md` Parte VIII §42](../CLAUDE.md#42-epic-customer-journey-intelligence) — **não implementar sem aprovação explícita**.
+
+**Governança LGPD (todas as fases):** consentimento via `packages/compliance/consent.py` e `patients.privacy_*`; atualização de ROPA e política de retenção antes de qualquer implementação; mascaramento em logs; DSAR export/erase deve cobrir fichas, transcrições e imagens.
+
+### Fase futura 1 — Pré-atendimento e ficha inteligente
+
+| Campo | Conteúdo |
+|-------|----------|
+| **Objetivo** | Enviar ficha pré-atendimento via WhatsApp após confirmação de agendamento |
+| **Valor para o salão** | Profissional chega preparado; menos tempo de triagem na cadeira |
+| **Dependências** | WhatsApp outbound por org; LangGraph ou fluxo determinístico; `anamnesis_templates` / `anamnesis_responses`; `requires_anamnesis` no catálogo; consentimento LGPD |
+| **Riscos** | Dados de saúde/alergias (PII sensível); opt-in explícito; retenção em ROPA |
+| **Status** | **Futuro / Pós-MVP / Não implementar agora** |
+
+### Fase futura 2 — Resumo IA e histórico do cliente
+
+| Campo | Conteúdo |
+|-------|----------|
+| **Objetivo** | Card/resumo IA para o profissional antes do slot (histórico, preferências, última visita, no-shows) |
+| **Valor para o salão** | Atendimento personalizado; reduz perguntas repetidas |
+| **Dependências** | Agregação `patients` + `appointments` + conversas; RAG opcional; UI scoped via `professional_scope` |
+| **Riscos** | Vazamento cross-profissional; resumo alucinado — exigir fontes citadas |
+| **Status** | **Futuro / Pós-MVP / Não implementar agora** |
+
+### Fase futura 3 — Áudio pós-atendimento e transcrição
+
+| Campo | Conteúdo |
+|-------|----------|
+| **Objetivo** | Profissional grava notas em áudio; sistema transcreve, resume e persiste no histórico do cliente |
+| **Valor para o salão** | Registro sem digitação; memória institucional do salão |
+| **Dependências** | Upload áudio (Storage); API transcrição; modelo de registro (**não implementado**); mascaramento em logs |
+| **Riscos** | Voz = dado pessoal; consentimento cliente e profissional; DSAR erase em transcrições |
+| **Status** | **Futuro / Pós-MVP / Não implementar agora** |
+
+### Fase futura 4 — Régua de relacionamento e recall inteligente
+
+| Campo | Conteúdo |
+|-------|----------|
+| **Objetivo** | Mensagens automáticas D+3, D+30 e D+45; sugestão de manutenção/retorno baseada em `recall_days` |
+| **Valor para o salão** | Reativação de clientes; recuperação de receita recorrente (Pilar 5 Recuperador de Lucros) |
+| **Dependências** | APScheduler jobs pós-appointment; `WhatsAppService`; templates por org; rate limit outbound |
+| **Riscos** | Spam/percepção invasiva; consentimento comunicação; opt-out |
+| **Status** | **Futuro / Pós-MVP / Não implementar agora** |
+
+### Fase futura 5 — Experiência premium: simulação visual por selfie
+
+| Campo | Conteúdo |
+|-------|----------|
+| **Objetivo** | Cliente envia selfie; IA simula resultado visual do serviço (corte, cor, etc.) |
+| **Valor para o salão** | Diferencial premium; conversão e upsell |
+| **Dependências** | Modelo vision/generative; pipeline de imagem seguro; storage temporário; disclaimers legais |
+| **Riscos** | Imagem biométrica; expectativa vs resultado real; LGPD + termos de uso |
+| **Status** | **Futuro / Pós-MVP / Não implementar agora** |
+
+**Expansão vertical conceitual:** adaptável a `dental` / `medical` via `PRODUCT_LINE=clinic` e `apps/clinic/` — sem alterar foco MVP salão.
+
+**Blueprint técnico (somente documentação):** [`CLAUDE.md` Parte VIII §45](../CLAUDE.md#45-blueprint-técnico-cji-documentação--não-implementar) — pacote, API, jobs; [§46](../CLAUDE.md#46-modelagem-de-dados-evolutiva-cji-documentação--não-implementar) — modelagem por ondas; [§47](../CLAUDE.md#47-métodos-probabilísticos-qualidade-ia-documentação--não-implementar) — camadas IA e qualidade.
+
+---
+*Documento atualizado em: 10/06/2026 (Epic CJI — Cap. 6 + blueprint §45)*
