@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=YOUR_PROJECT_REF&read_only=true&features=database,docs,development"
+    },
+    "render": {
+      "url": "https://mcp.render.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_RENDER_API_KEY"
+      }
+    }
+  }
+}

@@ -20,6 +20,9 @@ ENV/
 .env.production
 deployments/**/.env
 .cursor/mcp.json
+.mcp.json
+.claude/settings.local.json
+CLAUDE.local.md
 
 # IDE
 .vscode/

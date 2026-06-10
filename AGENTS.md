@@ -4,6 +4,8 @@ Fonte da verdade (negócio + arquitetura + segurança): [`CLAUDE.md`](CLAUDE.md)
 
 SaaS multi-tenant para salões (`PRODUCT_LINE=salon`).
 
+**Guardrail:** [`CLAUDE.md` Parte VIII](CLAUDE.md#parte-viii--futuras-implementações-não-mvp) é visão pós-MVP — **não implementar** (código, migrations, endpoints, prompts) salvo pedido explícito do usuário. Escopo ativo = Partes I–VII.
+
 ## Stack
 
 | Camada | Versões |
@@ -52,9 +54,30 @@ start_flowia.bat   # Windows: backend + frontend
 
 Testes: `CHECKPOINTER_BACKEND=memory` (ver `tests/conftest.py`).
 
-## Cursor
+## Cursor + Claude Code (dual agent)
 
-Regras em [`.cursor/rules/`](.cursor/rules/) · Skills em [`.cursor/skills/`](.cursor/skills/) · MCP: copiar [`.cursor/mcp.json.example`](.cursor/mcp.json.example) → `.cursor/mcp.json` (gitignored) — Supabase read-only + Render ops.
+Dois agentes no mesmo repo — **contexto não é compartilhado** entre sessões. Reafirme escopo (Partes I–VII vs Parte VIII) ao abrir cada um.
+
+| Ferramenta | Quando usar | Config no repo |
+|------------|-------------|----------------|
+| **Cursor Agent** | Edição multi-arquivo, subagentes (explore, CI, bugbot), skills `@flowia-*`, integração IDE | [`.cursor/rules/`](.cursor/rules/) · [`.cursor/skills/`](.cursor/skills/) · MCP: `.cursor/mcp.json` (gitignored) |
+| **Claude Code** | Refactors longos, planejamento (`defaultMode: plan`), terminal autônomo com permissões explícitas | [`.claude/settings.json`](.claude/settings.json) · MCP: `.mcp.json` (gitignored) · lê [`CLAUDE.md`](CLAUDE.md) na raiz |
+
+**Setup único (Windows):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup_claude_code.ps1
+npm install -g @anthropic-ai/claude-code   # CLI opcional
+cursor --install-extension anthropic.claude-code
+```
+
+MCP: copiar [`.cursor/mcp.json.example`](.cursor/mcp.json.example) → `.cursor/mcp.json` **e** [`.mcp.json.example`](.mcp.json.example) → `.mcp.json` (ou rodar o script acima para sincronizar Cursor → Claude). Supabase read-only + Render ops.
+
+**Só você pode fazer (OAuth):** login Anthropic Pro no painel Claude Code (ícone Spark) e/ou `claude auth login` no terminal. Billing Anthropic ≠ Cursor.
+
+**Teste pós-login:** *"Leia CLAUDE.md Partes I–VII; não implementar Parte VIII sem pedido explícito."*
+
+## Cursor (regras e skills)
 
 | Regra | Quando |
 |-------|--------|
@@ -64,6 +87,7 @@ Regras em [`.cursor/rules/`](.cursor/rules/) · Skills em [`.cursor/skills/`](.c
 | `04-react-dashboard` | dashboard `*.ts(x)` |
 | `05-supabase-migrations` | `supabase/**/*.sql` |
 | `06-lgpd-compliance` | Sempre — PII, consent, DSAR, retenção |
+| `07-future-scope` | Sempre — Parte VIII / CJI não implementar sem pedido explícito |
 
 | Skill | Trigger |
 |-------|---------|

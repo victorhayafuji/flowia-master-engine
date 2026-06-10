@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "defaultMode": "plan",
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Bash(py -3.12 -m pytest*)",
+      "Bash(pytest*)",
+      "Bash(ruff*)",
+      "Bash(python scripts/check_env.py)",
+      "Bash(python scripts/*)",
+      "Bash(npm test*)",
+      "Bash(npm run lint*)",
+      "Bash(npm run build*)",
+      "Bash(npm run dev*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git branch*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(deployments/**/.env*)",
+      "Read(.cursor/mcp.json)",
+      "Read(.mcp.json)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(rm -rf*)",
+      "Bash(git config*)"
+    ]
+  }
+}
