@@ -23,6 +23,8 @@ deployments/**/.env
 .mcp.json
 .claude/settings.local.json
 CLAUDE.local.md
+CLAUDE_old.md
+.venv-deploy-test/
 
 # IDE
 .vscode/
