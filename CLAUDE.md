@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.15)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.16)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -281,7 +281,7 @@ flowchart LR
 | Vision (OCR) | `VISION_MODEL_NAME` | gpt-4o |
 | Embeddings | `EMBEDDING_MODEL_NAME` | text-embedding-3-small |
 | DB | Supabase client, psycopg3, PostgresSaver | ≥2.3 |
-| Auth | python-jose, bcrypt, cookie HttpOnly | JWT dashboard |
+| Auth | PyJWT, bcrypt, cookie HttpOnly | JWT dashboard (HS256) |
 | Frontend | React, Vite, TypeScript, Tailwind | 18.3, 5.4, 5.6, 4.3 |
 | Roteamento UI | React Router | 7.16 |
 | Testes | pytest, vitest, Playwright | cov backend ≥30% |
@@ -1282,6 +1282,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.13 | Jun/2026 | Modelagem evolutiva §46 + métodos probabilísticos §47 (JSONB, ondas, gates IA) |
 | 1.14 | Jun/2026 | Auditoria de stack: Node 22 (CI), correção dedup §4.2, ordem do versionamento, nota deprecação OpenAI 4o (§9), limitação limiters (§20); novo §48 Parte VIII — modernização de stack (migração modelos, PyJWT, rate limit distribuído, Vite 7, gate cobertura) |
 | 1.15 | Jun/2026 | Epic Reagendamento Inteligente & Recuperação de No-show/Atraso — Parte VIII §49 (epic F1–F4), §50 (blueprint), §51 (modelagem por ondas), §52 (métodos IA); ponteiros §4.5/§7/§36/§43/§44; Cap. 7 em `docs/ROADMAP.md` |
+| 1.16 | Jun/2026 | Migração `python-jose` → `PyJWT` concluída (§48.2 Concluído, §9 stack, §43 índice); decode mantém `algorithms=["HS256"]` |
 
 ---
 
@@ -1384,7 +1385,7 @@ Detalhe estratégico: [`docs/ROADMAP.md`](docs/ROADMAP.md) Capítulo 6.
 | Modelagem de dados evolutiva (ondas 0–5) | CJI todas | [§46](#46-modelagem-de-dados-evolutiva-cji-documentação--não-implementar) | Futuro |
 | Métodos probabilísticos / gates IA | CJI Fases 1–5 | [§47](#47-métodos-probabilísticos-qualidade-ia-documentação--não-implementar) | Futuro |
 | Migração modelos OpenAI 4o → 5.x | Modernização stack | `MODEL_NAME` / `VISION_MODEL_NAME` (§33) | Futuro — [§48.1](#481-migração-de-modelos-openai-4o--5x) |
-| Substituição `python-jose` → PyJWT | Modernização stack | `packages/auth_core/auth_service.py` | Futuro — [§48.2](#482-substituição-de-python-jose-jwt) |
+| Substituição `python-jose` → PyJWT | Modernização stack | `packages/auth_core/auth_service.py` | **Concluído** — [§48.2](#482-substituição-de-python-jose-jwt) |
 | Rate limiting distribuído (`scale>1`) | Modernização stack | slowapi, `guardrails.py`, `session_store.py` | Futuro — [§48.3](#483-rate-limiting-distribuído-pré-requisito-de-scale1) |
 | Toolchain frontend Vite 5 → 7 | Modernização stack | `apps/salon/dashboard` | Futuro — [§48.4](#484-atualização-de-toolchain-frontend-vite-5--7) |
 | Gate cobertura backend 30 → 50 | Modernização stack | CI `--cov-fail-under` | Futuro — [§48.5](#485-elevação-gradual-do-gate-de-cobertura-backend) |
@@ -1808,19 +1809,17 @@ flowchart TD
 
 ### 48.2 Substituição de `python-jose` (JWT)
 
-**Status:** Futuro — prioridade média · **Não implementar agora**
+**Status:** **Concluído** (Jun/2026) — migrado para `PyJWT`
 
-**Motivo:** `python-jose` tem histórico de manutenção irregular e CVEs (ex.: CVE-2024-33663/33664 — confusão de algoritmo). O JWT é a primeira camada do isolamento multi-tenant (§17); a biblioteca de assinatura deve ser ativamente mantida.
+**Motivo:** `python-jose` tinha histórico de manutenção irregular e CVEs (ex.: CVE-2024-33663/33664 — confusão de algoritmo). O JWT é a primeira camada do isolamento multi-tenant (§17); a biblioteca de assinatura deve ser ativamente mantida.
 
-| Item | Decisão proposta |
-|------|------------------|
-| Biblioteca substituta | `PyJWT` (superfície mínima, manutenção ativa) ou `joserfc` |
-| Superfície afetada | `packages/auth_core/auth_service.py` (encode/decode HS256 com `DASHBOARD_JWT_SECRET`) — uso restrito, troca pequena |
-| Hardening junto | Fixar `algorithms=["HS256"]` explícito no decode (defesa contra algorithm confusion independente da lib) |
-| Validação | Testes de auth existentes + login manual + E2E `auth-nav.spec.ts` / `professional-nav.spec.ts` |
-| Rotação | Não exige rotação de `DASHBOARD_JWT_SECRET`; tokens emitidos antes da troca permanecem válidos (mesmo algoritmo/secret) |
-
-**Gatilho:** próxima janela de manutenção de `auth_core` **ou** nova CVE em `python-jose` — o que vier primeiro.
+| Item | Implementação |
+|------|---------------|
+| Biblioteca | `PyJWT>=2.8.0,<3.0.0` em `requirements.txt` (substitui `python-jose[cryptography]`) |
+| Superfície | `packages/auth_core/auth_service.py` (encode) e `dependencies.py` (decode/exceções) — `from jose import jwt` → `import jwt`; `jwt.JWTError` → `jwt.PyJWTError` |
+| Hardening | `algorithms=["HS256"]` fixado no decode (defesa contra algorithm confusion) — verificado: tokens `alg=none`, chave errada, adulterados e expirados são rejeitados |
+| `cryptography` | Removido com o extra do jose; nenhum módulo importa `cryptography` diretamente; HS256 do PyJWT usa stdlib (`hmac`/`hashlib`) |
+| Validação | Round-trip completo (encode/decode/expiry/tamper) + suíte pytest; `DASHBOARD_JWT_SECRET` inalterado, tokens emitidos antes da troca seguem válidos |
 
 ### 48.3 Rate limiting distribuído (pré-requisito de `scale>1`)
 
