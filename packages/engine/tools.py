@@ -6,6 +6,8 @@ from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
 
+_SLACK_TIMEOUT_SECONDS = 5
+
 
 def send_slack_notification(message: str):
     """Envia notificação via Slack Webhook"""
@@ -14,7 +16,7 @@ def send_slack_notification(message: str):
         logger.warning("⚠️ SLACK_WEBHOOK_URL não configurado.")
         return
     try:
-        requests.post(webhook_url, json={"text": message}, timeout=5)
+        requests.post(webhook_url, json={"text": message}, timeout=_SLACK_TIMEOUT_SECONDS)
     except Exception as e:
         logger.error(f"❌ Erro ao enviar Slack: {e}")
 

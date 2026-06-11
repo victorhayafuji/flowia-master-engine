@@ -81,7 +81,7 @@ async def login(request: Request, login_data: LoginRequest):
         value=token,
         httponly=True,
         secure=settings.COOKIE_SECURE,
-        max_age=3600 * 24,  # 24h
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # match JWT expiry
         samesite=_session_cookie_samesite(),
     )
     return response
