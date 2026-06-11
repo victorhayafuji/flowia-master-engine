@@ -130,7 +130,22 @@ async def list_services(
             if not include_inactive:
                 query = query.eq("is_active", True)
             result = query.execute()
-            return {"status": "success", "data": result.data}
+            services = result.data or []
+
+            # Attach M:N eligibility so the UI can filter services by professional.
+            # Empty list = no specific eligibility → all active professionals (fallback).
+            sp_query = db.client.table("service_professionals").select("service_id, professional_id")
+            if org_id and org_id != "ALL":
+                sp_query = sp_query.eq("organization_id", org_id)
+            eligibility: dict[str, list[str]] = {}
+            for row in sp_query.execute().data or []:
+                sid, pid = row.get("service_id"), row.get("professional_id")
+                if sid and pid:
+                    eligibility.setdefault(sid, []).append(pid)
+            for svc in services:
+                svc["professional_ids"] = eligibility.get(svc["id"], [])
+
+            return {"status": "success", "data": services}
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 

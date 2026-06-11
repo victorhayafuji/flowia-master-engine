@@ -15,7 +15,7 @@ interface AgendaModalsProps {
   options: {
     patients: Array<{ id: string; name: string }>
     professionals: Array<{ id: string; name: string }>
-    services: Array<{ id: string; name: string; duration_minutes?: number }>
+    services: Array<{ id: string; name: string; duration_minutes?: number; professional_ids?: string[] }>
   }
   quickAdd: { type: "patient" | "professional" | "service" | null; loading: boolean }
   setQuickAdd: React.Dispatch<React.SetStateAction<AgendaModalsProps["quickAdd"]>>

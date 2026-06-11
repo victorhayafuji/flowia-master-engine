@@ -11,7 +11,7 @@ export function useAgendaData(user: unknown, orgHeader: OrgHeader) {
   const [options, setOptions] = useState<{
     patients: Array<{ id: string; name: string }>
     professionals: Array<{ id: string; name: string }>
-    services: Array<{ id: string; name: string; duration_minutes?: number }>
+    services: Array<{ id: string; name: string; duration_minutes?: number; professional_ids?: string[] }>
   }>({ patients: [], professionals: [], services: [] })
 
   const today = useMemo(() => startOfToday(), [])
