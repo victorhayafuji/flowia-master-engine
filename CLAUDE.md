@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.15)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -153,7 +153,7 @@ flowchart TB
 
 | Pilar | Dor de mercado | Onde atuar no código | Status |
 |-------|----------------|----------------------|--------|
-| **1 — No-show** | Receita perdida por absenteísmo | `reminder_service.py`, `no_show_service.py`, APScheduler | Detecção OK; audit `no_show_count` na UI **ativo**; lembretes WhatsApp via `WhatsAppService` (**Epic 1B** — requer credenciais Meta por org) |
+| **1 — No-show** | Receita perdida por absenteísmo | `reminder_service.py`, `no_show_service.py`, APScheduler | Detecção OK; audit `no_show_count` na UI **ativo**; lembretes WhatsApp via `WhatsAppService` (**Epic 1B** — requer credenciais Meta por org). Recuperação proativa (oferta de reagendamento) + atraso → [Parte VIII §49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) (**futuro**) |
 | **2 — Double-booking** | Conflito de agenda / slots errados | `scheduling/service.py` (motor dinâmico + 409) | **Ativo** (working_hours, blocks, buffer, timezone, EXCLUDE) |
 | **3 — IA conversacional** | Conversão 24/7 via WhatsApp/chat | `scheduling/tools.py`, `eligibility.py`, `apps/salon/prompts.py` | **Ativo** — multi-pro tools, upsert telefone, M:N no create; agenda **não** vetorizada (tools SQL) |
 | **4 — Lei Salão Parceiro** | Retenção do profissional parceiro | `professional_scope`, dashboard agenda | UI scoped; API write paths + comissões **adiado** (pagamentos/PDV) |
@@ -243,6 +243,7 @@ sequenceDiagram
 | Handoff WhatsApp | Ativo em `patients` | `handoff_requested_at`, `handoff_reason` via `legacy_sender_id` |
 | Anamnese / NPS pós-atendimento | **DEFERIDO** | Schema (`anamnesis_*`, `recall_days`) existe; fluxo não implementado — ver [Parte VIII §42](#42-epic-customer-journey-intelligence) |
 | **Futuras implementações (todas)** | **Futuro** | Índice consolidado na [Parte VIII §43](#43-índice-consolidado-de-itens-futuros) — **não implementar** sem aprovação explícita |
+| Reagendamento inteligente (no-show / atraso) | **Futuro** | Recuperação proativa, cascata de atraso, tools reschedule/cancel, reativação — [Parte VIII §49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) |
 | Pagamento / convênios | **STUB** | Schema `appointment_payments` + `packages/integrations/payments` (NoOp); flag `integrations.payments.enabled=false`; execução deferida (Fase 2) |
 | `src/`, `dashboard/` raiz, `.agent/` | **Proibido recriar** | Migrado para `packages/` + `apps/salon/` |
 
@@ -1152,6 +1153,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | 4 — Agendamento Multi-Tenant | Concluído | RLS, lembretes, no-show |
 | 5 — Omnichannel WhatsApp | Bloqueado | Webhook prod: `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`; aguardando credenciais Meta — [`docs/WHATSAPP_SETUP.md`](docs/WHATSAPP_SETUP.md) |
 | 6 — Customer Journey Intelligence | **Futuro** | [Parte VIII §42](#42-epic-customer-journey-intelligence) · [`docs/ROADMAP.md`](docs/ROADMAP.md) Cap. 6 |
+| 7 — Reagendamento Inteligente (no-show / atraso) | **Futuro** | [Parte VIII §49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) · [`docs/ROADMAP.md`](docs/ROADMAP.md) Cap. 7 |
 
 **Priorização produto salão:** (1) estabilizar MVP atual (Partes I–VII) → (2) Cap. 5 WhatsApp live → (3) Parte VIII só com aprovação explícita → Cap. 2 Sales Analytics permanece isolado do chatbot salão.
 
@@ -1279,6 +1281,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.12 | Jun/2026 | Blueprint técnico CJI — Parte VIII §45 (pacotes, API proposta, schema, jobs, ordem) |
 | 1.13 | Jun/2026 | Modelagem evolutiva §46 + métodos probabilísticos §47 (JSONB, ondas, gates IA) |
 | 1.14 | Jun/2026 | Auditoria de stack: Node 22 (CI), correção dedup §4.2, ordem do versionamento, nota deprecação OpenAI 4o (§9), limitação limiters (§20); novo §48 Parte VIII — modernização de stack (migração modelos, PyJWT, rate limit distribuído, Vite 7, gate cobertura) |
+| 1.15 | Jun/2026 | Epic Reagendamento Inteligente & Recuperação de No-show/Atraso — Parte VIII §49 (epic F1–F4), §50 (blueprint), §51 (modelagem por ondas), §52 (métodos IA); ponteiros §4.5/§7/§36/§43/§44; Cap. 7 em `docs/ROADMAP.md` |
 
 ---
 
@@ -1385,6 +1388,10 @@ Detalhe estratégico: [`docs/ROADMAP.md`](docs/ROADMAP.md) Capítulo 6.
 | Rate limiting distribuído (`scale>1`) | Modernização stack | slowapi, `guardrails.py`, `session_store.py` | Futuro — [§48.3](#483-rate-limiting-distribuído-pré-requisito-de-scale1) |
 | Toolchain frontend Vite 5 → 7 | Modernização stack | `apps/salon/dashboard` | Futuro — [§48.4](#484-atualização-de-toolchain-frontend-vite-5--7) |
 | Gate cobertura backend 30 → 50 | Modernização stack | CI `--cov-fail-under` | Futuro — [§48.5](#485-elevação-gradual-do-gate-de-cobertura-backend) |
+| Recuperação de no-show (oferta proativa) | Reagendamento F1 | `no_show_service.py` + `WhatsAppService` | Futuro — [§49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) |
+| Atrasos / check-in (cascata do dia) | Reagendamento F2 | status `arrived/in_progress` + `get_available_slots` | Futuro — [§49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) |
+| Tools `reschedule_time` / `cancel_appointment` (agente IA) | Reagendamento F3 | `scheduling/tools.py` + `reschedule_appointment` | Futuro — [§50.3](#503-superfície-de-toolsapi-proposta-futuro) |
+| Régua de reativação pós no-show | Reagendamento F4 | `ReminderType.REACTIVATION/POST_SERVICE` (ociosos) | Futuro — [§49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) |
 
 ## 44. Matriz futura funcionalidade × persona
 
@@ -1398,6 +1405,10 @@ Detalhe estratégico: [`docs/ROADMAP.md`](docs/ROADMAP.md) Capítulo 6.
 | Régua pós-atendimento D+3/30/45 | Não | Não | Não | — | Futuro (CJI Fase 4) |
 | Sugestão recall / manutenção | Não | Não | Não | — | Futuro (CJI Fase 4) |
 | Simulação visual por selfie | Não | Não | Não | — | Futuro (CJI Fase 5) |
+| Recuperação de no-show (oferta proativa) | Não | Não | Não | — | Futuro (Reagendamento F1) |
+| Atrasos / check-in (cascata do dia) | Sim | Sim (própria) | Sim | — | Futuro (Reagendamento F2) |
+| Reagendar/cancelar pelo agente IA (WhatsApp) | Não | Não | Não | — | Futuro (Reagendamento F3) |
+| Régua de reativação pós no-show | Não | Não | Não | — | Futuro (Reagendamento F4) |
 
 ## 45. Blueprint técnico CJI (documentação — não implementar)
 
@@ -1842,6 +1853,256 @@ flowchart TD
 **Motivo:** `--cov-fail-under=30` é piso baixo para sistema com lógica financeira (double-booking, guardrails, RLS). A suíte adversarial (§32) compensa parcialmente, mas não substitui cobertura de caminhos de negócio.
 
 **Proposta:** elevar o gate em degraus (30 → 40 → 50) priorizando `packages/scheduling/` e `packages/auth_core/`; nunca elevar o gate no mesmo PR que adiciona feature. Registrar cada degrau na tabela de versionamento do §40.
+
+---
+
+## 49. Epic Reagendamento Inteligente & Recuperação de No-show/Atraso (documentação — não implementar)
+
+> **Alias PT:** Reagendamento Inteligente · **Status:** Futuro / Pós-MVP / **Não implementar agora**
+>
+> Aplicam-se integralmente o GUARDRAIL da Parte VIII e a política de escopo do [§41](#41-política-de-escopo-futuro). Esta seção é **somente visão estratégica**.
+
+**Objetivo:** fechar o vão entre **detecção** e **ação**. Hoje o no-show é detectado de forma **passiva** (`no_show_service.py` marca status + incrementa `no_show_count`) e o atraso não tem tratamento. Este epic transforma detecção em recuperação proativa de receita — alinhado ao Pilar 1 (no-show) e Pilar 2 (double-booking / slots) do Recuperador de Lucros ([§4.5](#45-diretrizes-recuperador-de-lucros-paradigma-de-desenvolvimento)).
+
+**Fronteira explícita:** **não** é o mesmo que CJI Fase 4 (régua D+N pós-**conclusão** de serviço — [§42](#42-epic-customer-journey-intelligence)). Aqui o gatilho é a **falta** ou o **atraso**, não a conclusão. Evitar duplicação de jobs ao implementar (ver §49 F4).
+
+| Fase | Objetivo | Valor para o salão | Dependências técnicas prováveis | Riscos principais | Status |
+|------|----------|-------------------|--------------------------------|-------------------|--------|
+| **F1 — Recuperação de no-show** | Ao detectar no-show, ofertar reagendamento proativo via WhatsApp (reusa motor de booking) | Recupera receita que hoje só vira métrica passiva | `no_show_service.py`; `WhatsAppService` (credenciais Meta por org); `check_availability`/motor de slots; consentimento `consent.py` | Mensagem invasiva pós-falta; opt-out; janela de envio; **não** reagendar terceiros (vincular `sender_phone`) | **Futuro / Pós-MVP / Não implementar agora** |
+| **F2 — Atrasos / check-in** | Status `arrived`/`in_progress`; recalcular cascata do dia; avisar próximo cliente quando o atual atrasa | Reduz fila/erro de slot; comunicação proativa | Status já existentes (`arrived`,`in_progress`); `get_available_slots`; `schedule_blocks`; dashboard agenda Operacional | Cascata incorreta corromper agenda; concorrência com reagendamento manual | **Futuro / Pós-MVP / Não implementar agora** |
+| **F3 — Reschedule/cancel pelo agente IA** | Tools `reschedule_time` / `cancel_appointment` para o cliente reagendar/cancelar sozinho no WhatsApp | Self-service 24/7; menos trabalho de recepção | `scheduling/tools.py`; `reschedule_appointment` (já existe); `guardrails.py`; allowlist de tools por agente | Prompt injection (reagendar/cancelar de terceiros); cancelamento indevido — exigir confirmação | **Futuro / Pós-MVP / Não implementar agora** |
+| **F4 — Régua de reativação pós no-show** | Win-back após falta usando `ReminderType.REACTIVATION`/`POST_SERVICE` (hoje ociosos) | Reativa clientes que faltaram; receita recorrente (Pilar 5) | `reminder_service.py`; enums `ReminderType` existentes; APScheduler; `patients.privacy_*`/opt-out | Spam; sobreposição com CJI Fase 4 (delimitar gatilho = falta) | **Futuro / Pós-MVP / Não implementar agora** |
+
+**Fluxo conceitual:**
+
+```mermaid
+flowchart LR
+  detect[Deteccao no-show ou atraso]
+  decide{Gatilho}
+  noshow[F1 Oferta reagendar via WhatsApp]
+  late[F2 Recalcular cascata do dia]
+  agent[F3 Cliente reagenda via agente IA]
+  winback[F4 Regua reativacao pos-falta]
+  book[Motor de booking existente]
+  detect --> decide
+  decide -->|no-show| noshow --> agent
+  decide -->|atraso| late
+  decide -->|sem retorno| winback --> agent
+  agent --> book
+```
+
+**Sequência ponta a ponta (referência — Futuro, não implementado):**
+
+```mermaid
+sequenceDiagram
+  participant Job as NoShowService_Futuro
+  participant Engine as LangGraph_Futuro
+  participant WA as WhatsApp
+  participant Cliente
+  participant DB as Supabase
+
+  Note over Job,DB: Futuro - nao implementado
+
+  Job->>DB: Detecta no-show (status + no_show_count)
+  Job->>WA: F1 Oferta de reagendamento
+  WA->>Cliente: Quer remarcar para outro horario?
+  Cliente->>Engine: Sim, sexta de manha
+  Engine->>DB: F3 reschedule_time (guardrails + conflito 409)
+  Engine->>Cliente: Confirmado novo horario
+```
+
+**Expansão vertical conceitual:** aplicável a `dental`/`medical` via `PRODUCT_LINE=clinic` — sem alterar foco MVP salão.
+
+Detalhe estratégico: [`docs/ROADMAP.md`](docs/ROADMAP.md) Capítulo 7.
+
+## 50. Blueprint técnico Reagendamento (documentação — não implementar)
+
+> **Status:** proposta arquitetural para discussão. Nenhum path, migration, endpoint, tool ou job abaixo existe ou deve ser criado **sem aprovação explícita** ([§41](#41-política-de-escopo-futuro)).
+
+### 50.1 Princípios de encaixe no monorepo
+
+| Princípio | Decisão proposta |
+|-----------|------------------|
+| **Boundaries** | **Evolução de `packages/scheduling/`** — diferente do CJI ([§45](#45-blueprint-técnico-cji-documentação--não-implementar)), aqui **não** se cria pacote novo; reusa `no_show_service`, `reminder_service`, `services/appointments`, `tools.py` |
+| **Composition root** | Endpoints novos (se houver) registrados só em `app_factory.py` com prefixo `/api/v1`; paths relativos no router |
+| **Padrão de execução** | **Deterministic-first**: detecção, cascata de atraso e conflito são determinísticos; LLM só no diálogo de reagendamento via tools (como `book_time`) |
+| **Tenant** | Toda query com `organization_id` + `validated_tenant_context`; tools recebem `org_id` no `RunnableConfig` |
+| **Reuso** | `reschedule_appointment` (já checa conflito + `DoubleBookingError` 409); `get_available_slots`; `WhatsAppService`; `ReminderService`/`reminders`; `guardrails.py` |
+| **Kill switch** | `organizations.settings.reschedule.enabled=false` por padrão; sub-flags por fase |
+
+### 50.2 Schema e migrations (proposta — não aplicar)
+
+| Artefato | Propósito | Notas |
+|----------|-----------|-------|
+| `appointments.rescheduled_from` | F1/F3 — rastrear origem do reagendamento | **Já existe** (FK self-ref) — sem migration |
+| `appointments.cancellation_reason` | F3 — motivo do cancelamento | **Já existe** — sem migration |
+| Status `arrived` / `in_progress` | F2 — check-in / atraso | **Já existem** no CHECK de `appointments.status` |
+| `reminders` + `ReminderType.REACTIVATION`/`POST_SERVICE` | F4 — win-back pós-falta | Tabela e enums **já existem**; enums **não usados** em `reminder_service.py` |
+| `organizations.settings.reschedule` (JSONB — **proposta**) | Config por org (flags, janelas, política) | Kill switch + parâmetros; default desligado |
+| Rastreio de oferta de recuperação | F1 — evitar reenvio | **Discussão**: coluna dedicada vs. reusar uma linha em `reminders` (preferir `reminders` se possível) |
+
+**Nota:** não há necessidade de `completed_at` para este epic (gatilho é falta/atraso, não conclusão). Retenção/DSAR das mensagens em §51.
+
+### 50.3 Superfície de tools/API proposta (futuro)
+
+Tools no perímetro do agente de scheduling (allowlist em `graph/nodes.py`), guardrails espelhando `book_time`:
+
+| Artefato | Fase | Descrição |
+|----------|------|-----------|
+| Tool `reschedule_time` | F3 | Reagenda appointment do próprio `sender_phone`; valida conflito (reusa `reschedule_appointment` → 409); só catálogo |
+| Tool `cancel_appointment` | F3 | Cancela appointment do próprio `sender_phone`; exige confirmação explícita; grava `cancellation_reason` |
+| Endpoint cascata de atraso (opcional) | F2 | Recalcula horários do dia de um profissional a partir de um atraso; dashboard Operacional |
+
+Nenhum artefato acima deve ser registrado enquanto o epic estiver em status **Futuro**.
+
+### 50.4 Jobs APScheduler propostos
+
+Registrar em `packages/scheduling/scheduler.py` **somente quando aprovado**:
+
+| Job ID | Intervalo | Função |
+|--------|-----------|--------|
+| `cron_noshow_recovery` | 15 min | F1 — dispara oferta de reagendamento para no-shows recentes sem oferta |
+| `cron_reactivation` | diário | F4 — win-back de clientes com falta e sem retorno (respeita opt-out/janela) |
+
+### 50.5 Ordem de implementação técnica (quando aprovado)
+
+1. **Onda 0:** `settings.reschedule` + flags + opt-out — impacto zero com flag desligada
+2. **F3 (tools reschedule/cancel):** maior valor, reusa `reschedule_appointment` — depende de WhatsApp live (Cap. 5)
+3. **F1 (recuperação no-show):** job + template + reuso de slots + F3 para fechar o loop
+4. **F4 (reativação):** wire `ReminderType.REACTIVATION/POST_SERVICE` em `reminder_service`
+5. **F2 (atraso/cascata):** check-in + recálculo do dia (mais sensível à agenda — por último)
+
+### 50.6 O que não alterar no MVP atual
+
+| Área | Motivo |
+|------|--------|
+| `book_time`, `check_availability`, prompts scheduling | Regressão em conversão WhatsApp |
+| `reschedule_appointment` sem flag | Reagendamento dashboard é produção |
+| Lembretes 24h/2h em `reminder_service` | Produção |
+| Grafo LangGraph principal (`compile.py`) | Triage/booking estável; tools novas via allowlist, sem novo nó |
+| Migrations sem epic aprovada | Schema drift e agentes confusos |
+
+## 51. Modelagem de dados evolutiva Reagendamento (documentação — não implementar)
+
+> **Status:** proposta de crescimento incremental. Nenhuma migration abaixo deve ser aplicada **sem aprovação explícita** ([§41](#41-política-de-escopo-futuro)).
+
+### 51.1 Diagrama entidade-relacionamento (atual + futuro)
+
+```mermaid
+erDiagram
+  organizations ||--o{ appointments : has
+  organizations ||--o{ reminders : has
+  patients ||--o{ appointments : books
+  appointments ||--o{ reminders : triggers
+  appointments ||--o| appointments : rescheduled_from
+  patients ||--o{ reminders : reactivation_futuro
+```
+
+Legenda: tudo já existe — este epic **reusa** entidades (`appointments`, `reminders`, `appointments.rescheduled_from`). A única proposta nova é o JSONB `organizations.settings.reschedule`.
+
+### 51.2 Ondas de evolução
+
+| Onda | Fase | Mudanças propostas | Impacto no MVP se `reschedule.enabled=false` |
+|------|------|-------------------|----------------------------------------------|
+| **0 — Fundação** | Pré-requisito | `organizations.settings.reschedule` JSONB; opt-out marketing (reusa `patients.privacy_*`) | **Zero** — defaults desligados |
+| **1 — Self-service** | F3 | Sem schema novo; tools `reschedule_time`/`cancel_appointment` reusam colunas existentes | Tools atrás de flag; agenda dashboard intacta |
+| **2 — Recuperação** | F1 | Linha em `reminders` para rastrear oferta de recuperação | Job não roda com flag desligada |
+| **3 — Reativação** | F4 | Wire `ReminderType.REACTIVATION/POST_SERVICE` + (opcional) `reminders.metadata` JSONB | `reminder_service` estende atrás de flag |
+| **4 — Atraso** | F2 | Sem tabela nova; usa status `arrived/in_progress` + recálculo de slots | Nenhum — feature dashboard opcional |
+
+### 51.3 Contratos JSONB (proposta)
+
+**`organizations.settings.reschedule`**
+
+```json
+{
+  "enabled": false,
+  "phases": {
+    "self_service": false,
+    "noshow_recovery": false,
+    "reactivation": false,
+    "late_cascade": false
+  },
+  "noshow_recovery_delay_minutes": 30,
+  "reactivation_after_days": 7,
+  "send_window": { "start_hour": 9, "end_hour": 20 }
+}
+```
+
+### 51.4 Índices e RLS (proposta)
+
+| Objeto | Índice / policy |
+|--------|-----------------|
+| `reminders` (recuperação/reativação) | Reusa índices existentes; filtra `type` + `status=pending` |
+| `appointments` (no-show recentes) | Reusa `idx_appt_status` (`organization_id`,`status`) |
+| RLS tenant | Padrão `organization_id` — sem tabela nova |
+
+### 51.5 DSAR e retenção por entidade (proposta)
+
+| Entidade | Export | Erase | Retenção sugerida |
+|----------|--------|-------|-------------------|
+| Ofertas de recuperação (linhas `reminders`) | Metadados | Cancelar pendentes no erase | Igual lembretes MVP |
+| Mensagens de reativação (`reminders`) | Metadados | Cancelar pendentes no erase | Igual lembretes MVP |
+| `appointments` reagendados (`rescheduled_from`) | Já coberto | Anonimização padrão | Política de appointments |
+
+Atualizar [`docs/legal/ROPA.md`](docs/legal/ROPA.md) e revisar consentimento/opt-out em `packages/compliance/` **antes** de qualquer Onda ≥ 2.
+
+## 52. Métodos probabilísticos — qualidade IA Reagendamento (documentação — não implementar)
+
+> **Status:** estratégia de qualidade para as partes LLM do epic. Reutiliza padrões do motor híbrido ([§23.1](#231-motor-híbrido-de-agendamento-deterministic-first)). **Não implementar** sem aprovação.
+
+### 52.1 Três camadas (Deterministic → Structured LLM → Free LLM)
+
+```mermaid
+flowchart TD
+  input[Entrada cliente WhatsApp]
+  det[Camada1 Deterministico deteccao conflito cascata]
+  struct[Camada2 LLM estruturado intencao reagendar]
+  free[Camada3 LLM livre dialogo educado]
+  out[Acao reschedule ou cancel via tool]
+  input --> det
+  det -->|ambiguo| struct
+  struct -->|confidence baixa| free
+  det --> out
+  struct --> out
+  free --> out
+```
+
+**Regra:** cancelamento (F3) **nunca** é executado em Camada 3 sem confirmação explícita do cliente. Datas de reagendamento seguem o parser determinístico de `date_parsing/` + `guardrails.py`.
+
+### 52.2 Matriz fase × método
+
+| Fase | Determinístico (fonte da verdade) | Probabilístico permitido | Método de qualidade | Fallback |
+|------|-----------------------------------|--------------------------|---------------------|----------|
+| **F1 — Recuperação** | Detecção no-show; template de oferta | Polish opcional do convite | Template fixo (`tokens=0`); polish só staging | Mensagem template sem LLM |
+| **F2 — Atraso** | Recálculo de cascata via `get_available_slots` | — | 100% determinístico; sem LLM | N/A |
+| **F3 — Reschedule/cancel** | `reschedule_appointment` (conflito 409); parser de datas; vínculo `sender_phone` | Extração de intenção/data (estilo `intent_extractor`) | `confidence < 0.7` → repergunta; cancel exige confirmação | `request_human_handoff` |
+| **F4 — Reativação** | Templates por `ReminderType`; janela `organizations.timezone` | Polish opcional | Template fixo; checar opt-out antes | Mensagem template sem LLM |
+
+### 52.3 Padrões MVP reutilizáveis
+
+| Padrão existente | Aplicação proposta |
+|------------------|--------------------|
+| `book_time` + `guardrails.py` | Tools `reschedule_time`/`cancel_appointment` — fail-closed, vínculo `sender_phone` |
+| `intent_extractor` + `confidence` | Extrair data/horário do pedido de reagendamento |
+| `response_composer` factual + polish | Convites de recuperação/reativação — factual = template, polish opcional |
+| `reschedule_appointment` (conflito EXCLUDE) | Reuso direto pela tool de reagendar |
+
+### 52.4 Gates de qualidade
+
+| Gate | Comportamento |
+|------|---------------|
+| `confidence >= 0.8` | Executar reagendamento via tool |
+| `0.5 <= confidence < 0.8` | Confirmar com o cliente antes de aplicar |
+| `confidence < 0.5` | Não agir; repergunta determinística ou handoff |
+
+### 52.5 Anti-padrões (evitar na implementação futura)
+
+- Reagendar ou cancelar appointment de **terceiros** via prompt injection — sempre vincular ao `sender_phone` (como `book_time`)
+- Cancelar sem confirmação explícita do cliente
+- Disparar recuperação/reativação sem checar `privacy_*`/opt-out e janela de envio
+- Duplicar a régua D+N do CJI Fase 4 — reativação aqui é gatilhada por **falta**, não por conclusão
+- Tratar enums `ReminderType.REACTIVATION/POST_SERVICE` como "já implementados" só por existirem
 
 ---
 

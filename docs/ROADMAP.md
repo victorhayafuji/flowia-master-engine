@@ -188,4 +188,64 @@ Paradigma detalhado em [`CLAUDE.md` §4.5](../CLAUDE.md). Ordem acordada:
 **Blueprint técnico (somente documentação):** [`CLAUDE.md` Parte VIII §45](../CLAUDE.md#45-blueprint-técnico-cji-documentação--não-implementar) — pacote, API, jobs; [§46](../CLAUDE.md#46-modelagem-de-dados-evolutiva-cji-documentação--não-implementar) — modelagem por ondas; [§47](../CLAUDE.md#47-métodos-probabilísticos-qualidade-ia-documentação--não-implementar) — camadas IA e qualidade.
 
 ---
-*Documento atualizado em: 10/06/2026 (Epic CJI — Cap. 6 + blueprint §45)*
+
+## 🔁 CAPÍTULO 7: Reagendamento Inteligente & Recuperação de No-show/Atraso (FUTURO — pós-MVP salão)
+
+**Alias PT:** Reagendamento Inteligente · **Status:** Futuro / Pós-MVP / **Não implementar agora**
+
+**Objetivo:** fechar o vão entre **detecção** e **ação**. Hoje o no-show é detectado de forma passiva (`no_show_service.py` marca status + incrementa `no_show_count`) e o atraso não tem tratamento. Este capítulo transforma detecção em recuperação proativa de receita — Pilar 1 (no-show) e Pilar 2 (slots/double-booking) do Recuperador de Lucros.
+
+**Restrições:**
+
+- **Não é prioridade de implementação** — foco permanece em estabilizar e operar o MVP salão (`PRODUCT_LINE=salon`).
+- **Fronteira com Cap. 6 (CJI Fase 4):** a régua D+N do CJI é gatilhada por **conclusão** de serviço; a reativação aqui (F4) é gatilhada por **falta**. Não duplicar jobs.
+- Fonte canônica detalhada: [`CLAUDE.md` Parte VIII §49](../CLAUDE.md#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) — **não implementar sem aprovação explícita**.
+
+**Governança LGPD (todas as fases):** ofertas de recuperação e mensagens de reativação exigem consentimento/opt-out (`patients.privacy_*`, `packages/compliance/consent.py`); atualizar ROPA e política de retenção antes de qualquer implementação; janela de envio no fuso da org; mascaramento em logs.
+
+**Princípio de encaixe:** **evolução de `packages/scheduling/`** (≠ CJI, que propõe pacote novo) — reusa `no_show_service`, `reminder_service`, `reschedule_appointment` (conflito 409), motor de slots, enums `ReminderType` ociosos e colunas `rescheduled_from`/`cancellation_reason`. Kill switch `organizations.settings.reschedule.enabled=false`.
+
+### Fase futura F1 — Recuperação de no-show
+
+| Campo | Conteúdo |
+|-------|----------|
+| **Objetivo** | Ao detectar no-show, ofertar reagendamento proativo via WhatsApp (reusa motor de booking) |
+| **Valor para o salão** | Recupera receita que hoje só vira métrica passiva |
+| **Dependências** | `no_show_service.py`; `WhatsAppService` (credenciais Meta por org); `check_availability`; consentimento |
+| **Riscos** | Mensagem invasiva pós-falta; opt-out; não reagendar terceiros (vincular `sender_phone`) |
+| **Status** | **Futuro / Pós-MVP / Não implementar agora** |
+
+### Fase futura F2 — Atrasos / check-in
+
+| Campo | Conteúdo |
+|-------|----------|
+| **Objetivo** | Status `arrived`/`in_progress`; recalcular cascata do dia; avisar próximo cliente quando o atual atrasa |
+| **Valor para o salão** | Reduz fila/erro de slot; comunicação proativa |
+| **Dependências** | Status já existentes; `get_available_slots`; `schedule_blocks`; dashboard agenda Operacional |
+| **Riscos** | Cascata incorreta corromper agenda; concorrência com reagendamento manual |
+| **Status** | **Futuro / Pós-MVP / Não implementar agora** |
+
+### Fase futura F3 — Reschedule/cancel pelo agente IA
+
+| Campo | Conteúdo |
+|-------|----------|
+| **Objetivo** | Tools `reschedule_time` / `cancel_appointment` para o cliente reagendar/cancelar sozinho no WhatsApp |
+| **Valor para o salão** | Self-service 24/7; menos trabalho de recepção |
+| **Dependências** | `scheduling/tools.py`; `reschedule_appointment` (já existe); `guardrails.py`; allowlist de tools |
+| **Riscos** | Prompt injection (reagendar/cancelar de terceiros); cancelamento indevido — exigir confirmação |
+| **Status** | **Futuro / Pós-MVP / Não implementar agora** |
+
+### Fase futura F4 — Régua de reativação pós no-show
+
+| Campo | Conteúdo |
+|-------|----------|
+| **Objetivo** | Win-back após falta usando `ReminderType.REACTIVATION`/`POST_SERVICE` (hoje ociosos) |
+| **Valor para o salão** | Reativa clientes que faltaram; receita recorrente (Pilar 5) |
+| **Dependências** | `reminder_service.py`; enums `ReminderType` existentes; APScheduler; opt-out |
+| **Riscos** | Spam; sobreposição com CJI Fase 4 (delimitar gatilho = falta) |
+| **Status** | **Futuro / Pós-MVP / Não implementar agora** |
+
+**Blueprint técnico (somente documentação):** [`CLAUDE.md` Parte VIII §50](../CLAUDE.md#50-blueprint-técnico-reagendamento-documentação--não-implementar) — tools, jobs, ordem; [§51](../CLAUDE.md#51-modelagem-de-dados-evolutiva-reagendamento-documentação--não-implementar) — modelagem por ondas; [§52](../CLAUDE.md#52-métodos-probabilísticos--qualidade-ia-reagendamento-documentação--não-implementar) — camadas IA e gates.
+
+---
+*Documento atualizado em: 10/06/2026 (Epic CJI — Cap. 6 + Cap. 7 Reagendamento Inteligente)*
