@@ -98,6 +98,13 @@ async def test_run_scheduling_turn_lists_slots_without_time(mocker):
         return_value="Horários para 'Corte Masculino' em 2026-06-10:\n- Maria: 13:00",
     )
     mocker.patch("packages.scheduling.booking_executor.set_tenant_context")
+
+    class _FixedToday(__import__("datetime").date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 6, 7)
+
+    mocker.patch("packages.scheduling.booking_executor.date", _FixedToday)
     config = {"configurable": {"org_id": "22222222-2222-2222-2222-222222222222"}}
     msg = "Quero corte masculino dia 10 de junho"
     result = await run_scheduling_turn([HumanMessage(content=msg)], config)
@@ -114,6 +121,13 @@ async def test_followup_outro_horario_lists_slots(mocker):
         return_value="Horários para 'Corte Masculino' em 2026-06-10:\n- Maria: 13:00, 14:00",
     )
     mocker.patch("packages.scheduling.booking_executor.set_tenant_context")
+
+    class _FixedToday(__import__("datetime").date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 6, 7)
+
+    mocker.patch("packages.scheduling.booking_executor.date", _FixedToday)
     config = {"configurable": {"org_id": "22222222-2222-2222-2222-222222222222"}}
     messages = [
         HumanMessage(content="Quero corte masculino dia 10 de junho as 11:00"),
