@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.16)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.17)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -1283,6 +1283,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.14 | Jun/2026 | Auditoria de stack: Node 22 (CI), correção dedup §4.2, ordem do versionamento, nota deprecação OpenAI 4o (§9), limitação limiters (§20); novo §48 Parte VIII — modernização de stack (migração modelos, PyJWT, rate limit distribuído, Vite 7, gate cobertura) |
 | 1.15 | Jun/2026 | Epic Reagendamento Inteligente & Recuperação de No-show/Atraso — Parte VIII §49 (epic F1–F4), §50 (blueprint), §51 (modelagem por ondas), §52 (métodos IA); ponteiros §4.5/§7/§36/§43/§44; Cap. 7 em `docs/ROADMAP.md` |
 | 1.16 | Jun/2026 | Migração `python-jose` → `PyJWT` concluída (§48.2 Concluído, §9 stack, §43 índice); decode mantém `algorithms=["HS256"]` |
+| 1.17 | Jun/2026 | Gate de cobertura backend 30 → 50 (§48.5, cobertura real 70.71%) |
 
 ---
 
@@ -1847,11 +1848,13 @@ flowchart TD
 
 ### 48.5 Elevação gradual do gate de cobertura backend
 
-**Status:** Futuro — melhoria contínua · **Não implementar agora**
+**Status:** Em andamento — gate em **50** (Jun/2026); cobertura real ~71%
 
-**Motivo:** `--cov-fail-under=30` é piso baixo para sistema com lógica financeira (double-booking, guardrails, RLS). A suíte adversarial (§32) compensa parcialmente, mas não substitui cobertura de caminhos de negócio.
+**Motivo:** `--cov-fail-under=30` era piso baixo para sistema com lógica financeira (double-booking, guardrails, RLS). A suíte adversarial (§32) compensa parcialmente, mas não substitui cobertura de caminhos de negócio.
 
-**Proposta:** elevar o gate em degraus (30 → 40 → 50) priorizando `packages/scheduling/` e `packages/auth_core/`; nunca elevar o gate no mesmo PR que adiciona feature. Registrar cada degrau na tabela de versionamento do §40.
+**Proposta:** elevar o gate em degraus priorizando `packages/scheduling/` e `packages/auth_core/`; nunca elevar o gate no mesmo PR que adiciona feature. Registrar cada degrau na tabela de versionamento do §40.
+
+**Histórico:** 30 → **50** (Jun/2026, cobertura medida 70.71%). Próximo degrau possível: 60, somente após elevar a cobertura real com folga.
 
 ---
 
