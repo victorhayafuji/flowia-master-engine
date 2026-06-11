@@ -43,7 +43,13 @@ def test_clear_booking_state_zeros_all_slots():
     }
 
 
-def test_snapshot_to_state_patch_exports_checkpoint_fields():
+def test_snapshot_to_state_patch_exports_checkpoint_fields(mocker):
+    class _FixedToday(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 6, 9)
+
+    mocker.patch("packages.scheduling.booking_executor.date", _FixedToday)
     snap = sync_booking_state(
         [HumanMessage(content="Quero corte masculino amanhã ou sexta")],
         ORG,

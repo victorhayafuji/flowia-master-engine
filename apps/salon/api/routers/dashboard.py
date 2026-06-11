@@ -5,11 +5,17 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from packages.auth_core.database import db
 from packages.auth_core.dependencies import auth_required, professional_scope, validated_tenant_context
+from packages.models.enums import AppointmentStatus
 
 router = APIRouter(tags=["Salon Dashboard"])
 
 # Statuses that count as "still going to happen" for the operational board.
-_OPEN_STATUSES = ("pending", "confirmed", "arrived", "in_progress")
+_OPEN_STATUSES = (
+    AppointmentStatus.PENDING,
+    AppointmentStatus.CONFIRMED,
+    AppointmentStatus.ARRIVED,
+    AppointmentStatus.IN_PROGRESS,
+)
 _DEFAULT_TZ = "America/Sao_Paulo"
 
 
@@ -129,11 +135,11 @@ async def get_today_board(
         by_professional: dict[str, list] = {}
         for appt in appointments:
             status = appt.get("status")
-            if status == "in_progress":
+            if status == AppointmentStatus.IN_PROGRESS:
                 counts["in_progress"] += 1
-            elif status == "completed":
+            elif status == AppointmentStatus.COMPLETED:
                 counts["completed"] += 1
-            elif status == "no_show":
+            elif status == AppointmentStatus.NO_SHOW:
                 counts["no_show"] += 1
             if status in _OPEN_STATUSES and appt.get("scheduled_at", "") >= now.isoformat():
                 counts["upcoming"] += 1

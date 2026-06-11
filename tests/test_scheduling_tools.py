@@ -1,10 +1,22 @@
 """Tests for scheduling LangGraph tools."""
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from langchain_core.runnables import RunnableConfig
 
 from packages.scheduling.tools import _get_org_id_from_config, book_time, check_availability
+
+
+@pytest.fixture(autouse=True)
+def _freeze_today(mocker):
+    """Freeze date.today so hardcoded 2026-06-10 test dates stay in the future on any clock (CI-safe)."""
+    class _FixedToday(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 6, 9)
+
+    mocker.patch("packages.scheduling.guardrails.date", _FixedToday)
 
 ORG = "22222222-2222-2222-2222-222222222222"
 PATIENT_ID = "33333333-3333-3333-3333-333333333333"

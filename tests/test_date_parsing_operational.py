@@ -29,6 +29,19 @@ from packages.scheduling.date_parsing import (
 REF = date(2026, 6, 7)
 
 
+@pytest.fixture(autouse=True)
+def _freeze_today(mocker):
+    """Freeze date.today to REF so flows that resolve dates without an explicit
+    reference (ex: resolve_booking_context) stay deterministic on any clock (CI-safe)."""
+    class _FixedToday(date):
+        @classmethod
+        def today(cls):
+            return cls(REF.year, REF.month, REF.day)
+
+    mocker.patch("packages.scheduling.booking_executor.date", _FixedToday)
+    mocker.patch("packages.scheduling.booking_flow_memory.date", _FixedToday)
+
+
 class TestSubstringFalsePositives:
     def test_contemporaneo_not_ontem(self):
         assert not phrase_in_text("ontem", "contemporaneo")

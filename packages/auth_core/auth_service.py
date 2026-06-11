@@ -121,7 +121,6 @@ def register_dashboard_user(
             "id": auth_res.user.id,
             "email": username,
             "role": role,
-            "created_at": "now()"
         }
         if organization_id:
             new_user["organization_id"] = organization_id

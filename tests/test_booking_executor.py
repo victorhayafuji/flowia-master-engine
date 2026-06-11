@@ -20,6 +20,19 @@ def _mock_catalog(mocker):
     )
 
 
+@pytest.fixture(autouse=True)
+def _freeze_today(mocker):
+    """Freeze date.today to a fixed workday so colloquial/partial dates (ex: "dia 10
+    de junho") resolve deterministically on any clock (CI-safe). Tests needing a
+    specific "today" re-patch booking_executor.date in the test body, overriding this."""
+    class _FixedToday(__import__("datetime").date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 6, 7)
+
+    mocker.patch("packages.scheduling.booking_executor.date", _FixedToday)
+
+
 def test_extract_patient_name_with_particle_and_phone():
     from packages.scheduling.booking_executor import extract_patient_name
 
