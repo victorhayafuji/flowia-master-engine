@@ -1,7 +1,10 @@
 import { Calendar, CheckCircle2, Clock, MessageCircle, UserX, Users } from "lucide-react"
 import { Link } from "react-router-dom"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import { useAuth } from "@/features/auth/AuthContext"
 import { GlassCard, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/PageHeader"
 import { useOverviewStats } from "./hooks/useOverviewStats"
 
 function hhmm(iso: string): string {
@@ -26,40 +29,35 @@ export function Overview() {
 
   return (
     <div className="page-shell">
-      <div className="page-header space-y-8 shrink-0">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Visão Geral</h1>
-          <p className="text-slate-500 dark:text-slate-400">Resumo operacional do salão para hoje.</p>
-        </div>
-
+      <PageHeader title="Visão Geral" subtitle="Resumo operacional do salão para hoje" />
+      <div className="space-y-8 shrink-0 mb-6">
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <StatCard icon={<Calendar className="w-4 h-4 text-primary-500" />} label="Agendamentos Hoje" value={stats.appointmentsToday} />
-          <StatCard icon={<Clock className="w-4 h-4 text-amber-500" />} label="Em Atendimento" value={stats.counts.in_progress} />
-          <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />} label="Concluídos" value={stats.counts.completed} />
-          <StatCard icon={<UserX className="w-4 h-4 text-rose-500" />} label="Faltas Hoje" value={stats.counts.no_show} />
-          <StatCard icon={<UserX className="w-4 h-4 text-rose-600" />} label="Faltas no Cadastro" value={stats.totalNoShows} />
+          <StatCard icon={<Calendar className="w-4 h-4 text-primary-500" />} label="Agendamentos Hoje" value={stats.appointmentsToday} to="/agenda" />
+          <StatCard icon={<Clock className="w-4 h-4 text-amber-500" />} label="Em Atendimento" value={stats.counts.in_progress} to="/agenda" />
+          <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />} label="Concluídos" value={stats.counts.completed} to="/agenda" />
+          <StatCard icon={<UserX className="w-4 h-4 text-rose-500" />} label="Faltas Hoje" value={stats.counts.no_show} to="/agenda" />
+          <StatCard
+            icon={<UserX className="w-4 h-4 text-rose-600" />}
+            label="Faltas acumuladas"
+            value={stats.totalNoShows}
+            to={showAgentSummary ? "/patients?sort=faltas" : undefined}
+          />
         </div>
 
         {showAgentSummary && (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
+              <h2 className="text-sm font-black uppercase tracking-widest text-[var(--foreground)]/60">
                 Assistente IA
               </h2>
-              {stats.agentSummary.handoffsPending > 0 && (
-                <Link
-                  to="/patients?handoff=1"
-                  className="text-xs font-bold uppercase text-[var(--accent)] underline underline-offset-2"
-                >
-                  Ver atendimentos humanos pendentes
-                </Link>
-              )}
             </div>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
               <StatCard
                 icon={<Users className="w-4 h-4 text-amber-600" />}
                 label="Precisa de humano"
                 value={stats.agentSummary.handoffsPending}
+                to="/patients?handoff=1"
+                urgent={stats.agentSummary.handoffsPending > 0}
               />
               <StatCard
                 icon={<MessageCircle className="w-4 h-4 text-emerald-600" />}
@@ -144,8 +142,11 @@ export function Overview() {
                     key={appt.id}
                     className="flex items-center gap-4 p-3 bg-[var(--background)] border-2 border-[var(--border)]"
                   >
-                    <div className="bg-[var(--accent)]/10 text-[var(--accent)] p-2 font-mono font-bold border-2 border-[var(--border)]">
-                      {hhmm(appt.scheduled_at)}
+                    <div className="bg-[var(--accent)]/10 text-[var(--accent)] p-2 font-mono font-bold border-2 border-[var(--border)] text-center">
+                      <div className="text-[10px] uppercase leading-tight">
+                        {format(new Date(appt.scheduled_at), "EEE dd/MM", { locale: ptBR })}
+                      </div>
+                      <div>{hhmm(appt.scheduled_at)}</div>
                     </div>
                     <div className="min-w-0">
                       <p className="font-bold uppercase tracking-tight text-sm truncate">{appt.patient?.name || "Cliente"}</p>
@@ -165,17 +166,39 @@ export function Overview() {
   )
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return (
-    <GlassCard>
+function StatCard({
+  icon,
+  label,
+  value,
+  to,
+  urgent = false,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: number
+  to?: string
+  urgent?: boolean
+}) {
+  const card = (
+    <GlassCard
+      className={`h-full ${urgent ? "border-[var(--accent)] shadow-[4px_4px_0px_0px_var(--accent)]" : ""}`}
+    >
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium">{label}</CardTitle>
+        <CardTitle className={`text-sm font-medium ${urgent ? "text-[var(--accent)]" : ""}`}>
+          {label}
+        </CardTitle>
         {icon}
       </CardHeader>
       <CardContent>
         <div className="text-3xl font-bold">{value}</div>
       </CardContent>
     </GlassCard>
+  )
+  if (!to) return card
+  return (
+    <Link to={to} className="block h-full hover-lift" aria-label={label}>
+      {card}
+    </Link>
   )
 }
 

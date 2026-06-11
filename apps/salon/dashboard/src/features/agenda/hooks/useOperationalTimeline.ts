@@ -24,15 +24,32 @@ export interface TimelineItem {
   canResize: false | "left" | "right" | "both"
   itemProps: {
     className: string
+    title: string
     onDoubleClick: () => void
   }
 }
 
+const STATUS_CLASS: Record<string, string> = {
+  confirmed: "timeline-item--confirmed",
+  arrived: "timeline-item--arrived",
+  in_progress: "timeline-item--in-progress",
+  completed: "timeline-item--completed",
+  no_show: "timeline-item--no-show",
+  cancelled: "timeline-item--cancelled",
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Pendente",
+  confirmed: "Confirmado",
+  arrived: "Chegou",
+  in_progress: "Em atendimento",
+  completed: "Concluído",
+  no_show: "Falta",
+  cancelled: "Cancelado",
+}
+
 function statusClass(status: string): string {
-  if (status === "confirmed") return "timeline-item--confirmed"
-  if (status === "in_progress") return "timeline-item--in-progress"
-  if (status === "cancelled") return "timeline-item--cancelled"
-  return "timeline-item--pending"
+  return STATUS_CLASS[status] ?? "timeline-item--pending"
 }
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -58,10 +75,11 @@ export function useOperationalTimeline(
         const start = moment(appt.scheduled_at)
         const duration = appt.duration_minutes || 30
         const end = moment(start).add(duration, "minutes")
+        const label = `${start.format("HH:mm")} ${appt.patient?.name || "Sem Nome"} · ${appt.service?.name || "Serviço"}`
         return {
           id: appt.id,
           group: appt.professional_id!,
-          title: `${start.format("HH:mm")} ${appt.patient?.name || "Sem Nome"} · ${appt.service?.name || "Serviço"}`,
+          title: label,
           start_time: start,
           end_time: end,
           appointment: appt,
@@ -69,6 +87,7 @@ export function useOperationalTimeline(
           canResize: appt.status === "cancelled" ? false : ("both" as const),
           itemProps: {
             className: statusClass(appt.status),
+            title: `${label} · ${STATUS_LABEL[appt.status] ?? appt.status}`,
             onDoubleClick: () => onEdit(appt),
           },
         }

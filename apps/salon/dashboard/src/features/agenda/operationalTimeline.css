@@ -40,21 +40,42 @@
   color: var(--foreground);
 }
 
+/* !important: the library's default item renderer applies background as an
+   inline style (#2196f3), which would otherwise beat these classes. */
 .operational-timeline .timeline-item--confirmed {
-  background: var(--background);
-  border-left: 4px solid var(--accent);
+  background: var(--background) !important;
+  border-left: 4px solid var(--accent) !important;
 }
 
 .operational-timeline .timeline-item--pending {
-  background: color-mix(in srgb, var(--surface) 80%, var(--foreground) 5%);
+  background: color-mix(in srgb, var(--surface) 80%, var(--foreground) 5%) !important;
+  border-style: dashed !important;
+}
+
+.operational-timeline .timeline-item--arrived {
+  background: var(--background) !important;
+  border-color: var(--accent) !important;
+  border-left: 4px solid var(--accent) !important;
 }
 
 .operational-timeline .timeline-item--in-progress {
-  background: color-mix(in srgb, var(--accent) 20%, var(--background));
+  background: color-mix(in srgb, var(--accent) 25%, var(--background)) !important;
+  border-left: 4px solid var(--accent) !important;
+}
+
+.operational-timeline .timeline-item--completed {
+  background: var(--surface) !important;
+  opacity: 0.45;
+}
+
+.operational-timeline .timeline-item--no-show {
+  background: color-mix(in srgb, #f43f5e 25%, var(--background)) !important;
+  border-color: #f43f5e !important;
+  text-decoration: line-through;
 }
 
 .operational-timeline .timeline-item--cancelled {
-  background: var(--surface);
+  background: var(--surface) !important;
   opacity: 0.5;
   text-decoration: line-through;
 }

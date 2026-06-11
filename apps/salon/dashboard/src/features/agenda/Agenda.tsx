@@ -3,10 +3,12 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useAuth } from "@/features/auth/AuthContext"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/PageHeader"
 import { AgendaGrid } from "./components/AgendaGrid"
 import { OperationalTimeline } from "./components/OperationalTimeline"
 import { AgendaModals } from "./components/AgendaModals"
 import { useAgenda } from "./hooks/useAgenda"
+import { orgWorksOnDay } from "./lib/workdays"
 import type { AgendaView } from "./types"
 
 export function Agenda() {
@@ -62,35 +64,68 @@ export function Agenda() {
       ? `Semana — ${selectedProfessionalName}`
       : `Equipe — ${format(timelineDay, "EEEE dd/MM", { locale: ptBR })}`
 
+  // Days no professional works are disabled in the tabs (fail-open without data).
+  const dayEnabled = useMemo(
+    () => agenda.days.map((day) => orgWorksOnDay(professionals, day)),
+    [agenda.days, professionals],
+  )
+
+  useEffect(() => {
+    if (dayEnabled[timelineDayIndex] === false) {
+      const firstEnabled = dayEnabled.findIndex(Boolean)
+      if (firstEnabled >= 0) setTimelineDayIndex(firstEnabled)
+    }
+  }, [dayEnabled, timelineDayIndex])
+
+  const openNewAppointment = () => {
+    agenda.setNewApptData((prev) => ({
+      ...prev,
+      // Operational view: prefill the selected day; week view: prefill the filtered professional.
+      date: view === "timeline" && timelineDay ? format(timelineDay, "yyyy-MM-dd") : prev.date,
+      professional_id: view === "week" && filterProfessionalId ? filterProfessionalId : prev.professional_id,
+    }))
+    agenda.setIsNewModalOpen(true)
+  }
+
+  const handleSlotClick = (slotIso: string) => {
+    agenda.setNewApptData((prev) => ({
+      ...prev,
+      professional_id: filterProfessionalId || prev.professional_id,
+      date: slotIso.slice(0, 10),
+      time: slotIso.slice(11, 16),
+    }))
+    agenda.setIsNewModalOpen(true)
+  }
+
   return (
     <div className="page-shell">
-      <div className="page-header mb-6 sm:mb-8 flex flex-col md:flex-row md:justify-between md:items-end border-b-4 border-[var(--border)] pb-6">
-        <div>
-          <h1 className="text-4xl font-black uppercase tracking-tight text-[var(--foreground)]">Agenda</h1>
-          <p className="text-[var(--foreground)]/70 font-mono mt-1 uppercase text-sm font-bold">{subtitle}</p>
-        </div>
-        <div className="mt-4 md:mt-0 flex flex-wrap items-center gap-2">
-          <div className="flex border-2 border-[var(--border)]">
-            <button
-              type="button"
-              onClick={() => setView("timeline")}
-              className={`px-3 py-2 text-xs font-bold uppercase ${view === "timeline" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)]"}`}
-            >
-              Operacional
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("week")}
-              className={`px-3 py-2 text-xs font-bold uppercase border-l-2 border-[var(--border)] ${view === "week" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)]"}`}
-            >
-              Semana
-            </button>
-          </div>
-          <Button variant="default" onClick={() => agenda.setIsNewModalOpen(true)}>
-            Novo Agendamento
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Agenda"
+        subtitle={subtitle}
+        actions={
+          <>
+            <div className="flex border-2 border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setView("timeline")}
+                className={`px-3 py-2 text-xs font-bold uppercase ${view === "timeline" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)]"}`}
+              >
+                Operacional
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("week")}
+                className={`px-3 py-2 text-xs font-bold uppercase border-l-2 border-[var(--border)] ${view === "week" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)]"}`}
+              >
+                Semana
+              </button>
+            </div>
+            <Button variant="default" onClick={openNewAppointment}>
+              Novo Agendamento
+            </Button>
+          </>
+        }
+      />
 
       {!agenda.loading && (
         <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -116,8 +151,14 @@ export function Agenda() {
                 <button
                   key={day.toISOString()}
                   type="button"
+                  disabled={!dayEnabled[i]}
+                  title={dayEnabled[i] ? undefined : "Sem expediente"}
                   onClick={() => setTimelineDayIndex(i)}
-                  className={`px-2 py-1 text-xs font-mono font-bold border-2 border-[var(--border)] ${i === timelineDayIndex ? "bg-[var(--accent)] text-[var(--background)]" : "bg-[var(--surface)]"}`}
+                  className={`px-2 py-1 text-xs font-mono font-bold border-2 border-[var(--border)] ${
+                    i === timelineDayIndex
+                      ? "bg-[var(--accent)] text-[var(--background)]"
+                      : "bg-[var(--surface)]"
+                  } ${dayEnabled[i] ? "" : "opacity-40 cursor-not-allowed line-through"}`}
                 >
                   {format(day, "EEE dd/MM", { locale: ptBR })}
                 </button>
@@ -141,6 +182,7 @@ export function Agenda() {
               onDragStart={agenda.handleDragStart}
               onDragEnd={agenda.handleDragEnd}
               onEdit={agenda.openEdit}
+              onSlotClick={handleSlotClick}
             />
           ) : (
             <OperationalTimeline

@@ -2,7 +2,12 @@ import { useState, useEffect, useMemo } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { api } from "@/shared/lib/api"
-import { Search, Phone, Plus, Download, Trash2 } from "lucide-react"
+import { formatPhoneBR } from "@/lib/phone"
+import { PageHeader } from "@/components/PageHeader"
+import { RowMenu } from "@/components/ui/row-menu"
+import { isIncompleteRegistration } from "./lib/incompleteRegistration"
+import { parsePatientSort, sortPatients } from "./lib/sortPatients"
+import { Search, Phone, Plus, Download, Trash2, MessageCircle } from "lucide-react"
 
 interface Patient {
   id: string
@@ -20,9 +25,11 @@ export function Patients() {
   const { user, organizationId, orgHeader } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const handoffOnly = searchParams.get("handoff") === "1"
+  const sort = parsePatientSort(searchParams.get("sort"))
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [showIncomplete, setShowIncomplete] = useState(false)
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -109,15 +116,22 @@ export function Patients() {
     }
   }
 
+  const incompleteCount = useMemo(
+    () => patients.filter((p) => isIncompleteRegistration(p)).length,
+    [patients],
+  )
+
   const filteredPatients = useMemo(() => {
-    return patients.filter((p) => {
+    const filtered = patients.filter((p) => {
       if (handoffOnly && !p.handoff_requested_at) return false
+      if (!showIncomplete && isIncompleteRegistration(p)) return false
       return (
         p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.phone?.includes(searchTerm)
       )
     })
-  }, [patients, handoffOnly, searchTerm])
+    return sortPatients(filtered, sort)
+  }, [patients, handoffOnly, showIncomplete, searchTerm, sort])
 
   const toggleHandoffFilter = () => {
     if (handoffOnly) {
@@ -128,34 +142,30 @@ export function Patients() {
     setSearchParams(searchParams, { replace: true })
   }
 
+  const changeSort = (value: string) => {
+    if (value === "recente") {
+      searchParams.delete("sort")
+    } else {
+      searchParams.set("sort", value)
+    }
+    setSearchParams(searchParams, { replace: true })
+  }
+
   return (
     <div className="page-shell">
-      {/* Brutalist Header Area */}
-      <div className="page-header mb-6 sm:mb-8 flex flex-col xl:flex-row xl:justify-between xl:items-end border-b-8 border-[var(--border)] pb-8">
-        <div>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-[var(--foreground)] text-[var(--background)] px-3 py-1 font-mono text-xs font-bold uppercase tracking-widest">
-              Módulo 01
-            </div>
-            <div className="h-1 flex-1 bg-[var(--border)] opacity-20"></div>
-          </div>
-          <h1 className="text-5xl sm:text-7xl font-black uppercase tracking-tighter text-[var(--foreground)] leading-none">
-            Clientes
-          </h1>
-          <p className="text-[var(--foreground)]/70 font-mono mt-4 uppercase text-sm font-bold tracking-widest border-l-4 border-[var(--accent)] pl-4">
-            Histórico de faltas visível // Recuperação de receita
-          </p>
-        </div>
-        
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="mt-8 xl:mt-0 flex items-center justify-between px-6 py-4 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[8px_8px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[6px_6px_0px_0px_var(--border)] active:translate-y-[8px] active:translate-x-[8px] active:shadow-[0px_0px_0px_0px_var(--border)] transition-all group rounded-none">
-          <span className="flex items-center gap-3">
-            <Plus className="w-5 h-5" /> 
+      <PageHeader
+        title="Clientes"
+        subtitle="Histórico de faltas visível // Recuperação de receita"
+        actions={
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-3 px-5 py-3 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[4px_4px_0px_0px_var(--border)] transition-all rounded-none"
+          >
+            <Plus className="w-5 h-5" />
             Novo Registro
-          </span>
-        </button>
-      </div>
+          </button>
+        }
+      />
 
       {/* Control Bar */}
       <div className="shrink-0 mb-6 p-6 bg-[var(--surface)] border-4 border-[var(--border)] shadow-[8px_8px_0px_0px_var(--border)] flex flex-col md:flex-row gap-6 justify-between items-center relative overflow-hidden">
@@ -178,6 +188,18 @@ export function Patients() {
         </div>
 
         <div className="z-10 font-mono text-sm font-bold uppercase tracking-widest text-[var(--foreground)]/50 text-right w-full md:w-auto flex flex-wrap items-center gap-3 justify-end">
+          <label className="flex items-center gap-2 text-xs uppercase">
+            Ordenar:
+            <select
+              value={sort}
+              onChange={(e) => changeSort(e.target.value)}
+              className="border-2 border-[var(--border)] bg-[var(--surface)] px-2 py-1 font-mono text-xs uppercase text-[var(--foreground)]"
+            >
+              <option value="recente">Mais recente</option>
+              <option value="nome">Nome</option>
+              <option value="faltas">Mais faltas</option>
+            </select>
+          </label>
           <button
             type="button"
             onClick={toggleHandoffFilter}
@@ -187,6 +209,18 @@ export function Patients() {
           >
             {handoffOnly ? "Filtro: handoff ativo" : "Só handoffs"}
           </button>
+          {incompleteCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowIncomplete((v) => !v)}
+              title="Cadastros criados automaticamente pelo WhatsApp, sem nome/telefone reais"
+              className={`px-3 py-1 border-2 border-dashed border-[var(--border)] text-xs uppercase ${
+                showIncomplete ? "bg-[var(--accent)] text-[var(--foreground)]" : "bg-[var(--surface)]"
+              }`}
+            >
+              Incompletos ({incompleteCount})
+            </button>
+          )}
           Total: <span className="text-[var(--foreground)] text-xl">{filteredPatients.length}</span>
         </div>
       </div>
@@ -228,10 +262,17 @@ export function Patients() {
 
                   <div className="space-y-1">
                     <div className="font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/40 group-hover:text-[var(--background)]/50">Contato</div>
-                    <div className="font-mono font-bold flex items-center gap-3">
-                      <Phone className="w-4 h-4 text-[var(--accent)] group-hover:text-[var(--background)]" />
-                      {p.phone}
-                    </div>
+                    {isIncompleteRegistration(p) ? (
+                      <div className="font-mono font-bold flex items-center gap-3 text-[var(--foreground)]/50 group-hover:text-[var(--background)]/60">
+                        <MessageCircle className="w-4 h-4" />
+                        Origem WhatsApp
+                      </div>
+                    ) : (
+                      <div className="font-mono font-bold flex items-center gap-3">
+                        <Phone className="w-4 h-4 text-[var(--accent)] group-hover:text-[var(--background)]" />
+                        {formatPhoneBR(p.phone)}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -267,27 +308,26 @@ export function Patients() {
 
                 </div>
 
-                <div className="mt-6 lg:mt-0 w-full lg:w-auto flex flex-col sm:flex-row gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleExportPatient(p)}
-                    disabled={actionLoading === p.id}
-                    className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-[var(--border)] group-hover:border-[var(--background)] font-mono text-xs font-bold uppercase tracking-widest hover:bg-[var(--accent)] transition-colors"
-                    data-testid={`patient-export-${p.id}`}
-                  >
-                    <Download className="w-4 h-4" />
-                    Exportar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEraseTarget(p)}
-                    disabled={actionLoading === p.id}
-                    className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-rose-600 text-rose-700 group-hover:text-rose-200 group-hover:bg-rose-600 font-mono text-xs font-bold uppercase tracking-widest transition-colors"
-                    data-testid={`patient-erase-${p.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Eliminar
-                  </button>
+                <div className="mt-6 lg:mt-0 lg:ml-4 self-end lg:self-center shrink-0">
+                  <RowMenu
+                    items={[
+                      {
+                        label: "Exportar (LGPD)",
+                        icon: <Download className="w-4 h-4" />,
+                        onClick: () => handleExportPatient(p),
+                        disabled: actionLoading === p.id,
+                        testId: `patient-export-${p.id}`,
+                      },
+                      {
+                        label: "Eliminar",
+                        icon: <Trash2 className="w-4 h-4" />,
+                        onClick: () => setEraseTarget(p),
+                        disabled: actionLoading === p.id,
+                        destructive: true,
+                        testId: `patient-erase-${p.id}`,
+                      },
+                    ]}
+                  />
                 </div>
               </div>
             ))}

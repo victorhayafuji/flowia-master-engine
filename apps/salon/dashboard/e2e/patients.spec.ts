@@ -12,7 +12,8 @@ test.describe('Audit #2 — create client', () => {
     await page.getByRole('button', { name: 'Confirmar Registro' }).click()
 
     await expect(page.getByText('Ana Silva')).toBeVisible()
-    await expect(page.getByText('11988887777')).toBeVisible()
+    // Phones are displayed formatted (formatPhoneBR)
+    await expect(page.getByText('(11) 98888-7777')).toBeVisible()
     await expect(page.getByText('0 faltas')).toBeVisible()
   })
 

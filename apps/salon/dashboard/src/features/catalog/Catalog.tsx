@@ -3,6 +3,7 @@ import { useAuth } from "@/features/auth/AuthContext"
 import { api } from "@/shared/lib/api"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/PageHeader"
 import { Scissors, UserCog, Plus } from "lucide-react"
 import { ProfessionalEditModal } from "./components/modals/ProfessionalEditModal"
 import { ServiceEditModal } from "./components/modals/ServiceEditModal"
@@ -209,12 +210,10 @@ export function Catalog() {
 
   return (
     <div className="page-shell">
-      <div className="page-header mb-6 sm:mb-8 border-b-4 border-[var(--border)] pb-6">
-        <h1 className="text-4xl font-black uppercase tracking-tight text-[var(--foreground)]">Configurações do Salão</h1>
-        <p className="text-[var(--foreground)]/70 font-mono mt-1 uppercase text-sm font-bold">
-          Catálogo — horários, buffer e elegibilidade por serviço
-        </p>
-      </div>
+      <PageHeader
+        title="Catálogo"
+        subtitle="Configurações do salão — horários, buffer e elegibilidade por serviço"
+      />
 
       <div className="grid gap-8 md:grid-cols-2 flex-1 min-h-0">
         <Card className="flex flex-col min-h-0 h-full">

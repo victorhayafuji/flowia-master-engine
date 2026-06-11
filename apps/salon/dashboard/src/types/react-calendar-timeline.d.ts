@@ -42,4 +42,22 @@ declare module "react-calendar-timeline" {
 
   export const TimelineMarkers: ComponentType<{ children?: ReactNode }>
   export const TodayMarker: ComponentType<Record<string, never>>
+
+  /** Minimal shape of the dayjs values the header passes to labelFormat. */
+  export interface HeaderLabelTime {
+    toDate(): Date
+  }
+
+  export const TimelineHeaders: ComponentType<{ children?: ReactNode; className?: string }>
+  export const SidebarHeader: ComponentType<{
+    children?: (props: { getRootProps: () => { style: React.CSSProperties } }) => ReactNode
+  }>
+  export const DateHeader: ComponentType<{
+    unit?: string
+    height?: number
+    className?: string
+    labelFormat?:
+      | string
+      | ((timeRange: [HeaderLabelTime, HeaderLabelTime], unit: string, labelWidth?: number) => string)
+  }>
 }
