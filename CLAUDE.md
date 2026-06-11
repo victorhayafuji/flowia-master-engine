@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.17)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.18)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -282,7 +282,7 @@ flowchart LR
 | Embeddings | `EMBEDDING_MODEL_NAME` | text-embedding-3-small |
 | DB | Supabase client, psycopg3, PostgresSaver | ≥2.3 |
 | Auth | PyJWT, bcrypt, cookie HttpOnly | JWT dashboard (HS256) |
-| Frontend | React, Vite, TypeScript, Tailwind | 18.3, 5.4, 5.6, 4.3 |
+| Frontend | React, Vite, TypeScript, Tailwind | 18.3, 7.3, 5.6, 4.3 |
 | Roteamento UI | React Router | 7.16 |
 | Testes | pytest, vitest, Playwright | cov backend ≥30% |
 | Lint | ruff, ESLint | |
@@ -1284,6 +1284,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.15 | Jun/2026 | Epic Reagendamento Inteligente & Recuperação de No-show/Atraso — Parte VIII §49 (epic F1–F4), §50 (blueprint), §51 (modelagem por ondas), §52 (métodos IA); ponteiros §4.5/§7/§36/§43/§44; Cap. 7 em `docs/ROADMAP.md` |
 | 1.16 | Jun/2026 | Migração `python-jose` → `PyJWT` concluída (§48.2 Concluído, §9 stack, §43 índice); decode mantém `algorithms=["HS256"]` |
 | 1.17 | Jun/2026 | Gate de cobertura backend 30 → 50 (§48.5, cobertura real 70.71%) |
+| 1.18 | Jun/2026 | Toolchain frontend Vite 5 → 7 concluído (§48.4, §9, §43): Vite 7.3 / Vitest 3.2 / plugin-react 4.7; build+vitest+eslint+E2E verdes no Node 22 |
 
 ---
 
@@ -1388,7 +1389,7 @@ Detalhe estratégico: [`docs/ROADMAP.md`](docs/ROADMAP.md) Capítulo 6.
 | Migração modelos OpenAI 4o → 5.x | Modernização stack | `MODEL_NAME` / `VISION_MODEL_NAME` (§33) | Futuro — [§48.1](#481-migração-de-modelos-openai-4o--5x) |
 | Substituição `python-jose` → PyJWT | Modernização stack | `packages/auth_core/auth_service.py` | **Concluído** — [§48.2](#482-substituição-de-python-jose-jwt) |
 | Rate limiting distribuído (`scale>1`) | Modernização stack | slowapi, `guardrails.py`, `session_store.py` | Futuro — [§48.3](#483-rate-limiting-distribuído-pré-requisito-de-scale1) |
-| Toolchain frontend Vite 5 → 7 | Modernização stack | `apps/salon/dashboard` | Futuro — [§48.4](#484-atualização-de-toolchain-frontend-vite-5--7) |
+| Toolchain frontend Vite 5 → 7 | Modernização stack | `apps/salon/dashboard` | **Concluído** — [§48.4](#484-atualização-de-toolchain-frontend-vite-5--7) |
 | Gate cobertura backend 30 → 50 | Modernização stack | CI `--cov-fail-under` | Futuro — [§48.5](#485-elevação-gradual-do-gate-de-cobertura-backend) |
 | Recuperação de no-show (oferta proativa) | Reagendamento F1 | `no_show_service.py` + `WhatsAppService` | Futuro — [§49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) |
 | Atrasos / check-in (cascata do dia) | Reagendamento F2 | status `arrived/in_progress` + `get_available_slots` | Futuro — [§49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) |
@@ -1838,13 +1839,15 @@ flowchart TD
 
 ### 48.4 Atualização de toolchain frontend (Vite 5 → 7)
 
-**Status:** Futuro — prioridade baixa · **Não implementar agora**
+**Status:** **Concluído** (Jun/2026) — Vite **7.3**, Vitest **3.2**, `@vitejs/plugin-react` **4.7**
 
-**Motivo:** Vite 5.4 funciona, mas está duas majors atrás; o ecossistema de plugins (incl. `@tailwindcss/vite`) testa primariamente contra versões correntes. Sem vulnerabilidade conhecida que force a troca.
-
-**Escopo:** subir Vite para a major corrente na data; rodar `vite build` + vitest + Playwright completo; verificar `react-calendar-timeline` e `@dnd-kit` contra a nova major. Avaliar React 19 **separadamente** — não acoplar as duas migrações.
-
-**Gatilho:** janela de manutenção do dashboard sem feature em voo, ou incompatibilidade de plugin que force a major.
+| Item | Implementação |
+|------|---------------|
+| Versões | `vite ^7.0.0` (7.3.5), `vitest ^3.0.0` (3.2.6), `@vitejs/plugin-react ^4.6.0` (4.7.0); `@tailwindcss/vite 4.3.0` compatível (deduped em vite@7) |
+| Config | `vite.config.ts` sem mudanças — config padrão (defineConfig de `vitest/config`, plugin react+tailwind, alias `@`) sobreviveu sem breaking changes |
+| Node | Vite 7 exige Node `^20.19 || >=22.12`; CI já em Node 22 (§9). **Dev local em Node ímpar (ex.: 21) não roda Vite 6/7** — usar Node 22 LTS |
+| Validação | `npm run build` ✓ · `vitest run` (14) ✓ · ESLint ✓ · Playwright E2E subset (auth/agenda/chat-scheduling, 5) ✓ — todos no Node 22 |
+| React 19 | **Não** acoplado — segue em React 18.3 (migração separada se/quando) |
 
 ### 48.5 Elevação gradual do gate de cobertura backend
 
