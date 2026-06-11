@@ -4,7 +4,10 @@ import { useAuth } from "@/features/auth/AuthContext"
 import { api } from "@/shared/lib/api"
 import { formatPhoneBR } from "@/lib/phone"
 import { PageHeader } from "@/components/PageHeader"
-import { Search, Phone, Plus, Download, Trash2 } from "lucide-react"
+import { RowMenu } from "@/components/ui/row-menu"
+import { isIncompleteRegistration } from "./lib/incompleteRegistration"
+import { parsePatientSort, sortPatients } from "./lib/sortPatients"
+import { Search, Phone, Plus, Download, Trash2, MessageCircle } from "lucide-react"
 
 interface Patient {
   id: string
@@ -22,9 +25,11 @@ export function Patients() {
   const { user, organizationId, orgHeader } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const handoffOnly = searchParams.get("handoff") === "1"
+  const sort = parsePatientSort(searchParams.get("sort"))
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [showIncomplete, setShowIncomplete] = useState(false)
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -111,21 +116,37 @@ export function Patients() {
     }
   }
 
+  const incompleteCount = useMemo(
+    () => patients.filter((p) => isIncompleteRegistration(p)).length,
+    [patients],
+  )
+
   const filteredPatients = useMemo(() => {
-    return patients.filter((p) => {
+    const filtered = patients.filter((p) => {
       if (handoffOnly && !p.handoff_requested_at) return false
+      if (!showIncomplete && isIncompleteRegistration(p)) return false
       return (
         p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.phone?.includes(searchTerm)
       )
     })
-  }, [patients, handoffOnly, searchTerm])
+    return sortPatients(filtered, sort)
+  }, [patients, handoffOnly, showIncomplete, searchTerm, sort])
 
   const toggleHandoffFilter = () => {
     if (handoffOnly) {
       searchParams.delete("handoff")
     } else {
       searchParams.set("handoff", "1")
+    }
+    setSearchParams(searchParams, { replace: true })
+  }
+
+  const changeSort = (value: string) => {
+    if (value === "recente") {
+      searchParams.delete("sort")
+    } else {
+      searchParams.set("sort", value)
     }
     setSearchParams(searchParams, { replace: true })
   }
@@ -167,6 +188,18 @@ export function Patients() {
         </div>
 
         <div className="z-10 font-mono text-sm font-bold uppercase tracking-widest text-[var(--foreground)]/50 text-right w-full md:w-auto flex flex-wrap items-center gap-3 justify-end">
+          <label className="flex items-center gap-2 text-xs uppercase">
+            Ordenar:
+            <select
+              value={sort}
+              onChange={(e) => changeSort(e.target.value)}
+              className="border-2 border-[var(--border)] bg-[var(--surface)] px-2 py-1 font-mono text-xs uppercase text-[var(--foreground)]"
+            >
+              <option value="recente">Mais recente</option>
+              <option value="nome">Nome</option>
+              <option value="faltas">Mais faltas</option>
+            </select>
+          </label>
           <button
             type="button"
             onClick={toggleHandoffFilter}
@@ -176,6 +209,18 @@ export function Patients() {
           >
             {handoffOnly ? "Filtro: handoff ativo" : "Só handoffs"}
           </button>
+          {incompleteCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowIncomplete((v) => !v)}
+              title="Cadastros criados automaticamente pelo WhatsApp, sem nome/telefone reais"
+              className={`px-3 py-1 border-2 border-dashed border-[var(--border)] text-xs uppercase ${
+                showIncomplete ? "bg-[var(--accent)] text-[var(--foreground)]" : "bg-[var(--surface)]"
+              }`}
+            >
+              Incompletos ({incompleteCount})
+            </button>
+          )}
           Total: <span className="text-[var(--foreground)] text-xl">{filteredPatients.length}</span>
         </div>
       </div>
@@ -217,10 +262,17 @@ export function Patients() {
 
                   <div className="space-y-1">
                     <div className="font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/40 group-hover:text-[var(--background)]/50">Contato</div>
-                    <div className="font-mono font-bold flex items-center gap-3">
-                      <Phone className="w-4 h-4 text-[var(--accent)] group-hover:text-[var(--background)]" />
-                      {formatPhoneBR(p.phone)}
-                    </div>
+                    {isIncompleteRegistration(p) ? (
+                      <div className="font-mono font-bold flex items-center gap-3 text-[var(--foreground)]/50 group-hover:text-[var(--background)]/60">
+                        <MessageCircle className="w-4 h-4" />
+                        Origem WhatsApp
+                      </div>
+                    ) : (
+                      <div className="font-mono font-bold flex items-center gap-3">
+                        <Phone className="w-4 h-4 text-[var(--accent)] group-hover:text-[var(--background)]" />
+                        {formatPhoneBR(p.phone)}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -256,27 +308,26 @@ export function Patients() {
 
                 </div>
 
-                <div className="mt-6 lg:mt-0 w-full lg:w-auto flex flex-col sm:flex-row gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleExportPatient(p)}
-                    disabled={actionLoading === p.id}
-                    className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-[var(--border)] group-hover:border-[var(--background)] font-mono text-xs font-bold uppercase tracking-widest hover:bg-[var(--accent)] transition-colors"
-                    data-testid={`patient-export-${p.id}`}
-                  >
-                    <Download className="w-4 h-4" />
-                    Exportar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEraseTarget(p)}
-                    disabled={actionLoading === p.id}
-                    className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-rose-600 text-rose-700 group-hover:text-rose-200 group-hover:bg-rose-600 font-mono text-xs font-bold uppercase tracking-widest transition-colors"
-                    data-testid={`patient-erase-${p.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Eliminar
-                  </button>
+                <div className="mt-6 lg:mt-0 lg:ml-4 self-end lg:self-center shrink-0">
+                  <RowMenu
+                    items={[
+                      {
+                        label: "Exportar (LGPD)",
+                        icon: <Download className="w-4 h-4" />,
+                        onClick: () => handleExportPatient(p),
+                        disabled: actionLoading === p.id,
+                        testId: `patient-export-${p.id}`,
+                      },
+                      {
+                        label: "Eliminar",
+                        icon: <Trash2 className="w-4 h-4" />,
+                        onClick: () => setEraseTarget(p),
+                        disabled: actionLoading === p.id,
+                        destructive: true,
+                        testId: `patient-erase-${p.id}`,
+                      },
+                    ]}
+                  />
                 </div>
               </div>
             ))}
