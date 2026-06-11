@@ -1,6 +1,14 @@
-import Timeline, { TimelineMarkers, TodayMarker } from "react-calendar-timeline"
+import Timeline, {
+  DateHeader,
+  SidebarHeader,
+  TimelineHeaders,
+  TimelineMarkers,
+  TodayMarker,
+} from "react-calendar-timeline"
 import "react-calendar-timeline/dist/style.css"
 import "../operationalTimeline.css"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import type { Appointment } from "../types"
 import { toLocalIso, useOperationalTimeline } from "../hooks/useOperationalTimeline"
 
@@ -77,6 +85,14 @@ export function OperationalTimeline({
           if (item) onEdit(item.appointment)
         }}
       >
+        <TimelineHeaders>
+          <SidebarHeader>{({ getRootProps }) => <div {...getRootProps()} />}</SidebarHeader>
+          <DateHeader
+            unit="primaryHeader"
+            labelFormat={([start]) => format(start.toDate(), "EEEE, dd/MM", { locale: ptBR })}
+          />
+          <DateHeader unit="hour" labelFormat={([start]) => format(start.toDate(), "HH:mm")} />
+        </TimelineHeaders>
         <TimelineMarkers>
           <TodayMarker />
         </TimelineMarkers>

@@ -3,6 +3,7 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useAuth } from "@/features/auth/AuthContext"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/PageHeader"
 import { AgendaGrid } from "./components/AgendaGrid"
 import { OperationalTimeline } from "./components/OperationalTimeline"
 import { AgendaModals } from "./components/AgendaModals"
@@ -64,33 +65,33 @@ export function Agenda() {
 
   return (
     <div className="page-shell">
-      <div className="page-header mb-6 sm:mb-8 flex flex-col md:flex-row md:justify-between md:items-end border-b-4 border-[var(--border)] pb-6">
-        <div>
-          <h1 className="text-4xl font-black uppercase tracking-tight text-[var(--foreground)]">Agenda</h1>
-          <p className="text-[var(--foreground)]/70 font-mono mt-1 uppercase text-sm font-bold">{subtitle}</p>
-        </div>
-        <div className="mt-4 md:mt-0 flex flex-wrap items-center gap-2">
-          <div className="flex border-2 border-[var(--border)]">
-            <button
-              type="button"
-              onClick={() => setView("timeline")}
-              className={`px-3 py-2 text-xs font-bold uppercase ${view === "timeline" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)]"}`}
-            >
-              Operacional
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("week")}
-              className={`px-3 py-2 text-xs font-bold uppercase border-l-2 border-[var(--border)] ${view === "week" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)]"}`}
-            >
-              Semana
-            </button>
-          </div>
-          <Button variant="default" onClick={() => agenda.setIsNewModalOpen(true)}>
-            Novo Agendamento
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Agenda"
+        subtitle={subtitle}
+        actions={
+          <>
+            <div className="flex border-2 border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setView("timeline")}
+                className={`px-3 py-2 text-xs font-bold uppercase ${view === "timeline" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)]"}`}
+              >
+                Operacional
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("week")}
+                className={`px-3 py-2 text-xs font-bold uppercase border-l-2 border-[var(--border)] ${view === "week" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)]"}`}
+              >
+                Semana
+              </button>
+            </div>
+            <Button variant="default" onClick={() => agenda.setIsNewModalOpen(true)}>
+              Novo Agendamento
+            </Button>
+          </>
+        }
+      />
 
       {!agenda.loading && (
         <div className="mb-4 flex flex-wrap items-center gap-3">

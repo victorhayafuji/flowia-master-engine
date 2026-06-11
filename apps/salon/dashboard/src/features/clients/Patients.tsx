@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { api } from "@/shared/lib/api"
+import { formatPhoneBR } from "@/lib/phone"
+import { PageHeader } from "@/components/PageHeader"
 import { Search, Phone, Plus, Download, Trash2 } from "lucide-react"
 
 interface Patient {
@@ -130,32 +132,19 @@ export function Patients() {
 
   return (
     <div className="page-shell">
-      {/* Brutalist Header Area */}
-      <div className="page-header mb-6 sm:mb-8 flex flex-col xl:flex-row xl:justify-between xl:items-end border-b-8 border-[var(--border)] pb-8">
-        <div>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-[var(--foreground)] text-[var(--background)] px-3 py-1 font-mono text-xs font-bold uppercase tracking-widest">
-              Módulo 01
-            </div>
-            <div className="h-1 flex-1 bg-[var(--border)] opacity-20"></div>
-          </div>
-          <h1 className="text-5xl sm:text-7xl font-black uppercase tracking-tighter text-[var(--foreground)] leading-none">
-            Clientes
-          </h1>
-          <p className="text-[var(--foreground)]/70 font-mono mt-4 uppercase text-sm font-bold tracking-widest border-l-4 border-[var(--accent)] pl-4">
-            Histórico de faltas visível // Recuperação de receita
-          </p>
-        </div>
-        
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="mt-8 xl:mt-0 flex items-center justify-between px-6 py-4 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[8px_8px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[6px_6px_0px_0px_var(--border)] active:translate-y-[8px] active:translate-x-[8px] active:shadow-[0px_0px_0px_0px_var(--border)] transition-all group rounded-none">
-          <span className="flex items-center gap-3">
-            <Plus className="w-5 h-5" /> 
+      <PageHeader
+        title="Clientes"
+        subtitle="Histórico de faltas visível // Recuperação de receita"
+        actions={
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-3 px-5 py-3 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[4px_4px_0px_0px_var(--border)] transition-all rounded-none"
+          >
+            <Plus className="w-5 h-5" />
             Novo Registro
-          </span>
-        </button>
-      </div>
+          </button>
+        }
+      />
 
       {/* Control Bar */}
       <div className="shrink-0 mb-6 p-6 bg-[var(--surface)] border-4 border-[var(--border)] shadow-[8px_8px_0px_0px_var(--border)] flex flex-col md:flex-row gap-6 justify-between items-center relative overflow-hidden">
@@ -230,7 +219,7 @@ export function Patients() {
                     <div className="font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/40 group-hover:text-[var(--background)]/50">Contato</div>
                     <div className="font-mono font-bold flex items-center gap-3">
                       <Phone className="w-4 h-4 text-[var(--accent)] group-hover:text-[var(--background)]" />
-                      {p.phone}
+                      {formatPhoneBR(p.phone)}
                     </div>
                   </div>
 

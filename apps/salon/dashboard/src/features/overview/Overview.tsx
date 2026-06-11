@@ -1,7 +1,10 @@
 import { Calendar, CheckCircle2, Clock, MessageCircle, UserX, Users } from "lucide-react"
 import { Link } from "react-router-dom"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import { useAuth } from "@/features/auth/AuthContext"
 import { GlassCard, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/PageHeader"
 import { useOverviewStats } from "./hooks/useOverviewStats"
 
 function hhmm(iso: string): string {
@@ -26,12 +29,8 @@ export function Overview() {
 
   return (
     <div className="page-shell">
-      <div className="page-header space-y-8 shrink-0">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Visão Geral</h1>
-          <p className="text-slate-500 dark:text-slate-400">Resumo operacional do salão para hoje.</p>
-        </div>
-
+      <PageHeader title="Visão Geral" subtitle="Resumo operacional do salão para hoje" />
+      <div className="space-y-8 shrink-0 mb-6">
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <StatCard icon={<Calendar className="w-4 h-4 text-primary-500" />} label="Agendamentos Hoje" value={stats.appointmentsToday} />
           <StatCard icon={<Clock className="w-4 h-4 text-amber-500" />} label="Em Atendimento" value={stats.counts.in_progress} />
@@ -43,7 +42,7 @@ export function Overview() {
         {showAgentSummary && (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
+              <h2 className="text-sm font-black uppercase tracking-widest text-[var(--foreground)]/60">
                 Assistente IA
               </h2>
               {stats.agentSummary.handoffsPending > 0 && (
@@ -144,8 +143,11 @@ export function Overview() {
                     key={appt.id}
                     className="flex items-center gap-4 p-3 bg-[var(--background)] border-2 border-[var(--border)]"
                   >
-                    <div className="bg-[var(--accent)]/10 text-[var(--accent)] p-2 font-mono font-bold border-2 border-[var(--border)]">
-                      {hhmm(appt.scheduled_at)}
+                    <div className="bg-[var(--accent)]/10 text-[var(--accent)] p-2 font-mono font-bold border-2 border-[var(--border)] text-center">
+                      <div className="text-[10px] uppercase leading-tight">
+                        {format(new Date(appt.scheduled_at), "EEE dd/MM", { locale: ptBR })}
+                      </div>
+                      <div>{hhmm(appt.scheduled_at)}</div>
                     </div>
                     <div className="min-w-0">
                       <p className="font-bold uppercase tracking-tight text-sm truncate">{appt.patient?.name || "Cliente"}</p>
