@@ -13,6 +13,7 @@ _RESUME_ATTEMPTS: dict[str, list[float]] = defaultdict(list)
 HANDOFF_COOLDOWN_SECONDS = 86400  # 24h
 RESUME_MIN_WAIT_SECONDS = 300  # 5 min after handoff
 RESUME_MAX_PER_HOUR = 3
+RESUME_WINDOW_SECONDS = 3600  # 1h sliding window for resume attempts
 
 
 def _session_key(org_id: str | None, sender_id: str) -> str:
@@ -57,7 +58,7 @@ def can_resume_ai(sender_id: str, org_id: str | None = None) -> tuple[bool, str 
         return False, "too_soon"
 
     now = time.time()
-    attempts = [t for t in _RESUME_ATTEMPTS[key] if now - t < 3600]
+    attempts = [t for t in _RESUME_ATTEMPTS[key] if now - t < RESUME_WINDOW_SECONDS]
     _RESUME_ATTEMPTS[key] = attempts
     if len(attempts) >= RESUME_MAX_PER_HOUR:
         return False, "rate_limit"
