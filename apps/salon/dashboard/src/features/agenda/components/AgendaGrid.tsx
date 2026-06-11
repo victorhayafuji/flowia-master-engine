@@ -22,9 +22,10 @@ interface AgendaGridProps {
   onDragStart: (event: { active: { id: string | number } }) => void
   onDragEnd: (event: import("@dnd-kit/core").DragEndEvent) => void
   onEdit: (appt: Appointment) => void
+  onSlotClick?: (slotIso: string) => void
 }
 
-export function AgendaGrid({ days, appointments, activeAppt, onDragStart, onDragEnd, onEdit }: AgendaGridProps) {
+export function AgendaGrid({ days, appointments, activeAppt, onDragStart, onDragEnd, onEdit, onSlotClick }: AgendaGridProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
@@ -76,7 +77,7 @@ export function AgendaGrid({ days, appointments, activeAppt, onDragStart, onDrag
                       )
                     })
                     return (
-                      <DroppableSlot key={slotId} id={slotId}>
+                      <DroppableSlot key={slotId} id={slotId} onSlotClick={onSlotClick}>
                         {slotAppointments.map((appt) => (
                           <DraggableAppointment key={appt.id} appointment={appt} onEdit={onEdit} />
                         ))}
@@ -93,14 +94,27 @@ export function AgendaGrid({ days, appointments, activeAppt, onDragStart, onDrag
   )
 }
 
-function DroppableSlot({ id, children }: { id: string; children: React.ReactNode }) {
+function DroppableSlot({
+  id,
+  children,
+  onSlotClick,
+}: {
+  id: string
+  children: React.ReactNode
+  onSlotClick?: (slotIso: string) => void
+}) {
   const { isOver, setNodeRef } = useDroppable({ id, data: { type: "slot", datetime: id } })
   return (
     <div
       ref={setNodeRef}
+      onClick={(e) => {
+        // Only empty slot area — clicks on appointment cards don't bubble here as target.
+        if (onSlotClick && e.target === e.currentTarget) onSlotClick(id)
+      }}
+      title={onSlotClick ? "Clique para agendar neste horário" : undefined}
       className={`min-h-[40px] p-1 border-b border-dashed border-[var(--border)]/20 last:border-b-0 transition-colors ${
         isOver ? "bg-[var(--accent)]/10 ring-inset ring-2 ring-[var(--accent)]" : "bg-transparent"
-      }`}
+      } ${onSlotClick ? "cursor-pointer hover:bg-[var(--accent)]/5" : ""}`}
     >
       {children}
     </div>

@@ -10,7 +10,11 @@ export function useAgendaData(user: unknown, orgHeader: OrgHeader) {
   const [loading, setLoading] = useState(true)
   const [options, setOptions] = useState<{
     patients: Array<{ id: string; name: string }>
-    professionals: Array<{ id: string; name: string }>
+    professionals: Array<{
+      id: string
+      name: string
+      working_hours?: Record<string, { start?: string; end?: string } | null> | null
+    }>
     services: Array<{ id: string; name: string; duration_minutes?: number; professional_ids?: string[] }>
   }>({ patients: [], professionals: [], services: [] })
 
