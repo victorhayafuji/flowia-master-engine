@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 GRAPH_API_VERSION = "v21.0"
 MOCK_TOKEN_PREFIXES = ("DEFAULT_", "your_", "test-")
+REQUEST_TIMEOUT_SECONDS = 30.0
 
 
 class WhatsAppService:
@@ -61,7 +62,7 @@ class WhatsAppService:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
                 response = await client.post(url, json=payload, headers=headers)
                 response.raise_for_status()
             logger.info("WhatsApp message sent via Graph API (phone_id=%s)", phone_id)

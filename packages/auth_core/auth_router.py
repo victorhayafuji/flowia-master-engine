@@ -81,7 +81,7 @@ async def login(request: Request, login_data: LoginRequest):
         value=token,
         httponly=True,
         secure=settings.COOKIE_SECURE,
-        max_age=3600 * 24,  # 24h
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # match JWT expiry
         samesite=_session_cookie_samesite(),
     )
     return response
@@ -150,8 +150,9 @@ async def get_current_user(user: str = Depends(auth_required)):
                 )
                 if org_row.data:
                     org_name = org_row.data.get("name")
-        except Exception:
-            pass
+        except Exception as e:
+            # Non-critical: org_name stays None and /me still returns. Log for debugging.
+            logger.debug("Could not resolve organization name for org_id=%s: %s", org_id, e)
 
     return {
         "status": "success",

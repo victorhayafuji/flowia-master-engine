@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from jose import jwt
+import jwt
 
 from packages.auth_core.config import settings
 from packages.auth_core.database import db

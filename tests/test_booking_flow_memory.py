@@ -44,8 +44,19 @@ def test_pick_recommended_time_prefers_mid_morning():
     assert pick_recommended_time(["08:00", "17:15"]) == "08:00"
 
 
-def test_date_confirmation_without_new_time_after_slots():
-    date_iso = "2026-06-11"
+def test_date_confirmation_without_new_time_after_slots(mocker):
+    # Freeze today to a Wednesday so "essa quinta" resolves to the next-day
+    # Thursday deterministically on any clock (CI-safe). Both booking_flow_memory
+    # and booking_executor read date.today() in this path (is_date_reaffirmation).
+    class _FixedToday(__import__("datetime").date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 6, 10)  # Wednesday
+
+    mocker.patch("packages.scheduling.booking_flow_memory.date", _FixedToday)
+    mocker.patch("packages.scheduling.booking_executor.date", _FixedToday)
+
+    date_iso = "2026-06-11"  # Thursday == "essa quinta" relative to frozen today
     assert is_date_confirmation_without_new_time(
         "Certo, podemos marcar para essa quinta então",
         date_iso,

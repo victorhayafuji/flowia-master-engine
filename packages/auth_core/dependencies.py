@@ -5,9 +5,9 @@ All route files MUST import from here — no more copy-pasting.
 import logging
 import re
 
+import jwt
 from fastapi import Header, HTTPException, Request, Security
 from fastapi.security.api_key import APIKeyHeader
-from jose import jwt
 
 from packages.auth_core.config import settings
 
@@ -34,7 +34,7 @@ def _decode_session_token(token: str) -> dict | None:
             return payload
     except jwt.ExpiredSignatureError:
         logger.warning("🕒 Session token expired")
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         logger.warning("🔑 Invalid JWT signature")
     except Exception as e:
         logger.error(f"❌ Auth error: {str(e)}")

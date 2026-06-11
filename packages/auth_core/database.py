@@ -11,6 +11,8 @@ from supabase import Client, ClientOptions, create_client
 
 logger = logging.getLogger(__name__)
 
+_CLIENT_TIMEOUT_SECONDS = 20
+
 
 class SupabaseHandler:
     """
@@ -35,15 +37,15 @@ class SupabaseHandler:
             return None
 
         try:
-            http_client = httpx.Client(http2=False, timeout=20.0)
+            http_client = httpx.Client(http2=False, timeout=_CLIENT_TIMEOUT_SECONDS)
 
             return create_client(
                 url,
                 key,
                 options=ClientOptions(
                     httpx_client=http_client,
-                    postgrest_client_timeout=20,
-                    storage_client_timeout=20
+                    postgrest_client_timeout=_CLIENT_TIMEOUT_SECONDS,
+                    storage_client_timeout=_CLIENT_TIMEOUT_SECONDS
                 )
             )
         except Exception as e:

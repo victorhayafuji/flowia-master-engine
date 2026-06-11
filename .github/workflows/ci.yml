@@ -34,7 +34,7 @@ jobs:
           DASHBOARD_JWT_SECRET: test-jwt-secret-for-ci-only-32chars
           CHECKPOINTER_BACKEND: memory
           SCHEDULER_ENABLED: false
-        run: pytest -m "not llm_behavior" --cov=packages --cov=apps/salon --cov-report=term-missing --cov-fail-under=30
+        run: pytest -m "not llm_behavior" --cov=packages --cov=apps/salon --cov-report=term-missing --cov-fail-under=50
 
   frontend:
     runs-on: ubuntu-latest
