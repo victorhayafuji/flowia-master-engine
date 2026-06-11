@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import type { Appointment } from "../../types"
+import { isServiceEligible } from "../../lib/serviceEligibility"
 import { SelectOrQuickAdd } from "./SelectOrQuickAdd"
 
 interface EditAppointmentModalProps {
@@ -66,7 +67,7 @@ interface NewAppointmentModalProps {
   options: {
     patients: Array<{ id: string; name: string }>
     professionals: Array<{ id: string; name: string }>
-    services: Array<{ id: string; name: string; duration_minutes?: number }>
+    services: Array<{ id: string; name: string; duration_minutes?: number; professional_ids?: string[] }>
   }
   quickAdd: { type: "patient" | "professional" | "service" | null; loading: boolean }
   setQuickAdd: React.Dispatch<React.SetStateAction<{ type: "patient" | "professional" | "service" | null; loading: boolean }>>
@@ -91,6 +92,21 @@ export function NewAppointmentModal(props: NewAppointmentModalProps) {
     onClose,
     onSubmit,
   } = props
+
+  const eligibleServices = options.services.filter((s) =>
+    isServiceEligible(s, newApptData.professional_id),
+  )
+
+  const handleProfessionalChange = (professionalId: string) => {
+    // Drop the selected service if the new professional can't perform it.
+    const selected = options.services.find((s) => s.id === newApptData.service_id)
+    const keepService = selected ? isServiceEligible(selected, professionalId) : true
+    setNewApptData({
+      ...newApptData,
+      professional_id: professionalId,
+      service_id: keepService ? newApptData.service_id : "",
+    })
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
@@ -127,7 +143,7 @@ export function NewAppointmentModal(props: NewAppointmentModalProps) {
             setQuickData={setQuickData}
             onQuickSave={onQuickSave}
             value={newApptData.professional_id}
-            onChange={(v) => setNewApptData({ ...newApptData, professional_id: v })}
+            onChange={handleProfessionalChange}
             options={options.professionals}
           />
           <SelectOrQuickAdd
@@ -140,7 +156,7 @@ export function NewAppointmentModal(props: NewAppointmentModalProps) {
             onQuickSave={onQuickSave}
             value={newApptData.service_id}
             onChange={(v) => setNewApptData({ ...newApptData, service_id: v })}
-            options={options.services}
+            options={eligibleServices}
             showDuration
           />
           <div className="grid grid-cols-2 gap-4">
