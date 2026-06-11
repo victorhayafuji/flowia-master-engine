@@ -45,15 +45,25 @@ class TestCatalogAPI:
         assert response.json()["data"][0]["professional_ids"] == []
 
     def test_list_services_attaches_professional_ids(self, client, user_token, mock_db, mocker):
-        svc_a, svc_b = "svc-a", "svc-b"
-        prof_1 = str(uuid4())
+        svc_a, svc_b, svc_c = "svc-a", "svc-b", "svc-c"
+        prof_1, legacy_pid = str(uuid4()), str(uuid4())
 
         def _table(name):
             chain = mocker.MagicMock()
             chain.select.return_value = chain
             chain.eq.return_value = chain
             if name == "service_catalog":
-                chain.execute.return_value = type("R", (), {"data": [{"id": svc_a}, {"id": svc_b}]})()
+                chain.execute.return_value = type(
+                    "R",
+                    (),
+                    {
+                        "data": [
+                            {"id": svc_a, "professional_id": None},  # M:N
+                            {"id": svc_b, "professional_id": None},  # nothing
+                            {"id": svc_c, "professional_id": legacy_pid},  # legacy FK only
+                        ]
+                    },
+                )()
             elif name == "service_professionals":
                 chain.execute.return_value = type(
                     "R", (), {"data": [{"service_id": svc_a, "professional_id": prof_1}]}
@@ -71,8 +81,9 @@ class TestCatalogAPI:
         )
         assert response.status_code == 200
         by_id = {s["id"]: s["professional_ids"] for s in response.json()["data"]}
-        assert by_id[svc_a] == [prof_1]  # explicit eligibility attached
-        assert by_id[svc_b] == []  # no rows = fallback (all professionals)
+        assert by_id[svc_a] == [prof_1]  # M:N eligibility wins
+        assert by_id[svc_b] == []  # no rows, no legacy = fallback (all professionals)
+        assert by_id[svc_c] == [legacy_pid]  # legacy FK fallback when no M:N
 
     def test_tenant_spoof_returns_403(self, client, user_token):
         response = client.get(
