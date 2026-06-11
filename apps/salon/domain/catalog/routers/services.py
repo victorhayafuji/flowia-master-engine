@@ -142,8 +142,12 @@ async def list_services(
                 sid, pid = row.get("service_id"), row.get("professional_id")
                 if sid and pid:
                     eligibility.setdefault(sid, []).append(pid)
+            # Mirror list_eligible_professionals priority: M:N → legacy FK → empty (all).
             for svc in services:
-                svc["professional_ids"] = eligibility.get(svc["id"], [])
+                mn = eligibility.get(svc["id"], [])
+                if not mn and svc.get("professional_id"):
+                    mn = [svc["professional_id"]]
+                svc["professional_ids"] = mn
 
             return {"status": "success", "data": services}
         except Exception as e:
