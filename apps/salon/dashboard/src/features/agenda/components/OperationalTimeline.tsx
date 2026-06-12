@@ -10,7 +10,8 @@ import "../operationalTimeline.css"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import type { Appointment } from "../types"
-import { toLocalIso, useOperationalTimeline } from "../hooks/useOperationalTimeline"
+import { toLocalIso, useOperationalTimeline, type TimelineItem } from "../hooks/useOperationalTimeline"
+import { TimelineItemRenderer } from "./TimelineItemRenderer"
 
 interface Professional {
   id: string
@@ -69,6 +70,13 @@ export function OperationalTimeline({
         traditionalZoom
         dragSnap={15 * 60 * 1000}
         timeSteps={{ minute: 15, hour: 1, day: 1, month: 1, year: 1 }}
+        itemRenderer={({ item, getItemProps, getResizeProps }) => (
+          <TimelineItemRenderer
+            item={item as TimelineItem}
+            getItemProps={getItemProps}
+            getResizeProps={getResizeProps}
+          />
+        )}
         onItemMove={(itemId, dragTime) => {
           // dragTime is the new start, in unix ms.
           void onMove(String(itemId), toLocalIso(dragTime))

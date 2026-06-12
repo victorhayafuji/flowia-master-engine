@@ -36,6 +36,11 @@ declare module "react-calendar-timeline" {
     onItemMove?: (itemId: string | number, dragTime: number, newGroupOrder: number) => void
     onItemResize?: (itemId: string | number, time: number, edge: "left" | "right") => void
     onItemClick?: (itemId: string | number, e: React.MouseEvent, time: number) => void
+    itemRenderer?: (props: {
+      item: TimelineItemBase
+      getItemProps: (props?: Record<string, unknown>) => Record<string, unknown>
+      getResizeProps: () => { left: Record<string, unknown>; right: Record<string, unknown> }
+    }) => ReactNode
     children?: ReactNode
   }
 
