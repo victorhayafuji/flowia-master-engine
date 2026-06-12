@@ -38,6 +38,6 @@ test.describe('Audit #3 — create appointment', () => {
     await modalForm.getByRole('button', { name: 'Confirmar Agendamento' }).click()
 
     await expect(page.getByText('Sem Nome')).not.toBeVisible({ timeout: 10000 })
-    await expect(page.locator('.font-mono.text-xs.font-bold.truncate').filter({ hasText: 'Maria' })).toBeVisible()
+    await expect(page.getByText('Maria', { exact: true })).toBeVisible()
   })
 })
