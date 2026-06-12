@@ -238,15 +238,34 @@ async def test_update_appointment_status_valid_transition(scheduling_service, mo
 
 
 @pytest.mark.asyncio
-async def test_update_appointment_status_invalid_transition_from_terminal(
+async def test_update_appointment_status_rejects_non_manual_target(
     scheduling_service, mock_scheduling_db
 ):
     appt_id = uuid4()
-    fetch = _fetch_table({"id": str(appt_id), "status": "completed", "patient_id": str(uuid4())})
+    fetch = _fetch_table({"id": str(appt_id), "status": "confirmed", "patient_id": str(uuid4())})
     mock_scheduling_db.client.table.side_effect = [fetch]
 
-    with pytest.raises(BusinessLogicError, match="Transição de status inválida"):
-        await scheduling_service.update_appointment_status(appt_id, AppointmentStatus.ARRIVED)
+    # `pending` is the initial state, not a manual target.
+    with pytest.raises(BusinessLogicError, match="não pode ser definido manualmente"):
+        await scheduling_service.update_appointment_status(appt_id, AppointmentStatus.PENDING)
+
+
+@pytest.mark.asyncio
+async def test_update_appointment_status_correct_no_show_decrements_count(
+    scheduling_service, mock_scheduling_db
+):
+    appt_id = uuid4()
+    patient_id = str(uuid4())
+    # A wrongly-marked no_show is corrected back to confirmed → count must drop.
+    fetch = _fetch_table({"id": str(appt_id), "status": "no_show", "patient_id": patient_id})
+    update = _update_table([{"id": str(appt_id), "status": "confirmed"}])
+    patient_select = _patient_select_table(3)
+    patient_update = _update_table([{"id": patient_id, "no_show_count": 2}])
+    mock_scheduling_db.client.table.side_effect = [fetch, update, patient_select, patient_update]
+
+    result = await scheduling_service.update_appointment_status(appt_id, AppointmentStatus.CONFIRMED)
+    assert result["status"] == "confirmed"
+    patient_update.update.assert_called_once_with({"no_show_count": 2})
 
 
 @pytest.mark.asyncio
