@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { orgWorksOnDay } from "./workdays"
+import { orgWorksOnDay, professionalWorksOnDay } from "./workdays"
 
 const MON_FRI = {
   mon: { start: "08:00", end: "18:00" },
@@ -35,5 +35,17 @@ describe("orgWorksOnDay", () => {
   it("treats incomplete day entries as closed", () => {
     expect(orgWorksOnDay([{ working_hours: { sat: null } }], saturday)).toBe(false)
     expect(orgWorksOnDay([{ working_hours: { sat: { start: "09:00" } } }], saturday)).toBe(false)
+  })
+})
+
+describe("professionalWorksOnDay", () => {
+  it("disables days the professional does not work", () => {
+    expect(professionalWorksOnDay({ working_hours: MON_FRI }, saturday)).toBe(false)
+    expect(professionalWorksOnDay({ working_hours: MON_FRI }, thursday)).toBe(true)
+  })
+
+  it("fails open without working_hours data", () => {
+    expect(professionalWorksOnDay(undefined, saturday)).toBe(true)
+    expect(professionalWorksOnDay({}, saturday)).toBe(true)
   })
 })

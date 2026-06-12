@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import type { DragEndEvent } from "@dnd-kit/core"
 import { useAuth } from "@/features/auth/AuthContext"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/PageHeader"
@@ -8,7 +9,8 @@ import { AgendaGrid } from "./components/AgendaGrid"
 import { OperationalTimeline } from "./components/OperationalTimeline"
 import { AgendaModals } from "./components/AgendaModals"
 import { useAgenda } from "./hooks/useAgenda"
-import { orgWorksOnDay } from "./lib/workdays"
+import { resolveSlotDatetime } from "./lib/agendaDropTarget"
+import { orgWorksOnDay, professionalWorksOnDay } from "./lib/workdays"
 import type { AgendaView } from "./types"
 
 export function Agenda() {
@@ -43,6 +45,30 @@ export function Agenda() {
   const selectedProfessionalName = useMemo(() => {
     return professionals.find((p) => p.id === filterProfessionalId)?.name ?? "Profissional"
   }, [filterProfessionalId, professionals])
+
+  const selectedProfessional = useMemo(() => {
+    const id = isProfessionalUser ? user?.professional_id : filterProfessionalId
+    return professionals.find((p) => p.id === id)
+  }, [filterProfessionalId, isProfessionalUser, professionals, user?.professional_id])
+
+  const weekDayEnabled = useMemo(
+    () => agenda.days.map((day) => professionalWorksOnDay(selectedProfessional, day)),
+    [agenda.days, selectedProfessional],
+  )
+
+  const isSlotOnEnabledWeekDay = useCallback(
+    (slotIso: string) => {
+      const slotDay = new Date(slotIso)
+      const dayIndex = agenda.days.findIndex(
+        (day) =>
+          day.getDate() === slotDay.getDate() &&
+          day.getMonth() === slotDay.getMonth() &&
+          day.getFullYear() === slotDay.getFullYear(),
+      )
+      return dayIndex < 0 || weekDayEnabled[dayIndex] !== false
+    },
+    [agenda.days, weekDayEnabled],
+  )
 
   const weekAppointments = useMemo(() => {
     if (isProfessionalUser && user?.professional_id) {
@@ -88,6 +114,7 @@ export function Agenda() {
   }
 
   const handleSlotClick = (slotIso: string) => {
+    if (!isSlotOnEnabledWeekDay(slotIso)) return
     agenda.setNewApptData((prev) => ({
       ...prev,
       professional_id: filterProfessionalId || prev.professional_id,
@@ -95,6 +122,12 @@ export function Agenda() {
       time: slotIso.slice(11, 16),
     }))
     agenda.setIsNewModalOpen(true)
+  }
+
+  const handleWeekDragEnd = (event: DragEndEvent) => {
+    const newDate = resolveSlotDatetime(event)
+    if (newDate && !isSlotOnEnabledWeekDay(newDate)) return
+    agenda.handleDragEnd(event)
   }
 
   return (
@@ -179,8 +212,9 @@ export function Agenda() {
               days={agenda.days}
               appointments={weekAppointments}
               activeAppt={agenda.activeAppt}
+              dayEnabled={weekDayEnabled}
               onDragStart={agenda.handleDragStart}
-              onDragEnd={agenda.handleDragEnd}
+              onDragEnd={handleWeekDragEnd}
               onEdit={agenda.openEdit}
               onSlotClick={handleSlotClick}
             />
