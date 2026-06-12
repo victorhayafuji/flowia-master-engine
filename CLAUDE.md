@@ -274,7 +274,7 @@ flowchart LR
 | Camada | Tecnologia | Versão / nota |
 |--------|------------|---------------|
 | Runtime backend | Python | 3.12 (CI) |
-| Runtime frontend | Node.js | 22 LTS (CI) — Node 20 EOL 30/04/2026 |
+| Runtime frontend | Node.js | 24 LTS (CI, Render, local) — `.node-version` + `engines >=24` + `engine-strict` |
 | API | FastAPI, Uvicorn, Pydantic | ≥0.109, v2 |
 | IA | LangGraph, LangChain, langchain-openai | ≥1.0, OpenAI |
 | Modelo default | `MODEL_NAME` | gpt-4o-mini |
@@ -768,7 +768,7 @@ Documentar novas limitações nesta seção ao descobri-las.
 
 | Job | Gates |
 |-----|-------|
-| backend | ruff check · pytest --cov-fail-under=30 |
+| backend | ruff check · pytest --cov-fail-under=50 |
 | frontend | ESLint · vitest · vite build |
 
 **Env CI:** `CHECKPOINTER_BACKEND=memory`, `SCHEDULER_ENABLED=false`, secrets placeholder
@@ -1285,6 +1285,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.16 | Jun/2026 | Migração `python-jose` → `PyJWT` concluída (§48.2 Concluído, §9 stack, §43 índice); decode mantém `algorithms=["HS256"]` |
 | 1.17 | Jun/2026 | Gate de cobertura backend 30 → 50 (§48.5, cobertura real 70.71%) |
 | 1.18 | Jun/2026 | Toolchain frontend Vite 5 → 7 concluído (§48.4, §9, §43): Vite 7.3 / Vitest 3.2 / plugin-react 4.7; build+vitest+eslint+E2E verdes no Node 22 |
+| 1.19 | Jun/2026 | Padronização **Node 24 LTS** (§9, §48.4): CI, Render `NODE_VERSION`, `engines >=24`, `.node-version`, `.npmrc` `engine-strict`, `start_flowia.bat` |
 
 ---
 
@@ -1783,7 +1784,7 @@ flowchart TD
 
 ## 48. Modernização de stack (documentação — não implementar)
 
-> **Status:** ajustes identificados na auditoria de stack de Jun/2026 (doc v1.14). Nenhum item abaixo deve ser implementado **sem aprovação explícita** (§41). Correções documentais e o upgrade Node 22 já foram aplicados nas Partes I–VII; o que resta aqui é planejamento aprovável.
+> **Status:** ajustes identificados na auditoria de stack de Jun/2026 (doc v1.14). Nenhum item abaixo deve ser implementado **sem aprovação explícita** (§41). Correções documentais, upgrade Vite 7 e padronização **Node 24 LTS** já aplicados nas Partes I–VII; o que resta aqui é planejamento aprovável.
 
 ### 48.1 Migração de modelos OpenAI (4o → 5.x)
 
@@ -1845,8 +1846,8 @@ flowchart TD
 |------|---------------|
 | Versões | `vite ^7.0.0` (7.3.5), `vitest ^3.0.0` (3.2.6), `@vitejs/plugin-react ^4.6.0` (4.7.0); `@tailwindcss/vite 4.3.0` compatível (deduped em vite@7) |
 | Config | `vite.config.ts` sem mudanças — config padrão (defineConfig de `vitest/config`, plugin react+tailwind, alias `@`) sobreviveu sem breaking changes |
-| Node | Vite 7 exige Node `^20.19 || >=22.12`; CI já em Node 22 (§9). **Dev local em Node ímpar (ex.: 21) não roda Vite 6/7** — usar Node 22 LTS |
-| Validação | `npm run build` ✓ · `vitest run` (14) ✓ · ESLint ✓ · Playwright E2E subset (auth/agenda/chat-scheduling, 5) ✓ — todos no Node 22 |
+| Node | Vite 7 exige Node `^20.19 \|\| ^22.13 \|\| >=24`; CI/Render/local padronizados em **Node 24 LTS** (§9). **Dev local em Node ímpar (ex.: 21) não roda Vite 6/7** — usar Node 24 via nvm / `.node-version` |
+| Validação | `npm run build` ✓ · `vitest run` (36) ✓ · ESLint ✓ · Playwright E2E subset (auth/agenda/chat-scheduling, 5) ✓ — todos no Node 24 |
 | React 19 | **Não** acoplado — segue em React 18.3 (migração separada se/quando) |
 
 ### 48.5 Elevação gradual do gate de cobertura backend
