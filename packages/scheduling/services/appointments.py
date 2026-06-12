@@ -27,35 +27,16 @@ from packages.scheduling.timezone_utils import (
 
 logger = logging.getLogger(__name__)
 
-# Linear flow + correction: active states may advance and may always move to
-# no_show/cancelled. Terminal states (completed, no_show, cancelled, rescheduled)
-# are absent from the map → no outgoing transition (cannot be reopened).
-_STATUS_TRANSITIONS: dict[AppointmentStatus, set[AppointmentStatus]] = {
-    AppointmentStatus.PENDING: {
-        AppointmentStatus.CONFIRMED,
-        AppointmentStatus.ARRIVED,
-        AppointmentStatus.IN_PROGRESS,
-        AppointmentStatus.COMPLETED,
-        AppointmentStatus.NO_SHOW,
-        AppointmentStatus.CANCELLED,
-    },
-    AppointmentStatus.CONFIRMED: {
-        AppointmentStatus.ARRIVED,
-        AppointmentStatus.IN_PROGRESS,
-        AppointmentStatus.COMPLETED,
-        AppointmentStatus.NO_SHOW,
-        AppointmentStatus.CANCELLED,
-    },
-    AppointmentStatus.ARRIVED: {
-        AppointmentStatus.IN_PROGRESS,
-        AppointmentStatus.COMPLETED,
-        AppointmentStatus.NO_SHOW,
-        AppointmentStatus.CANCELLED,
-    },
-    AppointmentStatus.IN_PROGRESS: {
-        AppointmentStatus.COMPLETED,
-        AppointmentStatus.CANCELLED,
-    },
+# Manual status changes are permissive to allow correcting filling mistakes
+# (e.g. undo a wrongly-marked no_show). Any operational status can be set; only
+# `pending` (initial) and `rescheduled` (system-managed) are not manual targets.
+_MANUAL_TARGET_STATUSES: set[AppointmentStatus] = {
+    AppointmentStatus.CONFIRMED,
+    AppointmentStatus.ARRIVED,
+    AppointmentStatus.IN_PROGRESS,
+    AppointmentStatus.COMPLETED,
+    AppointmentStatus.NO_SHOW,
+    AppointmentStatus.CANCELLED,
 }
 
 
@@ -269,13 +250,13 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
             raise PermissionDeniedError("Você só pode alterar agendamentos da sua própria agenda.")
 
         current = AppointmentStatus(row["status"])
-        if new_status != current and new_status not in _STATUS_TRANSITIONS.get(current, set()):
-            raise BusinessLogicError(
-                f"Transição de status inválida: {current.value} → {new_status.value}."
-            )
-
         if new_status == current:
             return row
+
+        if new_status not in _MANUAL_TARGET_STATUSES:
+            raise BusinessLogicError(
+                f"O status {new_status.value} não pode ser definido manualmente."
+            )
 
         result = (
             self.db.client.table("appointments")
@@ -290,11 +271,14 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
         logger.info("Status do agendamento %s atualizado para %s", appointment_id, new_status.value)
         updated = {**row, **result.data[0]}
 
-        # Increment patient no_show_count only when entering no_show (single increment).
-        if new_status == AppointmentStatus.NO_SHOW and current != AppointmentStatus.NO_SHOW:
-            patient_id = row.get("patient_id")
-            if patient_id:
-                self._increment_patient_no_show_count(patient_id)
+        # Keep patients.no_show_count consistent: +1 when entering no_show, -1 when a
+        # mistaken no_show is corrected to any other status.
+        patient_id = row.get("patient_id")
+        if patient_id:
+            if new_status == AppointmentStatus.NO_SHOW and current != AppointmentStatus.NO_SHOW:
+                self._adjust_patient_no_show_count(patient_id, +1)
+            elif current == AppointmentStatus.NO_SHOW and new_status != AppointmentStatus.NO_SHOW:
+                self._adjust_patient_no_show_count(patient_id, -1)
 
         if new_status == AppointmentStatus.CANCELLED:
             try:
@@ -306,8 +290,8 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
 
         return updated
 
-    def _increment_patient_no_show_count(self, patient_id: str) -> None:
-        """Mirror of NoShowService increment so manual no_show stays consistent."""
+    def _adjust_patient_no_show_count(self, patient_id: str, delta: int) -> None:
+        """Adjust patients.no_show_count by delta (floored at 0) so manual changes stay consistent."""
         current = (
             self.db.client.table("patients")
             .select("no_show_count")
@@ -316,7 +300,8 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
             .execute()
         )
         count = (current.data or {}).get("no_show_count") or 0
-        self.db.client.table("patients").update({"no_show_count": count + 1}).eq(
+        new_count = max(0, count + delta)
+        self.db.client.table("patients").update({"no_show_count": new_count}).eq(
             "id", patient_id
         ).execute()
 

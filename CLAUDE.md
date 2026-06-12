@@ -409,7 +409,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | GET | `/agenda` | Lista agenda |
 | GET | `/calendar` | Dados calendário (scoped por `professional_id` se role=professional) |
 | POST | `/calendar/{appointment_id}` | Reagendar (`scheduled_at?`, `duration_minutes?`; ao menos um) |
-| PATCH | `/calendar/{appointment_id}/status` | Atualizar status (transição linear validada → 422; `no_show` incrementa `patients.no_show_count`; `cancelled` cancela lembretes; scoped por `professional_id` → 403 cross-pro) |
+| PATCH | `/calendar/{appointment_id}/status` | Atualizar status (correção manual permissiva: qualquer status operacional; `pending`/`rescheduled` não são alvos manuais → 422; entra em `no_show` +1 / sai de `no_show` −1 em `patients.no_show_count`; `cancelled` cancela lembretes; scoped por `professional_id` → 403 cross-pro) |
 | GET | `/blocks` | Listar bloqueios/folgas (`schedule_blocks`) |
 | POST | `/blocks` | Criar bloqueio/folga |
 | DELETE | `/blocks/{block_id}` | Remover bloqueio |

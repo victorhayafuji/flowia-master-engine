@@ -1,6 +1,7 @@
 // Frontend mirror of the backend status map (packages/scheduling/services/appointments.py).
-// Linear flow + correction: active states may advance and may always move to
-// no_show/cancelled. Terminal states have no outgoing transition (cannot reopen).
+// Manual status changes are permissive so staff can correct filling mistakes
+// (e.g. undo a wrongly-marked no_show). Any operational status can be set; only
+// `pending` (initial) and `rescheduled` (system) are not manual targets.
 
 /** State display names (used in timeline tooltip / badges). */
 export const STATUS_LABEL: Record<string, string> = {
@@ -27,15 +28,10 @@ export const ACTION_LABEL: Record<string, string> = {
 /** Statuses rendered with destructive styling in the UI. */
 export const DESTRUCTIVE_STATUSES = new Set(["no_show", "cancelled"])
 
-const STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ["confirmed", "arrived", "in_progress", "completed", "no_show", "cancelled"],
-  confirmed: ["arrived", "in_progress", "completed", "no_show", "cancelled"],
-  arrived: ["in_progress", "completed", "no_show", "cancelled"],
-  in_progress: ["completed", "cancelled"],
-  // terminals (completed, no_show, cancelled, rescheduled) → no transitions
-}
+/** Operational statuses a user can set manually (excludes pending/rescheduled). */
+const MANUAL_TARGETS = ["confirmed", "arrived", "in_progress", "completed", "no_show", "cancelled"]
 
-/** Allowed target statuses from the given current status (empty for terminal states). */
+/** Allowed target statuses from the given current status (all manual targets except itself). */
 export function allowedTransitions(status: string): string[] {
-  return STATUS_TRANSITIONS[status] ?? []
+  return MANUAL_TARGETS.filter((target) => target !== status)
 }
