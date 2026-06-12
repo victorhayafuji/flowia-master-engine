@@ -52,6 +52,22 @@ function statusClass(status: string): string {
   return STATUS_CLASS[status] ?? "timeline-item--pending"
 }
 
+/** Label from live start_time so drag/resize updates text without deselecting the card. */
+export function formatTimelineItemLabel(
+  appointment: Appointment,
+  startTime: Moment,
+): string {
+  return `${startTime.format("HH:mm")} ${appointment.patient?.name || "Sem Nome"} · ${appointment.service?.name || "Serviço"}`
+}
+
+export function formatTimelineItemTooltip(
+  appointment: Appointment,
+  startTime: Moment,
+): string {
+  const label = formatTimelineItemLabel(appointment, startTime)
+  return `${label} · ${STATUS_LABEL[appointment.status] ?? appointment.status}`
+}
+
 function isSameDay(a: Date, b: Date): boolean {
   return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
 }
@@ -75,7 +91,7 @@ export function useOperationalTimeline(
         const start = moment(appt.scheduled_at)
         const duration = appt.duration_minutes || 30
         const end = moment(start).add(duration, "minutes")
-        const label = `${start.format("HH:mm")} ${appt.patient?.name || "Sem Nome"} · ${appt.service?.name || "Serviço"}`
+        const label = formatTimelineItemLabel(appt, start)
         return {
           id: appt.id,
           group: appt.professional_id!,
@@ -87,7 +103,7 @@ export function useOperationalTimeline(
           canResize: appt.status === "cancelled" ? false : ("both" as const),
           itemProps: {
             className: statusClass(appt.status),
-            title: `${label} · ${STATUS_LABEL[appt.status] ?? appt.status}`,
+            title: formatTimelineItemTooltip(appt, start),
             onDoubleClick: () => onEdit(appt),
           },
         }
