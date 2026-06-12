@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { ModalPortal } from "@/components/ui/modal-portal"
 import type { Appointment } from "../../types"
 import { isServiceEligible } from "../../lib/serviceEligibility"
 import { SelectOrQuickAdd } from "./SelectOrQuickAdd"
@@ -19,8 +20,9 @@ export function EditAppointmentModal({
   onSave,
 }: EditAppointmentModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-[var(--background)] border-4 border-[var(--border)] p-6 shadow-[8px_8px_0px_0px_var(--border)] w-full max-w-md">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="relative z-[10001] bg-[var(--background)] border-4 border-[var(--border)] p-6 shadow-[8px_8px_0px_0px_var(--border)] w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-4 border-b-2 border-[var(--border)] pb-2">
           <h2 className="text-xl font-black uppercase tracking-tight">Editar Horário</h2>
           <button onClick={onClose} className="hover:bg-[var(--accent)] hover:text-white p-1 transition-colors">
@@ -47,8 +49,9 @@ export function EditAppointmentModal({
             Salvar Alteração
           </Button>
         </div>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }
 
@@ -109,8 +112,9 @@ export function NewAppointmentModal(props: NewAppointmentModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[var(--background)] border-4 border-[var(--border)] shadow-[12px_12px_0px_0px_var(--border)] w-full max-w-lg p-8 relative max-h-[90vh] overflow-y-auto">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="relative z-[10001] bg-[var(--background)] border-4 border-[var(--border)] shadow-[12px_12px_0px_0px_var(--border)] w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-[var(--foreground)]/50 hover:text-[var(--foreground)] font-mono text-xl font-bold"
@@ -193,7 +197,8 @@ export function NewAppointmentModal(props: NewAppointmentModalProps) {
             {submitting ? "Salvando..." : "Confirmar Agendamento"}
           </button>
         </form>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }

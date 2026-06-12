@@ -39,6 +39,8 @@
   font-weight: 700;
   color: var(--foreground);
   cursor: move;
+  /* Keep timeline cards below app modals (z-[10000] on body portal). */
+  z-index: 5 !important;
 }
 
 /* Wider, visible resize handles so the duration edges are easy to grab. */
