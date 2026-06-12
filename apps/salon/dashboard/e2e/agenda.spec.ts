@@ -21,7 +21,12 @@ test.describe('Audit #3 — create appointment', () => {
 
     await loginAsOrgAdmin(page, state)
     await page.goto('/agenda')
+    await expect(page.getByRole('button', { name: 'Novo Agendamento' })).toBeVisible()
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10000 })
+
     await page.getByRole('button', { name: 'Semana' }).click()
+    await expect(page.getByText('Profissional:')).toBeVisible()
+    await page.locator('select').filter({ has: page.locator('option', { hasText: 'João' }) }).selectOption('prof1')
 
     await page.getByRole('button', { name: 'Novo Agendamento' }).click()
 
@@ -38,6 +43,6 @@ test.describe('Audit #3 — create appointment', () => {
     await modalForm.getByRole('button', { name: 'Confirmar Agendamento' }).click()
 
     await expect(page.getByText('Sem Nome')).not.toBeVisible({ timeout: 10000 })
-    await expect(page.getByText('Maria', { exact: true })).toBeVisible()
+    await expect(page.getByText(/10:00.*Maria/)).toBeVisible()
   })
 })
