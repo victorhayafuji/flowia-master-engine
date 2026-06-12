@@ -25,6 +25,8 @@ interface AgendaGridProps {
   days: Date[]
   appointments: Appointment[]
   activeAppt?: Appointment
+  /** Per-column; defaults to all enabled when omitted. */
+  dayEnabled?: boolean[]
   onDragStart: (event: { active: { id: string | number } }) => void
   onDragEnd: (event: import("@dnd-kit/core").DragEndEvent) => void
   onEdit: (appt: Appointment) => void
@@ -43,6 +45,7 @@ export function AgendaGrid({
   days,
   appointments,
   activeAppt,
+  dayEnabled,
   onDragStart,
   onDragEnd,
   onEdit,
@@ -66,17 +69,25 @@ export function AgendaGrid({
           <div className="p-4 border-r-2 border-[var(--border)] bg-[var(--background)] flex items-center justify-center">
             <Clock className="w-5 h-5 text-[var(--foreground)]" />
           </div>
-          {days.map((day) => (
+          {days.map((day, dayIndex) => {
+            const enabled = dayEnabled?.[dayIndex] ?? true
+            return (
             <div
               key={day.toISOString()}
-              className="p-4 border-r-2 border-[var(--border)] bg-[var(--background)] last:border-r-0 flex flex-col items-center"
+              className={`p-4 border-r-2 border-[var(--border)] bg-[var(--background)] last:border-r-0 flex flex-col items-center ${
+                enabled ? "" : "opacity-40"
+              }`}
+              title={enabled ? undefined : "Sem expediente"}
             >
-              <div className="font-black uppercase tracking-widest">{format(day, "EEEE", { locale: ptBR })}</div>
+              <div className={`font-black uppercase tracking-widest ${enabled ? "" : "line-through"}`}>
+                {format(day, "EEEE", { locale: ptBR })}
+              </div>
               <div className="font-mono text-sm font-bold bg-[var(--foreground)] text-[var(--background)] px-2 mt-1">
                 {format(day, "dd/MM", { locale: ptBR })}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr]">
@@ -97,7 +108,8 @@ export function AgendaGrid({
           </div>
 
           {/* One relative column per day: drop slots as background + sized cards on top */}
-          {days.map((day) => {
+          {days.map((day, dayIndex) => {
+            const enabled = dayEnabled?.[dayIndex] ?? true
             const dayAppts = appointments.filter((a) => {
               const d = new Date(a.scheduled_at)
               return isSameDay(d, day) && d.getHours() >= AGENDA_START_HOUR && d.getHours() < AGENDA_END_HOUR
@@ -105,7 +117,9 @@ export function AgendaGrid({
             return (
               <div
                 key={day.toISOString()}
-                className="relative border-r-2 border-[var(--border)] bg-[var(--surface)] last:border-r-0"
+                className={`relative border-r-2 border-[var(--border)] last:border-r-0 ${
+                  enabled ? "bg-[var(--surface)]" : "bg-[var(--background)] opacity-50"
+                }`}
                 style={{ height: totalHeight }}
               >
                 {AGENDA_HOURS.map((hour, hi) =>
@@ -116,10 +130,11 @@ export function AgendaGrid({
                       <DroppableSlot
                         key={slotId}
                         id={slotId}
+                        disabled={!enabled}
                         top={(hi * 4 + qi) * SLOT_PX}
                         height={SLOT_PX}
                         hourStart={minute === 0}
-                        onSlotClick={onSlotClick}
+                        onSlotClick={enabled ? onSlotClick : undefined}
                       />
                     )
                   }),
@@ -149,28 +164,37 @@ function DroppableSlot({
   top,
   height,
   hourStart,
+  disabled = false,
   onSlotClick,
 }: {
   id: string
   top: number
   height: number
   hourStart: boolean
+  disabled?: boolean
   onSlotClick?: (slotIso: string) => void
 }) {
-  const { isOver, setNodeRef } = useDroppable({ id, data: { type: "slot", datetime: id } })
+  const { isOver, setNodeRef } = useDroppable({
+    id,
+    disabled,
+    data: { type: "slot", datetime: id },
+  })
   return (
     <div
       ref={setNodeRef}
       onClick={(e) => {
-        if (onSlotClick && e.target === e.currentTarget) onSlotClick(id)
+        if (disabled || !onSlotClick || e.target !== e.currentTarget) return
+        onSlotClick(id)
       }}
-      title={onSlotClick ? "Clique para agendar neste horário" : undefined}
+      title={
+        disabled ? "Sem expediente" : onSlotClick ? "Clique para agendar neste horário" : undefined
+      }
       style={{ top, height }}
       className={`absolute left-0 right-0 transition-colors ${
         hourStart ? "border-t-2 border-[var(--border)]" : "border-t border-dashed border-[var(--border)]/20"
-      } ${isOver ? "bg-[var(--accent)]/15 ring-inset ring-2 ring-[var(--accent)]" : ""} ${
-        onSlotClick ? "cursor-pointer hover:bg-[var(--accent)]/5" : ""
-      }`}
+      } ${disabled ? "cursor-not-allowed bg-[repeating-linear-gradient(-45deg,transparent,transparent_6px,rgba(0,0,0,0.04)_6px,rgba(0,0,0,0.04)_12px)]" : ""} ${
+        isOver && !disabled ? "bg-[var(--accent)]/15 ring-inset ring-2 ring-[var(--accent)]" : ""
+      } ${onSlotClick && !disabled ? "cursor-pointer hover:bg-[var(--accent)]/5" : ""}`}
     />
   )
 }
