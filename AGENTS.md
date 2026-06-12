@@ -10,13 +10,13 @@ SaaS multi-tenant para salões (`PRODUCT_LINE=salon`).
 
 | Camada | Versões |
 |--------|---------|
-| Runtime | Python 3.12, Node 20 |
+| Runtime | Python 3.12, Node 24 LTS |
 | API | FastAPI ≥0.109, Uvicorn ≥0.27, Pydantic v2 |
 | AI | LangGraph ≥1.0, langchain-openai, OpenAI |
 | Modelos | `gpt-4o-mini` (chat), `gpt-4o` (OCR), `text-embedding-3-small` (RAG) — ver `CLAUDE.md` §9 |
 | DB | Supabase ≥2.3, PostgreSQL + RLS, psycopg3 |
-| Frontend | React 18.3, Vite 5.4, TS 5.6, Tailwind 4.3, React Router 7.16 |
-| Test/Lint | pytest 8, ruff, vitest 2, Playwright, ESLint 9 |
+| Frontend | React 18.3, Vite 7.3 (dashboard) / 5.4 (landing), TS 5.6, Tailwind 4.3, React Router 7.16 |
+| Test/Lint | pytest 8, ruff, vitest 3, Playwright, ESLint 9 |
 
 ## Onde editar
 

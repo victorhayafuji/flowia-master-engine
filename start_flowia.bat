@@ -34,6 +34,21 @@ if not exist "venv\Scripts\python.exe" (
     exit /b
 )
 
+:: Seleciona o Node 24 do nvm-windows (projeto padronizado em Node 24 LTS).
+:: O Node do PATH (standalone) pode ser uma versao antiga que nao roda o Vite.
+set "NVM_ROOT=%LOCALAPPDATA%\nvm"
+set "NODE_DIR="
+for /f "delims=" %%v in ('dir /b /ad /o-n "%NVM_ROOT%\v24.*" 2^>nul') do (
+    if not defined NODE_DIR set "NODE_DIR=%NVM_ROOT%\%%v"
+)
+if defined NODE_DIR (
+    echo [INFO] Usando Node 24 do nvm: %NODE_DIR%
+    set "PATH=%NODE_DIR%;%PATH%"
+) else (
+    echo [AVISO] Node 24 nao encontrado em %NVM_ROOT%. Rode: nvm install 24
+    echo [AVISO] O Vite pode falhar com Node antigo.
+)
+
 :: Backend
 echo [INFO] Iniciando Backend (FastAPI) na porta 8000...
 start "FlowIA - Backend (FastAPI)" cmd /c "venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"

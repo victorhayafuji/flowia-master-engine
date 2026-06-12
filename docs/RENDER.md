@@ -115,6 +115,7 @@ Anotar URL da API: `https://flowia-api.onrender.com` (exemplo).
 
 | Variável | Valor |
 |----------|-------|
+| `NODE_VERSION` | `24` (Node 24 LTS — obrigatório para Vite 7 no dashboard; ver `.node-version` na raiz) |
 | `VITE_API_URL` | `https://flowia-api.onrender.com/api/v1` |
 | `VITE_SUPABASE_URL` | URL prod |
 | `VITE_SUPABASE_KEY` | anon key prod |
@@ -136,9 +137,25 @@ Após obter URL final do Static Site, **atualizar `ALLOWED_ORIGINS`** na API.
 | Build | `npm ci && npm run build` |
 | Publish | `dist` |
 
-Sem env vars obrigatórias (CTA `mailto:` estático). Opcional: `VITE_DEMO_EMAIL` para customizar contato no build futuro.
+Sem env vars obrigatórias de runtime (CTA `mailto:` estático).
+
+| Variável | Valor |
+|----------|-------|
+| `NODE_VERSION` | `24` (alinhado ao monorepo — `engines >=24` em `apps/landing/package.json`) |
+| `VITE_DEMO_EMAIL` | opcional — contato no build (default no blueprint: `contato@gaussix.com.br`) |
 
 URL esperada: https://flowia-landing.onrender.com — registrar em [`PRODUCTION.md`](PRODUCTION.md).
+
+### Homologação — conferir Node 24 nos Static Sites
+
+Após merge na `main` (ou antes do go-live), validar **cada** Static Site no Render Dashboard:
+
+| Serviço | Env var | Valor esperado |
+|---------|---------|----------------|
+| `flowia-dashboard` | `NODE_VERSION` | `24` |
+| `flowia-landing` | `NODE_VERSION` | `24` |
+
+Se o serviço foi criado antes do pin: **Environment → Add** `NODE_VERSION=24` → **Manual Deploy**. No log de build, a primeira linha deve indicar Node **24.x**. O [`render.yaml`](../render.yaml) na raiz já declara `NODE_VERSION: "24"` para novos syncs de Blueprint.
 
 ---
 

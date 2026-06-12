@@ -106,6 +106,8 @@ export function useOperationalTimeline(
   return { groups, items, visibleTimeStart, visibleTimeEnd }
 }
 
-export function toLocalIso(momentValue: Moment): string {
-  return momentValue.format("YYYY-MM-DD[T]HH:mm:ssZ")
+// react-calendar-timeline@0.30 (dayjs rewrite) hands callbacks unix-ms numbers,
+// not Moment objects. Accept both so the value can come straight from the lib.
+export function toLocalIso(value: Moment | number): string {
+  return moment(value).format("YYYY-MM-DD[T]HH:mm:ssZ")
 }

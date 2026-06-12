@@ -30,10 +30,12 @@ declare module "react-calendar-timeline" {
     canChangeGroup?: boolean
     stackItems?: boolean
     traditionalZoom?: boolean
+    dragSnap?: number
     timeSteps?: Record<string, number>
-    onItemMove?: (itemId: string | number, dragTime: Moment, newGroupOrder: number) => void
-    onItemResize?: (itemId: string | number, time: Moment, edge: "left" | "right") => void
-    onItemClick?: (itemId: string | number, e: React.MouseEvent, time: Moment) => void
+    // v0.30 (dayjs rewrite) passes unix-ms numbers to these callbacks, not Moment.
+    onItemMove?: (itemId: string | number, dragTime: number, newGroupOrder: number) => void
+    onItemResize?: (itemId: string | number, time: number, edge: "left" | "right") => void
+    onItemClick?: (itemId: string | number, e: React.MouseEvent, time: number) => void
     children?: ReactNode
   }
 

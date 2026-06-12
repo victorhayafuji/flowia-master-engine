@@ -105,6 +105,9 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      # Vite 7 requires Node ^20.19 || ^22.13 || >=24 — pin Render build to Node 24 LTS.
+      - key: NODE_VERSION
+        value: "24"
       - key: VITE_API_URL
         sync: false
       - key: VITE_SUPABASE_URL
@@ -126,5 +129,8 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      # Pin Node 24 LTS to match CI, .node-version, and package.json engines.
+      - key: NODE_VERSION
+        value: "24"
       - key: VITE_DEMO_EMAIL
         value: contato@gaussix.com.br

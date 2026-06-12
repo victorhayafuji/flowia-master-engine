@@ -55,3 +55,5 @@ lint_errors.*
 # Node (all apps in monorepo)
 node_modules/
 **/dist/
+**/test-results/
+**/playwright-report/
