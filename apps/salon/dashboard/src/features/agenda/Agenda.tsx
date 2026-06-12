@@ -237,6 +237,7 @@ export function Agenda() {
         editTime={agenda.editTime}
         setEditTime={agenda.setEditTime}
         onEditSave={agenda.handleEditSave}
+        onStatusChange={agenda.handleStatusUpdate}
         isNewModalOpen={agenda.isNewModalOpen}
         setIsNewModalOpen={agenda.setIsNewModalOpen}
         submitting={agenda.submitting}

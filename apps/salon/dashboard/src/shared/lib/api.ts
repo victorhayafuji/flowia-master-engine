@@ -1,1 +1,1 @@
-export { api } from "../../lib/api"
+export { api, updateAppointmentStatus } from "../../lib/api"

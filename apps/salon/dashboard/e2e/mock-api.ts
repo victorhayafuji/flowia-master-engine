@@ -320,6 +320,18 @@ export async function setupApiMocks(page: Page, role: UserRole = 'org_admin', st
       return route.fulfill({ json: { status: 'success', data: state.appointments } })
     }
 
+    const statusMatch = path.match(/^\/scheduling\/calendar\/([^/]+)\/status$/)
+    if (statusMatch && method === 'PATCH') {
+      const appointmentId = statusMatch[1]
+      const body = route.request().postDataJSON() as { status?: string }
+      const appt = state.appointments.find((a) => a.id === appointmentId)
+      if (!appt) {
+        return route.fulfill({ status: 404, json: { detail: 'Agendamento não encontrado.' } })
+      }
+      appt.status = body.status
+      return route.fulfill({ json: { status: 'success', data: appt } })
+    }
+
     if (path === '/scheduling/' && method === 'POST') {
       const body = route.request().postDataJSON() as Record<string, unknown>
       const patient = state.patients.find((p) => p.id === body.patient_id)

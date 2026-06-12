@@ -18,6 +18,7 @@ from packages.auth_core.exceptions import (
     BusinessLogicError,
     DoubleBookingError,
     FlowIAError,
+    PermissionDeniedError,
     ResourceNotFoundError,
 )
 from packages.auth_core.limiter import limiter
@@ -48,6 +49,10 @@ def _register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ResourceNotFoundError)
     async def not_found_handler(_request: Request, exc: ResourceNotFoundError):
         return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+    @app.exception_handler(PermissionDeniedError)
+    async def permission_denied_handler(_request: Request, exc: PermissionDeniedError):
+        return JSONResponse(status_code=403, content={"detail": str(exc)})
 
     @app.exception_handler(BusinessLogicError)
     async def business_logic_handler(_request: Request, exc: BusinessLogicError):

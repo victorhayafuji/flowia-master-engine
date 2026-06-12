@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button"
 import { ModalPortal } from "@/components/ui/modal-portal"
 import type { Appointment } from "../../types"
 import { isServiceEligible } from "../../lib/serviceEligibility"
+import { STATUS_LABEL } from "../../lib/appointmentStatus"
+import { AppointmentStatusActions } from "../AppointmentStatusActions"
 import { SelectOrQuickAdd } from "./SelectOrQuickAdd"
 
 interface EditAppointmentModalProps {
@@ -10,6 +12,7 @@ interface EditAppointmentModalProps {
   setEditTime: (time: string) => void
   onClose: () => void
   onSave: () => void
+  onStatusChange: (appointmentId: string, status: string) => void
 }
 
 export function EditAppointmentModal({
@@ -18,6 +21,7 @@ export function EditAppointmentModal({
   setEditTime,
   onClose,
   onSave,
+  onStatusChange,
 }: EditAppointmentModalProps) {
   return (
     <ModalPortal>
@@ -48,6 +52,15 @@ export function EditAppointmentModal({
           <Button onClick={onSave} className="w-full mt-4 font-bold tracking-widest uppercase">
             Salvar Alteração
           </Button>
+          <div className="pt-4 mt-2 border-t-2 border-[var(--border)]">
+            <p className="text-sm font-bold uppercase text-[var(--foreground)]/70 mb-2">
+              Status — {STATUS_LABEL[editingAppt.status] || editingAppt.status}
+            </p>
+            <AppointmentStatusActions
+              currentStatus={editingAppt.status}
+              onSelect={(status) => onStatusChange(editingAppt.id, status)}
+            />
+          </div>
         </div>
         </div>
       </div>

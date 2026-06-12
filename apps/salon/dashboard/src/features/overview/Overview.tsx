@@ -5,6 +5,13 @@ import { ptBR } from "date-fns/locale"
 import { useAuth } from "@/features/auth/AuthContext"
 import { GlassCard, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { PageHeader } from "@/components/PageHeader"
+import { RowMenu } from "@/components/ui/row-menu"
+import { updateAppointmentStatus } from "@/shared/lib/api"
+import {
+  ACTION_LABEL,
+  DESTRUCTIVE_STATUSES,
+  allowedTransitions,
+} from "@/features/agenda/lib/appointmentStatus"
 import { useOverviewStats } from "./hooks/useOverviewStats"
 
 function hhmm(iso: string): string {
@@ -26,6 +33,15 @@ export function Overview() {
   const { user, orgHeader } = useAuth()
   const stats = useOverviewStats(user, orgHeader)
   const showAgentSummary = user?.role !== "professional"
+
+  const handleStatusChange = async (appointmentId: string, status: string) => {
+    try {
+      await updateAppointmentStatus(appointmentId, status, orgHeader)
+      await stats.refreshBoard()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erro ao atualizar status.")
+    }
+  }
 
   return (
     <div className="page-shell">
@@ -116,6 +132,17 @@ export function Overview() {
                             <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 border-2 border-[var(--border)] whitespace-nowrap">
                               {STATUS_LABELS[appt.status || ""] || appt.status}
                             </span>
+                            {allowedTransitions(appt.status || "").length > 0 && (
+                              <RowMenu
+                                label="Alterar status"
+                                items={allowedTransitions(appt.status || "").map((target) => ({
+                                  label: ACTION_LABEL[target] ?? target,
+                                  onClick: () => handleStatusChange(appt.id, target),
+                                  destructive: DESTRUCTIVE_STATUSES.has(target),
+                                  testId: `board-status-${target}`,
+                                }))}
+                              />
+                            )}
                           </div>
                         ))}
                       </div>

@@ -5,7 +5,12 @@ from uuid import uuid4
 
 import pytest
 
-from packages.auth_core.exceptions import BusinessLogicError, DoubleBookingError
+from packages.auth_core.exceptions import (
+    BusinessLogicError,
+    DoubleBookingError,
+    PermissionDeniedError,
+    ResourceNotFoundError,
+)
 from packages.models.enums import AppointmentStatus
 from packages.scheduling.schemas import AppointmentBase
 from packages.scheduling.service import SchedulingService
@@ -196,15 +201,128 @@ async def test_create_appointment_past_date(scheduling_service):
     assert "passado" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
-async def test_update_appointment_status_success(scheduling_service, mock_scheduling_db):
-    mock_table = mock_scheduling_db.client.table.return_value
-    mock_update = mock_table.update.return_value
-    mock_eq = mock_update.eq.return_value
-    mock_eq.execute.return_value = _mock_response([{"id": "123", "status": "confirmed"}])
+def _fetch_table(row):
+    """Stub for the tenant-aware fetch (eq returns itself → any number of filters)."""
+    table = MagicMock()
+    chain = table.select.return_value
+    chain.eq.return_value = chain
+    chain.maybe_single.return_value.execute.return_value = _mock_response(row)
+    return table
 
-    result = await scheduling_service.update_appointment_status(uuid4(), AppointmentStatus.CONFIRMED)
-    assert result["status"] == "confirmed"
+
+def _update_table(data):
+    table = MagicMock()
+    table.update.return_value.eq.return_value.execute.return_value = _mock_response(data)
+    return table
+
+
+def _patient_select_table(no_show_count):
+    table = MagicMock()
+    chain = table.select.return_value
+    chain.eq.return_value = chain
+    chain.maybe_single.return_value.execute.return_value = _mock_response(
+        {"no_show_count": no_show_count}
+    )
+    return table
+
+
+@pytest.mark.asyncio
+async def test_update_appointment_status_valid_transition(scheduling_service, mock_scheduling_db):
+    appt_id = uuid4()
+    fetch = _fetch_table({"id": str(appt_id), "status": "confirmed", "patient_id": str(uuid4())})
+    update = _update_table([{"id": str(appt_id), "status": "completed"}])
+    mock_scheduling_db.client.table.side_effect = [fetch, update]
+
+    result = await scheduling_service.update_appointment_status(appt_id, AppointmentStatus.COMPLETED)
+    assert result["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_update_appointment_status_invalid_transition_from_terminal(
+    scheduling_service, mock_scheduling_db
+):
+    appt_id = uuid4()
+    fetch = _fetch_table({"id": str(appt_id), "status": "completed", "patient_id": str(uuid4())})
+    mock_scheduling_db.client.table.side_effect = [fetch]
+
+    with pytest.raises(BusinessLogicError, match="Transição de status inválida"):
+        await scheduling_service.update_appointment_status(appt_id, AppointmentStatus.ARRIVED)
+
+
+@pytest.mark.asyncio
+async def test_update_appointment_status_no_show_increments_count_once(
+    scheduling_service, mock_scheduling_db
+):
+    appt_id = uuid4()
+    patient_id = str(uuid4())
+    fetch = _fetch_table({"id": str(appt_id), "status": "confirmed", "patient_id": patient_id})
+    update = _update_table([{"id": str(appt_id), "status": "no_show"}])
+    patient_select = _patient_select_table(2)
+    patient_update = _update_table([{"id": patient_id, "no_show_count": 3}])
+    mock_scheduling_db.client.table.side_effect = [fetch, update, patient_select, patient_update]
+
+    result = await scheduling_service.update_appointment_status(appt_id, AppointmentStatus.NO_SHOW)
+    assert result["status"] == "no_show"
+    patient_update.update.assert_called_once_with({"no_show_count": 3})
+
+
+@pytest.mark.asyncio
+async def test_update_appointment_status_no_show_noop_does_not_reincrement(
+    scheduling_service, mock_scheduling_db
+):
+    appt_id = uuid4()
+    fetch = _fetch_table({"id": str(appt_id), "status": "no_show", "patient_id": str(uuid4())})
+    # Only the fetch table is consumed — same-status is a no-op that returns the row.
+    mock_scheduling_db.client.table.side_effect = [fetch]
+
+    result = await scheduling_service.update_appointment_status(appt_id, AppointmentStatus.NO_SHOW)
+    assert result["status"] == "no_show"
+
+
+@pytest.mark.asyncio
+async def test_update_appointment_status_professional_cross_pro_forbidden(
+    scheduling_service, mock_scheduling_db
+):
+    appt_id = uuid4()
+    owner_pro = str(uuid4())
+    other_pro = str(uuid4())
+    fetch = _fetch_table({"id": str(appt_id), "status": "confirmed", "professional_id": owner_pro})
+    mock_scheduling_db.client.table.side_effect = [fetch]
+
+    with pytest.raises(PermissionDeniedError):
+        await scheduling_service.update_appointment_status(
+            appt_id, AppointmentStatus.COMPLETED, professional_id=other_pro
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_appointment_status_professional_own_appointment_ok(
+    scheduling_service, mock_scheduling_db
+):
+    appt_id = uuid4()
+    owner_pro = str(uuid4())
+    fetch = _fetch_table(
+        {"id": str(appt_id), "status": "confirmed", "professional_id": owner_pro,
+         "patient_id": str(uuid4())}
+    )
+    update = _update_table([{"id": str(appt_id), "status": "completed"}])
+    mock_scheduling_db.client.table.side_effect = [fetch, update]
+
+    result = await scheduling_service.update_appointment_status(
+        appt_id, AppointmentStatus.COMPLETED, professional_id=owner_pro
+    )
+    assert result["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_update_appointment_status_other_org_not_found(scheduling_service, mock_scheduling_db):
+    fetch = _fetch_table(None)
+    mock_scheduling_db.client.table.side_effect = [fetch]
+
+    with pytest.raises(ResourceNotFoundError):
+        await scheduling_service.update_appointment_status(
+            uuid4(), AppointmentStatus.COMPLETED, organization_id="org-other"
+        )
 
 
 @pytest.mark.asyncio

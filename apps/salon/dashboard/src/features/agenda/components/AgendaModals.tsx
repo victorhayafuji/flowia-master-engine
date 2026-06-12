@@ -7,6 +7,7 @@ interface AgendaModalsProps {
   editTime: string
   setEditTime: (time: string) => void
   onEditSave: () => void
+  onStatusChange: (appointmentId: string, status: string) => void
   isNewModalOpen: boolean
   setIsNewModalOpen: (open: boolean) => void
   submitting: boolean
@@ -32,6 +33,7 @@ export function AgendaModals(props: AgendaModalsProps) {
     editTime,
     setEditTime,
     onEditSave,
+    onStatusChange,
     isNewModalOpen,
     setIsNewModalOpen,
     submitting,
@@ -55,6 +57,7 @@ export function AgendaModals(props: AgendaModalsProps) {
           setEditTime={setEditTime}
           onClose={() => setEditingAppt(null)}
           onSave={onEditSave}
+          onStatusChange={onStatusChange}
         />
       )}
       {isNewModalOpen && (

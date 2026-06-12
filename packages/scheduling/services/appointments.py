@@ -6,7 +6,12 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
-from packages.auth_core.exceptions import BusinessLogicError, DoubleBookingError, ResourceNotFoundError
+from packages.auth_core.exceptions import (
+    BusinessLogicError,
+    DoubleBookingError,
+    PermissionDeniedError,
+    ResourceNotFoundError,
+)
 from packages.auth_core.tenant import get_current_org_id
 from packages.models.enums import AppointmentStatus
 from packages.scheduling.schemas import AppointmentBase, ScheduleBlockBase
@@ -21,6 +26,37 @@ from packages.scheduling.timezone_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Linear flow + correction: active states may advance and may always move to
+# no_show/cancelled. Terminal states (completed, no_show, cancelled, rescheduled)
+# are absent from the map → no outgoing transition (cannot be reopened).
+_STATUS_TRANSITIONS: dict[AppointmentStatus, set[AppointmentStatus]] = {
+    AppointmentStatus.PENDING: {
+        AppointmentStatus.CONFIRMED,
+        AppointmentStatus.ARRIVED,
+        AppointmentStatus.IN_PROGRESS,
+        AppointmentStatus.COMPLETED,
+        AppointmentStatus.NO_SHOW,
+        AppointmentStatus.CANCELLED,
+    },
+    AppointmentStatus.CONFIRMED: {
+        AppointmentStatus.ARRIVED,
+        AppointmentStatus.IN_PROGRESS,
+        AppointmentStatus.COMPLETED,
+        AppointmentStatus.NO_SHOW,
+        AppointmentStatus.CANCELLED,
+    },
+    AppointmentStatus.ARRIVED: {
+        AppointmentStatus.IN_PROGRESS,
+        AppointmentStatus.COMPLETED,
+        AppointmentStatus.NO_SHOW,
+        AppointmentStatus.CANCELLED,
+    },
+    AppointmentStatus.IN_PROGRESS: {
+        AppointmentStatus.COMPLETED,
+        AppointmentStatus.CANCELLED,
+    },
+}
 
 
 class SchedulingAppointmentsMixin(SchedulingConfigMixin):
@@ -213,8 +249,34 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
         return updated
 
     async def update_appointment_status(
-        self, appointment_id: UUID, new_status: AppointmentStatus
+        self,
+        appointment_id: UUID,
+        new_status: AppointmentStatus,
+        organization_id: str | None = None,
+        professional_id: str | None = None,
     ) -> dict[str, Any]:
+        query = self.db.client.table("appointments").select("*").eq("id", str(appointment_id))
+        if organization_id and organization_id != "ALL":
+            query = query.eq("organization_id", organization_id)
+        existing = query.maybe_single().execute()
+        if not existing.data:
+            raise ResourceNotFoundError(f"Agendamento {appointment_id} não encontrado.")
+
+        row = existing.data
+
+        # Professional scope: a logged-in professional may only change their own appointments.
+        if professional_id and str(row.get("professional_id")) != str(professional_id):
+            raise PermissionDeniedError("Você só pode alterar agendamentos da sua própria agenda.")
+
+        current = AppointmentStatus(row["status"])
+        if new_status != current and new_status not in _STATUS_TRANSITIONS.get(current, set()):
+            raise BusinessLogicError(
+                f"Transição de status inválida: {current.value} → {new_status.value}."
+            )
+
+        if new_status == current:
+            return row
+
         result = (
             self.db.client.table("appointments")
             .update({"status": new_status.value})
@@ -226,7 +288,13 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
             raise ResourceNotFoundError(f"Agendamento {appointment_id} não encontrado.")
 
         logger.info("Status do agendamento %s atualizado para %s", appointment_id, new_status.value)
-        updated = result.data[0]
+        updated = {**row, **result.data[0]}
+
+        # Increment patient no_show_count only when entering no_show (single increment).
+        if new_status == AppointmentStatus.NO_SHOW and current != AppointmentStatus.NO_SHOW:
+            patient_id = row.get("patient_id")
+            if patient_id:
+                self._increment_patient_no_show_count(patient_id)
 
         if new_status == AppointmentStatus.CANCELLED:
             try:
@@ -237,6 +305,20 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
                 logger.warning("Failed to cancel reminders for appointment %s: %s", appointment_id, exc)
 
         return updated
+
+    def _increment_patient_no_show_count(self, patient_id: str) -> None:
+        """Mirror of NoShowService increment so manual no_show stays consistent."""
+        current = (
+            self.db.client.table("patients")
+            .select("no_show_count")
+            .eq("id", patient_id)
+            .maybe_single()
+            .execute()
+        )
+        count = (current.data or {}).get("no_show_count") or 0
+        self.db.client.table("patients").update({"no_show_count": count + 1}).eq(
+            "id", patient_id
+        ).execute()
 
     async def get_agenda(self, start_date: date, end_date: date) -> list[dict[str, Any]]:
         tzname = self._get_org_config()["timezone"]

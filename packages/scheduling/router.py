@@ -7,7 +7,12 @@ from packages.auth_core.dependencies import auth_required, professional_scope, t
 from packages.auth_core.exceptions import DoubleBookingError, ResourceNotFoundError
 from packages.auth_core.tenant import set_tenant_context
 from packages.scheduling.repository import SchedulingRepository
-from packages.scheduling.schemas import AppointmentBase, AppointmentUpdate, ScheduleBlockBase
+from packages.scheduling.schemas import (
+    AppointmentBase,
+    AppointmentStatusUpdate,
+    AppointmentUpdate,
+    ScheduleBlockBase,
+)
 from packages.scheduling.service import SchedulingService
 
 router = APIRouter(prefix="/scheduling", tags=["Scheduling"])
@@ -81,6 +86,24 @@ async def update_appointment(
             return {"status": "success", "data": data}
         except DoubleBookingError as e:
             raise HTTPException(status_code=409, detail=str(e)) from e
+
+
+@router.patch("/calendar/{appointment_id}/status", dependencies=[Depends(auth_required)])
+async def update_status(
+    appointment_id: str,
+    payload: AppointmentStatusUpdate,
+    org_id: str = Depends(tenant_context),
+    prof_scope: str | None = Depends(professional_scope),
+    service: SchedulingService = Depends(get_scheduling_service),
+):
+    with set_tenant_context(org_id):
+        data = await service.update_appointment_status(
+            UUID(appointment_id),
+            payload.status,
+            organization_id=org_id,
+            professional_id=prof_scope,
+        )
+        return {"status": "success", "data": data}
 
 
 @router.get("/blocks", dependencies=[Depends(auth_required)])

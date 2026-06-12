@@ -13,3 +13,7 @@ class BusinessLogicError(FlowIAError):
 class ResourceNotFoundError(FlowIAError):
     """Raised when a requested resource (like professional or service) is not found."""
     pass
+
+class PermissionDeniedError(FlowIAError):
+    """Raised when an authenticated user lacks permission for a resource."""
+    pass
