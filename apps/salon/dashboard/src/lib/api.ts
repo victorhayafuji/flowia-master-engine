@@ -70,6 +70,18 @@ export const api = {
     })
     return parseResponse(res)
   },
+  patch: async (endpoint: string, body: unknown, headers: HeadersInit = {}) => {
+    const res = await safeFetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: JSON.stringify(body),
+      credentials: 'include',
+    })
+    return parseResponse(res)
+  },
   upload: async (endpoint: string, formData: FormData, headers: HeadersInit = {}) => {
     const res = await safeFetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
@@ -80,3 +92,10 @@ export const api = {
     return parseResponse(res)
   },
 }
+
+/** Update an appointment's status via PATCH /scheduling/calendar/{id}/status. */
+export const updateAppointmentStatus = (
+  id: string,
+  status: string,
+  orgHeader: Record<string, string> = {},
+) => api.patch(`/scheduling/calendar/${id}/status`, { status }, orgHeader)

@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import moment, { type Moment } from "moment"
 import type { Appointment } from "../types"
 import { AGENDA_END_HOUR, AGENDA_START_HOUR } from "../types"
+import { STATUS_LABEL } from "../lib/appointmentStatus"
 
 interface Professional {
   id: string
@@ -36,16 +37,6 @@ const STATUS_CLASS: Record<string, string> = {
   completed: "timeline-item--completed",
   no_show: "timeline-item--no-show",
   cancelled: "timeline-item--cancelled",
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Pendente",
-  confirmed: "Confirmado",
-  arrived: "Chegou",
-  in_progress: "Em atendimento",
-  completed: "Concluído",
-  no_show: "Falta",
-  cancelled: "Cancelado",
 }
 
 function statusClass(status: string): string {

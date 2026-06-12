@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { format } from "date-fns"
 import type { DragEndEvent } from "@dnd-kit/core"
-import { api } from "@/shared/lib/api"
+import { api, updateAppointmentStatus } from "@/shared/lib/api"
 import { resolveSlotDatetime } from "../lib/agendaDropTarget"
 import type { Appointment } from "../types"
 import type { NewApptFormData } from "../components/AgendaModals"
@@ -214,6 +214,23 @@ export function useAgendaActions(
     }
   }
 
+  const handleStatusUpdate = async (appointmentId: string, status: string) => {
+    let previous: Appointment[] = []
+    setAppointments((prev) => {
+      previous = prev
+      return prev.map((appt) => (appt.id === appointmentId ? { ...appt, status } : appt))
+    })
+    setEditingAppt(null)
+    try {
+      await updateAppointmentStatus(appointmentId, status, orgHeader)
+    } catch (err) {
+      // Revert optimistic change and surface the error (e.g. 422 invalid transition, 403 scope).
+      setAppointments(previous)
+      const message = err instanceof Error ? err.message : "Erro ao atualizar status."
+      alert(message)
+    }
+  }
+
   const handleCalendarMove = async (appointmentId: string, scheduledAt: string) => {
     await handleCalendarUpdate(appointmentId, { scheduled_at: scheduledAt })
   }
@@ -247,6 +264,7 @@ export function useAgendaActions(
     handleEditSave,
     handleCreateSubmit,
     openEdit,
+    handleStatusUpdate,
     handleCalendarMove,
     handleCalendarResize,
   }

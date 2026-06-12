@@ -26,6 +26,9 @@ class AppointmentUpdate(BaseModel):
             raise ValueError("Informe scheduled_at e/ou duration_minutes.")
         return self
 
+class AppointmentStatusUpdate(BaseModel):
+    status: AppointmentStatus
+
 class ScheduleBlockBase(BaseModel):
     professional_id: UUID | None = None  # None = bloqueio da org inteira (ex: feriado)
     starts_at: datetime

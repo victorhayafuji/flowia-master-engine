@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { api } from "@/shared/lib/api"
 
 interface UpcomingAppt {
@@ -69,60 +69,64 @@ export function useOverviewStats(user: unknown, orgHeader: Record<string, string
     agentSummary: EMPTY_AGENT,
   })
 
+  const fetchStats = useCallback(async () => {
+    try {
+      const statsRes = await api.get("/dashboard/stats", orgHeader)
+      const data = statsRes?.data || statsRes
+      setStats((prev) => ({
+        ...prev,
+        patients: data.patients || 0,
+        totalNoShows: data.totalNoShows || 0,
+        appointmentsToday: data.appointmentsToday || 0,
+        upcoming: data.upcoming || [],
+      }))
+    } catch (err) {
+      console.error("Erro ao buscar stats:", err)
+    }
+  }, [orgHeader])
+
+  const fetchBoard = useCallback(async () => {
+    try {
+      const boardRes = await api.get("/dashboard/today-board", orgHeader)
+      const data = boardRes?.data || boardRes
+      setStats((prev) => ({
+        ...prev,
+        counts: { ...EMPTY_COUNTS, ...(data.counts || {}) },
+        board: data.board || [],
+      }))
+    } catch (err) {
+      console.error("Erro ao buscar quadro do dia:", err)
+    }
+  }, [orgHeader])
+
+  const fetchAgentSummary = useCallback(async () => {
+    try {
+      const res = await api.get("/dashboard/agent-summary", orgHeader)
+      const data = res?.data || res
+      setStats((prev) => ({
+        ...prev,
+        agentSummary: {
+          handoffsPending: data.handoffsPending ?? 0,
+          appointmentsWhatsappToday: data.appointmentsWhatsappToday ?? 0,
+          conversationsThisWeek: data.conversationsThisWeek ?? 0,
+        },
+      }))
+    } catch (err) {
+      console.error("Erro ao buscar resumo do agente:", err)
+    }
+  }, [orgHeader])
+
   useEffect(() => {
     if (!user) return
-
-    const fetchStats = async () => {
-      try {
-        const statsRes = await api.get("/dashboard/stats", orgHeader)
-        const data = statsRes?.data || statsRes
-        setStats((prev) => ({
-          ...prev,
-          patients: data.patients || 0,
-          totalNoShows: data.totalNoShows || 0,
-          appointmentsToday: data.appointmentsToday || 0,
-          upcoming: data.upcoming || [],
-        }))
-      } catch (err) {
-        console.error("Erro ao buscar stats:", err)
-      }
-    }
-
-    const fetchBoard = async () => {
-      try {
-        const boardRes = await api.get("/dashboard/today-board", orgHeader)
-        const data = boardRes?.data || boardRes
-        setStats((prev) => ({
-          ...prev,
-          counts: { ...EMPTY_COUNTS, ...(data.counts || {}) },
-          board: data.board || [],
-        }))
-      } catch (err) {
-        console.error("Erro ao buscar quadro do dia:", err)
-      }
-    }
-
-    const fetchAgentSummary = async () => {
-      try {
-        const res = await api.get("/dashboard/agent-summary", orgHeader)
-        const data = res?.data || res
-        setStats((prev) => ({
-          ...prev,
-          agentSummary: {
-            handoffsPending: data.handoffsPending ?? 0,
-            appointmentsWhatsappToday: data.appointmentsWhatsappToday ?? 0,
-            conversationsThisWeek: data.conversationsThisWeek ?? 0,
-          },
-        }))
-      } catch (err) {
-        console.error("Erro ao buscar resumo do agente:", err)
-      }
-    }
-
     fetchStats()
     fetchBoard()
     fetchAgentSummary()
-  }, [user, orgHeader])
+  }, [user, fetchStats, fetchBoard, fetchAgentSummary])
 
-  return stats
+  /** Refetch the board + counts after a status change. */
+  const refreshBoard = useCallback(async () => {
+    await Promise.all([fetchBoard(), fetchStats()])
+  }, [fetchBoard, fetchStats])
+
+  return { ...stats, refreshBoard }
 }
