@@ -187,7 +187,7 @@ export function Patients() {
           </div>
         </div>
 
-        <div className="z-10 font-mono text-sm font-bold uppercase tracking-widest text-[var(--foreground)]/50 text-right w-full md:w-auto flex flex-wrap items-center gap-3 justify-end">
+        <div className="z-10 font-mono text-sm font-bold uppercase tracking-widest text-[var(--foreground)]/50 text-right w-full md:w-auto flex flex-wrap items-center gap-3 justify-start md:justify-end">
           <label className="flex items-center gap-2 text-xs uppercase">
             Ordenar:
             <select
@@ -246,7 +246,7 @@ export function Patients() {
                 key={p.id} 
                 className={`flex flex-col lg:flex-row items-start lg:items-center justify-between p-6 hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors group ${idx % 2 === 0 ? 'bg-[var(--background)]' : 'bg-[var(--surface)]'}`}
               >
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-6 w-full">
                   
                   <div className="space-y-1">
                     <div className="font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/40 group-hover:text-[var(--background)]/50">Identificação</div>
