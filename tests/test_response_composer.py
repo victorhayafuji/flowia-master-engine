@@ -1,4 +1,8 @@
 """Tests for scheduling response composer."""
+from datetime import date
+
+import pytest
+
 from packages.engine.response_composer import (
     build_template_acknowledgment,
     compose_scheduling_reply,
@@ -7,6 +11,20 @@ from packages.engine.response_composer import (
     format_time_grid,
     humanize_scheduling_factual,
 )
+
+# Hardcoded 2026-06-12 fixtures assume "today" is before that date (CI-safe on any clock).
+_FROZEN_TODAY = date(2026, 6, 10)
+
+
+@pytest.fixture(autouse=True)
+def _freeze_today(mocker):
+    class _FixedToday(date):
+        @classmethod
+        def today(cls):
+            return cls(_FROZEN_TODAY.year, _FROZEN_TODAY.month, _FROZEN_TODAY.day)
+
+    mocker.patch("packages.engine.response_composer.date", _FixedToday)
+    mocker.patch("packages.scheduling.guardrails.date", _FixedToday)
 
 
 def test_format_time_grid_wraps_in_rows():
