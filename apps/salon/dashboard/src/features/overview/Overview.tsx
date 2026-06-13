@@ -44,7 +44,7 @@ export function Overview() {
   }
 
   return (
-    <div className="page-shell">
+    <div className="page-shell overflow-y-auto lg:overflow-hidden">
       <PageHeader title="Visão Geral" subtitle="Resumo operacional do salão para hoje" />
       <div className="space-y-8 shrink-0 mb-6">
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -90,13 +90,13 @@ export function Overview() {
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2 flex-1 min-h-0">
-        <GlassCard className="flex flex-col min-h-0">
+      <div className="grid gap-6 lg:grid-cols-2 lg:flex-1 lg:min-h-0">
+        <GlassCard className="lg:flex lg:flex-col lg:min-h-0">
           <CardHeader className="shrink-0">
             <CardTitle>Quadro de Hoje</CardTitle>
             <CardDescription>Quem atende, qual serviço e quando.</CardDescription>
           </CardHeader>
-          <CardContent className="panel-scroll flex-1 min-h-0 pr-2">
+          <CardContent className="lg:panel-scroll lg:flex-1 lg:min-h-0 pr-2">
             {stats.board.length === 0 ? (
               <EmptyState text="Nenhum profissional ou agendamento para hoje." />
             ) : (
@@ -154,12 +154,12 @@ export function Overview() {
           </CardContent>
         </GlassCard>
 
-        <GlassCard className="flex flex-col min-h-0">
+        <GlassCard className="lg:flex lg:flex-col lg:min-h-0">
           <CardHeader className="shrink-0">
             <CardTitle>Próximos Horários</CardTitle>
             <CardDescription>Agenda dos próximos dias.</CardDescription>
           </CardHeader>
-          <CardContent className="panel-scroll flex-1 min-h-0 pr-2">
+          <CardContent className="lg:panel-scroll lg:flex-1 lg:min-h-0 pr-2">
             {stats.upcoming.length === 0 ? (
               <EmptyState text="Nenhum agendamento próximo." />
             ) : (

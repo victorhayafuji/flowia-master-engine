@@ -56,6 +56,8 @@ export function AgendaGrid({
     useSensor(KeyboardSensor),
   )
   const totalHeight = AGENDA_HOURS.length * HOUR_PX
+  // Columns adapt to the number of days: 5 on desktop (week), 1 on mobile (day).
+  const gridTemplate = `80px repeat(${days.length}, minmax(0, 1fr))`
 
   return (
     <DndContext
@@ -64,8 +66,12 @@ export function AgendaGrid({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <div className="border-4 border-[var(--border)] bg-[var(--surface)] shadow-[8px_8px_0px_0px_var(--border)] min-w-[1000px]">
-        <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr] border-b-4 border-[var(--border)]">
+      <div
+        className={`border-4 border-[var(--border)] bg-[var(--surface)] shadow-[8px_8px_0px_0px_var(--border)] ${
+          days.length > 1 ? "min-w-[1000px]" : "w-full"
+        }`}
+      >
+        <div className="grid border-b-4 border-[var(--border)]" style={{ gridTemplateColumns: gridTemplate }}>
           <div className="p-4 border-r-2 border-[var(--border)] bg-[var(--background)] flex items-center justify-center">
             <Clock className="w-5 h-5 text-[var(--foreground)]" />
           </div>
@@ -90,7 +96,7 @@ export function AgendaGrid({
           })}
         </div>
 
-        <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr]">
+        <div className="grid" style={{ gridTemplateColumns: gridTemplate }}>
           {/* Time gutter */}
           <div
             className="relative border-r-2 border-[var(--border)] bg-[var(--background)]"
@@ -257,13 +263,17 @@ function DraggableAppointment({
         </span>
         {!isOverlay && onEdit && (
           <button
+            type="button"
+            aria-label="Editar agendamento"
+            // Stop the drag sensor from claiming the press so the tap reliably edits.
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
               onEdit(appointment)
             }}
-            className="shrink-0 text-[var(--foreground)]/40 hover:text-[var(--accent)] transition-colors"
+            className="shrink-0 -my-1.5 -mr-1.5 p-2.5 flex items-center justify-center text-[var(--foreground)]/50 hover:text-[var(--accent)] active:text-[var(--accent)] transition-colors"
           >
-            <Edit2 className="w-3 h-3" />
+            <Edit2 className="w-4 h-4" />
           </button>
         )}
       </div>

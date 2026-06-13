@@ -9,6 +9,7 @@ import { AgendaGrid } from "./components/AgendaGrid"
 import { OperationalTimeline } from "./components/OperationalTimeline"
 import { AgendaModals } from "./components/AgendaModals"
 import { useAgenda } from "./hooks/useAgenda"
+import { useIsMobile } from "./hooks/useIsMobile"
 import { resolveSlotDatetime } from "./lib/agendaDropTarget"
 import { orgWorksOnDay, professionalWorksOnDay } from "./lib/workdays"
 import type { AgendaView } from "./types"
@@ -16,6 +17,7 @@ import type { AgendaView } from "./types"
 export function Agenda() {
   const { user, orgHeader } = useAuth()
   const agenda = useAgenda(user, orgHeader)
+  const isMobile = useIsMobile()
   const [view, setView] = useState<AgendaView>("timeline")
   const [filterProfessionalId, setFilterProfessionalId] = useState<string>("")
   const [timelineDayIndex, setTimelineDayIndex] = useState(0)
@@ -85,8 +87,15 @@ export function Agenda() {
     return agenda.appointments
   }, [agenda.appointments, isProfessionalUser, user?.professional_id])
 
-  const subtitle =
-    view === "week"
+  // Mobile shows a single-day grid for the selected professional.
+  const mobileDayEnabled = useMemo(
+    () => professionalWorksOnDay(selectedProfessional, timelineDay),
+    [selectedProfessional, timelineDay],
+  )
+
+  const subtitle = isMobile
+    ? `${selectedProfessionalName} — ${format(timelineDay, "EEE dd/MM", { locale: ptBR })}`
+    : view === "week"
       ? `Semana — ${selectedProfessionalName}`
       : `Equipe — ${format(timelineDay, "EEEE dd/MM", { locale: ptBR })}`
 
@@ -137,7 +146,7 @@ export function Agenda() {
         subtitle={subtitle}
         actions={
           <>
-            <div className="flex border-2 border-[var(--border)]">
+            <div className="hidden md:flex border-2 border-[var(--border)]">
               <button
                 type="button"
                 onClick={() => setView("timeline")}
@@ -162,7 +171,7 @@ export function Agenda() {
 
       {!agenda.loading && (
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          {view === "week" && !isProfessionalUser && (
+          {(isMobile || view === "week") && !isProfessionalUser && (
             <label className="flex items-center gap-2 text-xs font-bold uppercase">
               Profissional:
               <select
@@ -178,8 +187,8 @@ export function Agenda() {
               </select>
             </label>
           )}
-          {view === "timeline" && (
-            <div className="flex items-center gap-1">
+          {(isMobile || view === "timeline") && (
+            <div className="flex flex-wrap items-center gap-1">
               {agenda.days.map((day, i) => (
                 <button
                   key={day.toISOString()}
@@ -205,8 +214,22 @@ export function Agenda() {
         <div className="border-4 border-[var(--border)] bg-[var(--surface)] flex-1 min-h-[240px] flex items-center justify-center">
           <div className="animate-spin rounded-none h-12 w-12 border-4 border-[var(--border)] border-t-[var(--accent)]" />
         </div>
+      ) : isMobile ? (
+        /* Mobile: the week grid constrained to the single selected day. */
+        <div className="panel-scroll">
+          <AgendaGrid
+            days={[timelineDay]}
+            appointments={weekAppointments}
+            activeAppt={agenda.activeAppt}
+            dayEnabled={[mobileDayEnabled]}
+            onDragStart={agenda.handleDragStart}
+            onDragEnd={handleWeekDragEnd}
+            onEdit={agenda.openEdit}
+            onSlotClick={handleSlotClick}
+          />
+        </div>
       ) : (
-        <div className="flex-1 min-h-0 panel-scroll-both">
+        <div className="panel-scroll-both">
           {view === "week" ? (
             <AgendaGrid
               days={agenda.days}

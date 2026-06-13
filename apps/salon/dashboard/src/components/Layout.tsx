@@ -1,11 +1,28 @@
+import { useEffect, useState } from "react"
 import { Outlet, Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
-import { LayoutDashboard, Calendar, Settings, LogOut, Users, Database, MessageSquare, Activity } from "lucide-react"
+import { LayoutDashboard, Calendar, Settings, LogOut, Users, Database, MessageSquare, Activity, Menu, X } from "lucide-react"
 
 export function Layout() {
   const { signOut, user, organizationName, organizations, organizationId, setSelectedOrgId } = useAuth()
   const location = useLocation()
   const isDev = import.meta.env.DEV
+  const [navOpen, setNavOpen] = useState(false)
+
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => {
+    setNavOpen(false)
+  }, [location.pathname])
+
+  // Close the mobile drawer on Escape.
+  useEffect(() => {
+    if (!navOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNavOpen(false)
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [navOpen])
 
   const isProfessional = user?.role === "professional"
 
@@ -26,13 +43,49 @@ export function Layout() {
     user?.role === "super_admin" ? "Operador" : isProfessional ? "Profissional" : "Equipe"
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-slate-950 flex font-sans overflow-hidden">
+    <div className="h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row font-sans overflow-hidden">
 
-      <aside className="w-64 bg-[var(--surface)] border-r-4 border-[var(--border)] flex-shrink-0 flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b-4 border-[var(--border)] bg-[var(--accent)]">
+      {/* Mobile top bar with hamburger — hidden on md+. */}
+      <header className="md:hidden shrink-0 h-14 flex items-center gap-3 px-4 border-b-4 border-[var(--border)] bg-[var(--accent)]">
+        <button
+          type="button"
+          aria-label="Abrir menu"
+          onClick={() => setNavOpen(true)}
+          className="flex items-center justify-center w-10 h-10 -ml-1 text-[var(--background)]"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+        <h2 className="text-lg font-black tracking-tighter text-[var(--background)] uppercase truncate">
+          {brandName}
+        </h2>
+      </header>
+
+      {/* Backdrop behind the mobile drawer. */}
+      {navOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 max-w-[85%] bg-[var(--surface)] border-r-4 border-[var(--border)] flex-shrink-0 flex flex-col transform transition-transform duration-200 md:translate-x-0 ${
+          navOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="h-16 flex items-center justify-between px-6 border-b-4 border-[var(--border)] bg-[var(--accent)]">
           <h2 className="text-xl font-black tracking-tighter text-[var(--background)] uppercase truncate">
             {brandName}
           </h2>
+          <button
+            type="button"
+            aria-label="Fechar menu"
+            onClick={() => setNavOpen(false)}
+            className="md:hidden flex items-center justify-center w-9 h-9 -mr-2 text-[var(--background)]"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         {user?.role === "super_admin" && organizations.length > 1 && (
@@ -56,7 +109,7 @@ export function Layout() {
           {navItems.map((item) => {
             const isActive = location.pathname === item.path
             return (
-              <Link key={item.path} to={item.path}>
+              <Link key={item.path} to={item.path} onClick={() => setNavOpen(false)}>
                 <span className={`flex items-center gap-3 px-3 py-3 border-2 border-[var(--border)] shadow-[3px_3px_0px_0px_var(--border)] text-sm font-black uppercase transition-all ${isActive ? "bg-[var(--accent)] text-[var(--background)] shadow-[0px_0px_0px_0px_var(--border)] translate-y-1" : "bg-[var(--surface)] text-[var(--foreground)] hover:shadow-[5px_5px_0px_0px_var(--border)] hover:-translate-y-1"}`}>
                   <item.icon className="w-4 h-4" />
                   {item.label}
