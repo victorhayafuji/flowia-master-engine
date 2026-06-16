@@ -347,6 +347,39 @@ export async function setupApiMocks(page: Page, role: UserRole = 'org_admin', st
       return route.fulfill({ json: { status: 'success', data: row } })
     }
 
+    if (path === '/organizations/whatsapp' && method === 'GET') {
+      return route.fulfill({
+        json: {
+          status: 'success',
+          data: {
+            whatsapp_phone_id: '',
+            whatsapp_business_id: '',
+            token_configured: false,
+            token_preview: null,
+            verify_token: 'mock-verify-token',
+            webhook_url: 'https://flowia-api.onrender.com/api/v1/webhook/whatsapp',
+          },
+        },
+      })
+    }
+
+    if (path === '/organizations/whatsapp' && method === 'PATCH') {
+      return route.fulfill({ json: { status: 'success', data: { updated: true } } })
+    }
+
+    if (path === '/organizations/whatsapp/test' && method === 'POST') {
+      const body = route.request().postDataJSON() as { whatsapp_phone_id?: string }
+      const ok = Boolean(body.whatsapp_phone_id)
+      return route.fulfill({
+        json: {
+          status: 'success',
+          data: ok
+            ? { ok: true, verified_name: 'Salão Beauty Express', display_phone_number: '+55 11 99999-0000' }
+            : { ok: false, error: 'Credenciais inválidas ou sem permissão.' },
+        },
+      })
+    }
+
     if (path === '/chat/test' && method === 'POST') {
       const body = route.request().postDataJSON() as { message: string; thread_id?: string }
       const msg = body.message.toLowerCase()

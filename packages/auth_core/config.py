@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     WHATSAPP_VERIFY_TOKEN: str
     WHATSAPP_APP_SECRET: str = ""
 
+    # Public API base URL (used to show the WhatsApp webhook callback URL in the dashboard).
+    # Default is the production Render API; override only for a custom domain.
+    PUBLIC_API_URL: str = "https://flowia-api.onrender.com/api/v1"
+
     # LangGraph persistence: auto (postgres + memory fallback) | postgres | memory
     CHECKPOINTER_BACKEND: str = "auto"
 

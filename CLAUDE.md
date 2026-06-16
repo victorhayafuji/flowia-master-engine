@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.18)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.20)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -91,8 +91,8 @@ flowchart TB
 
 **Regras de acesso:**
 
-- `org_admin`: header `x-organization-id` deve coincidir com `org_id` do JWT → **403** se divergir
-- `professional`: JWT carrega `professional_id`; queries de agenda/overview filtram automaticamente por esse profissional (`professional_scope` dependency). Nav esconde Clientes e Catálogo.
+- `org_admin`: header `x-organization-id` deve coincidir com `org_id` do JWT → **403** se divergir; autoconfigura a Integração WhatsApp da própria org em **Configurações** (`/organizations/whatsapp*`, `tenant_context`)
+- `professional`: JWT carrega `professional_id`; queries de agenda/overview filtram automaticamente por esse profissional (`professional_scope` dependency). Nav esconde Clientes, Catálogo e Configurações.
 - `super_admin`: pode usar `ALL` ou qualquer org válida
 - Rotas admin dev protegidas por `AdminDevRoute` (super_admin + ambiente DEV)
 
@@ -130,6 +130,7 @@ flowchart TB
 | **Handoff** | Transferência humana | `request_human_handoff` |
 
 - Sem CRM B2B / leads BANT no MVP salão (`PRODUCT_LINE=salon`)
+- **Conexão self-service (modelo "cliente traz a própria conta"):** o `org_admin` configura as credenciais Meta da própria org na tela **Configurações** (`features/settings/Settings.tsx` → `/organizations/whatsapp*`), com teste de conexão real na Graph API e exibição da URL do webhook + verify token para colar na Meta. Onboarding "um clique" (Embedded Signup) é **futuro** — ver [§36](#36-roadmap-futuro-não-mvp) Cap. 5
 - Mensagens mascaradas nos logs (LGPD): primeiros 15 caracteres apenas
 - Dedup inbound por `message_id` via tabela `webhook_message_dedup` (insert-before-process; purge automático — ver §20)
 - **Datas de referência no suporte:** `support_executor.py` resolve passado (`faltei ontem`, `cancelar anteontem`) via `extract_reference_date_from_text`; injeta `[DATA REFERIDA PELO CLIENTE]` no prompt; resposta determinística consulta KB antes do LLM
@@ -179,6 +180,7 @@ flowchart TB
 | Agenda — **Operacional** (Gantt/timeline, default) + **Semana** (1 profissional) | Sim | Sim (própria linha) | Sim | — | Ativo |
 | Clientes (`/patients`) | Sim | Não | Sim | — | Ativo |
 | Catálogo (serviços + profissionais + horários/M:N) | Sim | Não | Sim | — | Ativo |
+| Configurações — Integração WhatsApp (self-service) | Sim | Não | Sim | — | Ativo |
 | Data Lake (upload, sync, RAG) | Não | Não | Não | Sim | Ativo (dev) |
 | Observabilidade agente (lite) | Sim | Não | Sim | — | Ativo — Overview cards |
 | Observabilidade agente (técnica) | Não | Não | Sim | — | Ativo — `/admin/observability` |
@@ -428,6 +430,9 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 |--------|------|-----------|
 | POST | `/` | Criar org (super_admin) |
 | PATCH | `/{organization_id}/whatsapp` | Credenciais Meta por org (super_admin) |
+| GET | `/whatsapp` | Config WhatsApp da própria org (tenant_context; **token mascarado** + `verify_token` + `webhook_url` público do Render) |
+| PATCH | `/whatsapp` | Atualiza credenciais WhatsApp da própria org (tenant_context; token vazio = mantém o atual) |
+| POST | `/whatsapp/test` | Testa credenciais na Graph API Meta (tenant_context; body opcional → usa token salvo) |
 | GET | `/` | Listar orgs |
 | POST/GET | `/services` | CRUD catálogo serviços (aceita `professional_ids` M:N) |
 | PUT | `/services/{service_id}` | Atualizar serviço (inclui `professional_ids`) |
@@ -758,6 +763,8 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 | Checkpoint thread legado | Leitura fallback phone-only (1 release); escrita sempre `{org_id}:{phone}` | Sem migração em massa de checkpoints |
 | WhatsApp fila | Tabela `whatsapp_inbound_jobs` FIFO + worker Render (`WHATSAPP_QUEUE_MODE=inline\|worker`) | Inline default até Meta live; serialização por thread_id |
 | Webhook tenant | Fail-closed sem `phone_number_id` válido | Mensagem ignorada (ack 200 Meta) |
+| WhatsApp app secret (assinatura inbound) | `WHATSAPP_APP_SECRET` **global** | No modelo "cliente traz a própria conta" (N apps Meta), uma única app secret **não** valida `X-Hub-Signature` de todos; segurança inbound se apoia na resolução fail-closed por `phone_number_id`. App secret por org exigiria migration — não feito |
+| WhatsApp verify token exposto ao org_admin | `GET /organizations/whatsapp` devolve `verify_token` | Necessário p/ o dono configurar o webhook; segredo compartilhado de baixa sensibilidade (só serve ao handshake de subscription) |
 | LGPD retention | Purge checkpoints + conversation_metrics (scheduler) | Agendamentos anonimizados após erase; Data Lake Bronze sem purge automático por tenant |
 | Consentimento WhatsApp | Aviso 1ª msg; consent tácito 2ª msg | Opt-in explícito SIM/NÃO — fase 2 se exigido |
 | Rate limiting geral (slowapi) + cooldowns | In-process (memória do worker) | **Pré-requisito de escala:** mover para backend compartilhado (Postgres/Redis) antes de `scale>1` — ver [Parte VIII §48.3](#483-rate-limiting-distribuído-pré-requisito-de-scale1) |
@@ -1050,6 +1057,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `PROD_SMOKE_PASSWORD` | Dev/smoke | Senha piloto para `smoke_hybrid_prod.py` — não commitar |
 | `SCHEDULER_ENABLED` | Opcional | true em prod, false em CI |
 | `WEBHOOK_DEDUP_RETENTION_DAYS` | Opcional | TTL purge dedup WhatsApp (default 7) |
+| `PUBLIC_API_URL` | Opcional | URL pública da API p/ exibir o webhook no dashboard (default `https://flowia-api.onrender.com/api/v1`; override só p/ domínio próprio) |
 | `COOKIE_SECURE` | Prod | true com HTTPS |
 | `ALLOWED_ORIGINS` | Prod | URL dashboard produção (CORS) |
 | `ALLOWED_HOSTS` | Prod | Hostname da API (`TrustedHostMiddleware`) |
@@ -1153,7 +1161,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | 2 — Sales Analytics | **Futuro** | SG-Vendas, faturamento — **isolado do chatbot** |
 | 3 — Workspace Analítico | Concluído | Data Lake UI, SQL editor |
 | 4 — Agendamento Multi-Tenant | Concluído | RLS, lembretes, no-show |
-| 5 — Omnichannel WhatsApp | Bloqueado | Webhook prod: `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`; aguardando credenciais Meta — [`docs/WHATSAPP_SETUP.md`](docs/WHATSAPP_SETUP.md) |
+| 5 — Omnichannel WhatsApp | Bloqueado | Webhook prod: `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`; aguardando credenciais Meta — [`docs/WHATSAPP_SETUP.md`](docs/WHATSAPP_SETUP.md). **Conexão self-service** (org_admin cola credenciais + teste em Configurações) **ativa**; **Embedded Signup** (onboarding "um clique" via popup Facebook) é **futuro** — requer FlowIA virar Tech Provider aprovado pela Meta |
 | 6 — Customer Journey Intelligence | **Futuro** | [Parte VIII §42](#42-epic-customer-journey-intelligence) · [`docs/ROADMAP.md`](docs/ROADMAP.md) Cap. 6 |
 | 7 — Reagendamento Inteligente (no-show / atraso) | **Futuro** | [Parte VIII §49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) · [`docs/ROADMAP.md`](docs/ROADMAP.md) Cap. 7 |
 
@@ -1288,6 +1296,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.17 | Jun/2026 | Gate de cobertura backend 30 → 50 (§48.5, cobertura real 70.71%) |
 | 1.18 | Jun/2026 | Toolchain frontend Vite 5 → 7 concluído (§48.4, §9, §43): Vite 7.3 / Vitest 3.2 / plugin-react 4.7; build+vitest+eslint+E2E verdes no Node 22 |
 | 1.19 | Jun/2026 | Padronização **Node 24 LTS** (§9, §48.4): CI, Render `NODE_VERSION`, `engines >=24`, `.node-version`, `.npmrc` `engine-strict`, `start_flowia.bat` |
+| 1.20 | Jun/2026 | **Integração WhatsApp self-service** (§13, §5, §3, §4.2, §20, §36): rotas tenant-scoped `GET/PATCH/POST /organizations/whatsapp*` (token mascarado, teste real na Graph API), tela Configurações para org_admin (modelo "cliente traz a própria conta"); Embedded Signup permanece futuro; limitações app secret/verify token registradas |
 
 ---
 

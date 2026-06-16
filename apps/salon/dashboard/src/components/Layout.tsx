@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Outlet, Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
-import { LayoutDashboard, Calendar, Settings, LogOut, Users, Database, MessageSquare, Activity, Menu, X } from "lucide-react"
+import { LayoutDashboard, Calendar, Settings, LogOut, Users, Database, MessageSquare, MessageCircle, Activity, Menu, X } from "lucide-react"
 
 export function Layout() {
   const { signOut, user, organizationName, organizations, organizationId, setSelectedOrgId } = useAuth()
@@ -35,6 +35,7 @@ export function Layout() {
       : [
           { label: "Clientes", path: "/patients", icon: Users },
           { label: "Catálogo", path: "/catalog", icon: Settings },
+          { label: "Configurações", path: "/settings", icon: MessageCircle },
         ]),
   ]
 

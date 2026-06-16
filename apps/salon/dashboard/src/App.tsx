@@ -12,6 +12,7 @@ const Overview = lazy(() => import("./pages/Overview").then(m => ({ default: m.O
 const Agenda = lazy(() => import("./pages/Agenda").then(m => ({ default: m.Agenda })))
 const Catalog = lazy(() => import("./pages/Catalog").then(m => ({ default: m.Catalog })))
 const Patients = lazy(() => import("./pages/Patients").then(m => ({ default: m.Patients })))
+const Settings = lazy(() => import("./pages/Settings").then(m => ({ default: m.Settings })))
 const DataLake = lazy(() => import("./pages/DataLake").then(m => ({ default: m.DataLake })))
 const ChatTest = lazy(() => import("./pages/ChatTest").then(m => ({ default: m.ChatTest })))
 const AgentObservability = lazy(() =>
@@ -46,6 +47,11 @@ function App() {
                 <Route path="/catalog" element={
                   <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
                     <Catalog />
+                  </Suspense>
+                } />
+                <Route path="/settings" element={
+                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                    <Settings />
                   </Suspense>
                 } />
               </Route>

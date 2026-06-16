@@ -54,6 +54,47 @@ class WhatsAppService:
         lowered = value.lower()
         return any(lowered.startswith(p.lower()) for p in MOCK_TOKEN_PREFIXES)
 
+    async def verify_credentials(self, phone_id: str, token: str) -> dict:
+        """
+        Read-only check of WhatsApp credentials against the Graph API.
+        Returns {ok, verified_name, display_phone_number} on success,
+        or {ok: False, error: <friendly message>} — never leaks token/stack.
+        """
+        phone_id = (phone_id or "").strip()
+        token = (token or "").strip()
+        if not phone_id or not token:
+            return {"ok": False, "error": "Informe o phone_number_id e o token de acesso."}
+        if self._is_placeholder(token):
+            return {"ok": False, "error": "Token de acesso inválido (valor de exemplo)."}
+
+        url = f"{self.base_url}/{phone_id}"
+        params = {"fields": "verified_name,display_phone_number", "access_token": token}
+        try:
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                data = response.json()
+            return {
+                "ok": True,
+                "verified_name": data.get("verified_name"),
+                "display_phone_number": data.get("display_phone_number"),
+            }
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            logger.warning("WhatsApp credential check failed: HTTP %s", status or "?")
+            if status == 404:
+                return {"ok": False, "error": "phone_number_id não encontrado na Meta. Confira o ID."}
+            return {
+                "ok": False,
+                "error": "Credenciais inválidas ou sem permissão. Verifique o phone_number_id e o token.",
+            }
+        except Exception as exc:
+            logger.warning("WhatsApp credential check error: %s", type(exc).__name__)
+            return {
+                "ok": False,
+                "error": "Não foi possível validar as credenciais agora. Tente novamente em instantes.",
+            }
+
     async def _post_message(self, phone_id: str, token: str, payload: dict) -> bool:
         url = f"{self.base_url}/{phone_id}/messages"
         headers = {

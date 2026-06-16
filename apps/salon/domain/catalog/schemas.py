@@ -30,6 +30,30 @@ class OrganizationWhatsAppUpdate(BaseModel):
     whatsapp_access_token: str | None = None
     whatsapp_business_id: str | None = None
 
+
+class WhatsAppConfigResponse(BaseModel):
+    """Read view of an org's WhatsApp config — token is never returned raw."""
+    whatsapp_phone_id: str | None = None
+    whatsapp_business_id: str | None = None
+    token_configured: bool = False
+    token_preview: str | None = None
+    verify_token: str | None = None
+    webhook_url: str | None = None
+
+
+class WhatsAppTestRequest(BaseModel):
+    """Credentials to validate against the Meta Graph API. Blank fields fall back to stored values."""
+    whatsapp_phone_id: str | None = None
+    whatsapp_access_token: str | None = None
+
+
+class WhatsAppTestResponse(BaseModel):
+    ok: bool
+    verified_name: str | None = None
+    display_phone_number: str | None = None
+    error: str | None = None
+
+
 class ServiceCatalogBase(BaseModel):
     name: str
     description: str | None = None
