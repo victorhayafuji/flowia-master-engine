@@ -99,3 +99,25 @@ export const updateAppointmentStatus = (
   status: string,
   orgHeader: Record<string, string> = {},
 ) => api.patch(`/scheduling/calendar/${id}/status`, { status }, orgHeader)
+
+export interface WhatsAppConfigPayload {
+  whatsapp_phone_id?: string
+  whatsapp_access_token?: string
+  whatsapp_business_id?: string
+}
+
+/** Read the org's WhatsApp config (token is returned masked). */
+export const getWhatsAppConfig = (orgHeader: Record<string, string> = {}) =>
+  api.get('/organizations/whatsapp', orgHeader)
+
+/** Update the org's WhatsApp credentials. A blank token keeps the current one. */
+export const updateWhatsAppConfig = (
+  payload: WhatsAppConfigPayload,
+  orgHeader: Record<string, string> = {},
+) => api.patch('/organizations/whatsapp', payload, orgHeader)
+
+/** Validate WhatsApp credentials against the Meta Graph API. */
+export const testWhatsAppConfig = (
+  payload: { whatsapp_phone_id?: string; whatsapp_access_token?: string },
+  orgHeader: Record<string, string> = {},
+) => api.post('/organizations/whatsapp/test', payload, orgHeader)

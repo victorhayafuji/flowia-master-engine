@@ -38,6 +38,16 @@ def verticals_for_product_line(product_line: str) -> list[str]:
     return PRODUCT_LINE_VERTICALS.get(product_line, [product_line])
 
 
+def mask_secret(value: str | None) -> str | None:
+    """Returns a masked preview (last 4 chars) of a secret, never the raw value."""
+    token = (value or "").strip()
+    if not token:
+        return None
+    if len(token) <= 4:
+        return "••••"
+    return f"••••{token[-4:]}"
+
+
 def raise_on_whatsapp_phone_conflict(exc: Exception) -> None:
     err = str(exc).lower()
     if "23505" in err or "duplicate" in err or "unique" in err:
