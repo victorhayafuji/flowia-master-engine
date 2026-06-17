@@ -88,26 +88,3 @@ jobs:
 
       - name: E2E auth, agenda, chat scheduling (mock API)
         run: npm run test:e2e -- e2e/auth-nav.spec.ts e2e/agenda.spec.ts e2e/chat-test-scheduling.spec.ts
-
-  landing:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/landing
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: apps/landing/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: ESLint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build

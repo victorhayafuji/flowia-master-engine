@@ -3,7 +3,7 @@
 > Step 7 do [`scripts/onboard_tenant.py`](../../scripts/onboard_tenant.py)
 
 - [ ] `PRIVACY_CONTACT_EMAIL` configurado em produção
-- [ ] `PRIVACY_POLICY_URL` aponta para landing `/privacidade` live
+- [ ] `PRIVACY_POLICY_URL` aponta para o site externo (`https://www.gaussix.com/privacidade`) live
 - [ ] Salão informado: **controlador** dos dados dos clientes finais
 - [ ] Contrato/comercial menciona operadora Gaussix + [`PRIVACIDADE.md`](PRIVACIDADE.md)
 - [ ] Smoke: primeira mensagem WhatsApp ou chat test retorna **aviso LGPD**

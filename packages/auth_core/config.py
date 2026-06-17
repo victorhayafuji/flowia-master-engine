@@ -73,7 +73,7 @@ class Settings(BaseSettings):
 
     # LGPD / Privacy
     PRIVACY_CONTACT_EMAIL: str = "privacidade@exemplo.com"
-    PRIVACY_POLICY_URL: str = "http://localhost:5174/privacidade"
+    PRIVACY_POLICY_URL: str = "https://www.gaussix.com/privacidade"
     CONVERSATION_METRICS_RETENTION_DAYS: int = 365
     CHECKPOINT_RETENTION_DAYS: int = 90
 

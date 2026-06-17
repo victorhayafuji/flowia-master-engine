@@ -136,7 +136,7 @@ Executar **após** Trilha A; **não** reutilizar secrets pessoais.
 
 ### B3. Render corporativo
 
-- [ ] Recriar `flowia-api` (Starter), `flowia-dashboard`, `flowia-landing`
+- [ ] Recriar `flowia-api` (Starter), `flowia-dashboard`
 - [ ] Env prod: ver tabela em [`PRODUCTION.md`](PRODUCTION.md) § LGPD
 - [ ] **`WHATSAPP_APP_SECRET`** definido antes de Meta
 - [ ] **`SIM_WHATSAPP_ORG_ID`** ausente

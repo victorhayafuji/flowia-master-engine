@@ -247,7 +247,8 @@ sequenceDiagram
 | **Futuras implementações (todas)** | **Futuro** | Índice consolidado na [Parte VIII §43](#43-índice-consolidado-de-itens-futuros) — **não implementar** sem aprovação explícita |
 | Reagendamento inteligente (no-show / atraso) | **Futuro** | Recuperação proativa, cascata de atraso, tools reschedule/cancel, reativação — [Parte VIII §49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) |
 | Pagamento / convênios | **STUB** | Schema `appointment_payments` + `packages/integrations/payments` (NoOp); flag `integrations.payments.enabled=false`; execução deferida (Fase 2) |
-| `src/`, `dashboard/` raiz, `.agent/` | **Proibido recriar** | Migrado para `packages/` + `apps/salon/` |
+| `apps/landing/` (site marketing) | **Removido** | Erro de trajetória — landing migrada para projeto externo (gaussix.com). Dashboard linka Privacidade/Termos via `VITE_LANDING_URL` (default `https://www.gaussix.com`) |
+| `src/`, `dashboard/` raiz, `.agent/`, `apps/landing/` | **Proibido recriar** | Migrado para `packages/` + `apps/salon/`; landing fora do monorepo |
 
 ---
 

@@ -6,7 +6,6 @@ Hosting confirmado para produção multi-tenant:
 |------------|--------|------|
 | API FastAPI | `flowia-api` | Web Service (Python) |
 | Dashboard SPA | `flowia-dashboard` | Static Site |
-| Landing marketing | `flowia-landing` | Static Site |
 | Banco | Supabase (externo) | PostgreSQL + RLS |
 
 Blueprint IaC: [`render.yaml`](../render.yaml) na raiz do repo.
@@ -126,36 +125,17 @@ O [`render.yaml`](../render.yaml) inclui rewrite `/* → /index.html`. Fallback 
 
 Após obter URL final do Static Site, **atualizar `ALLOWED_ORIGINS`** na API.
 
----
+### Homologação — conferir Node 24 no Static Site
 
-## 4b. Deploy Landing — Render Static Site
-
-| Campo | Valor |
-|-------|-------|
-| Nome | `flowia-landing` |
-| Root | `apps/landing` |
-| Build | `npm ci && npm run build` |
-| Publish | `dist` |
-
-Sem env vars obrigatórias de runtime (CTA `mailto:` estático).
-
-| Variável | Valor |
-|----------|-------|
-| `NODE_VERSION` | `24` (alinhado ao monorepo — `engines >=24` em `apps/landing/package.json`) |
-| `VITE_DEMO_EMAIL` | opcional — contato no build (default no blueprint: `contato@gaussix.com.br`) |
-
-URL esperada: https://flowia-landing.onrender.com — registrar em [`PRODUCTION.md`](PRODUCTION.md).
-
-### Homologação — conferir Node 24 nos Static Sites
-
-Após merge na `main` (ou antes do go-live), validar **cada** Static Site no Render Dashboard:
+Após merge na `main` (ou antes do go-live), validar o Static Site no Render Dashboard:
 
 | Serviço | Env var | Valor esperado |
 |---------|---------|----------------|
 | `flowia-dashboard` | `NODE_VERSION` | `24` |
-| `flowia-landing` | `NODE_VERSION` | `24` |
 
 Se o serviço foi criado antes do pin: **Environment → Add** `NODE_VERSION=24` → **Manual Deploy**. No log de build, a primeira linha deve indicar Node **24.x**. O [`render.yaml`](../render.yaml) na raiz já declara `NODE_VERSION: "24"` para novos syncs de Blueprint.
+
+> A landing de marketing **não** faz parte deste monorepo — foi migrada para projeto externo (gaussix.com).
 
 ---
 
@@ -207,6 +187,5 @@ Registro canônico: [`PRODUCTION.md`](PRODUCTION.md).
 |---------|-----|
 | API | https://flowia-api.onrender.com |
 | Dashboard | https://flowia-dashboard.onrender.com |
-| Landing | https://flowia-landing.onrender.com |
 | Supabase (piloto) | https://vwhsivwoiiicydanypmo.supabase.co |
 | Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/webhook/whatsapp |

@@ -1,7 +1,7 @@
 # Gaussix — Backlog site institucional (ciclo futuro)
 
 > **Escopo:** site da **empresa** (Gaussix), não do produto FlowIA.  
-> Landing FlowIA: [`apps/landing/`](../apps/landing/) · Copy produto: [`FLOWIA_LANDING_COPY.md`](FLOWIA_LANDING_COPY.md)
+> Landing FlowIA: projeto externo (gaussix.com — removida do monorepo) · Copy produto: [`FLOWIA_LANDING_COPY.md`](FLOWIA_LANDING_COPY.md)
 
 ---
 

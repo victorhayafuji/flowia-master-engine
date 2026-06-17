@@ -115,7 +115,7 @@ Exceções em [`packages/auth_core/exceptions.py`](../packages/auth_core/excepti
 ## 3. Frontend (Dashboard)
 
 - **Local:** `apps/salon/dashboard/`
-- **Framework:** React 18 + Vite 7 (dashboard); landing em Vite 5.4 — ambos com Node 24 LTS (CI/Render)
+- **Framework:** React 18 + Vite 7 (dashboard) — Node 24 LTS (CI/Render)
 - **Roteamento:** React Router v7 com `ProtectedRoute`
 - **API client:** `apps/salon/dashboard/src/shared/lib/api.ts`
 - **Auth:** `AuthContext` consulta `/auth/me` no mount
@@ -169,5 +169,5 @@ Implementação: `packages/engine/llm.py`, `packages/auth_core/openai_client.py`
 ## 7. Qualidade e CI
 
 - **Python:** Ruff + pytest (coverage ≥ 30% em `packages/` e `apps/salon/`)
-- **Frontend:** ESLint + Vitest 3 + build Vite 7 em `apps/salon/dashboard/`; landing Vite 5.4
+- **Frontend:** ESLint + Vitest 3 + build Vite 7 em `apps/salon/dashboard/`
 - **CI:** `.github/workflows/ci.yml`

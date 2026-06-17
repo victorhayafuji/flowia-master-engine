@@ -6,7 +6,6 @@
 |--------|-----------|---------|
 | Motor compartilhado | `packages/` | LangGraph, lakehouse, scheduling |
 | Produto salão | `apps/salon/` | prompts, seeds, dashboard, api |
-| Landing marketing | `apps/landing/` | site público FlowIA (sem auth) |
 | Produto clínica | `apps/clinic/` (futuro) | prompts clínicos, UI pacientes |
 | Deploy compartilhado | `deployments/multi-tenant/` | SaaS multi-tenant |
 | Cliente dedicado | `deployments/tenants/{slug}/` | só `.env` + branding |

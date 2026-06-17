@@ -114,23 +114,3 @@ services:
         sync: false
       - key: VITE_SUPABASE_KEY
         sync: false
-
-  - type: web
-    name: flowia-landing
-    runtime: static
-    plan: starter
-    region: oregon
-    rootDir: apps/landing
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    autoDeploy: true
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      # Pin Node 24 LTS to match CI, .node-version, and package.json engines.
-      - key: NODE_VERSION
-        value: "24"
-      - key: VITE_DEMO_EMAIL
-        value: contato@gaussix.com.br
