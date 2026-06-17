@@ -18,7 +18,6 @@ Registro operacional do deploy Render (Jun/2026). Detalhes de deploy: [`RENDER.m
 |---------|-----|-------|
 | API Render | https://flowia-api.onrender.com | Web Service `flowia-api` (`srv-d8if4437uimc73ammat0`) |
 | Dashboard Render | https://flowia-dashboard.onrender.com | Static Site `flowia-dashboard` (`srv-d8if463tqb8s73b38rog`) |
-| Landing FlowIA | https://flowia-landing.onrender.com | Static Site `flowia-landing` (`srv-d8jl0mhkh4rs73e8o0vg`) — **live** Jun/2026 |
 | Supabase | https://vwhsivwoiiicydanypmo.supabase.co | Piloto: mesmo projeto do dev local |
 | Webhook WhatsApp (futuro) | https://flowia-api.onrender.com/api/v1/webhook/whatsapp | Aguardando credenciais Meta |
 
@@ -57,7 +56,7 @@ Cadência fixa (~1–2h) enquanto o produto amadurece sem WhatsApp Meta. Detalhe
 |--------------|------|
 | Pós-deploy | Smokes automatizados (bloco abaixo) |
 | Semanal | Checklist manual #7 e #8 (procedimento abaixo) |
-| Semanal | Revisar CI GitHub Actions — backend, dashboard, E2E, landing |
+| Semanal | Revisar CI GitHub Actions — backend, dashboard, E2E |
 
 ### Checklist manual #7 — CRUD cliente + agenda (prod)
 
@@ -137,7 +136,7 @@ Esperado: `channel=chat_test`, `scheduling_path=deterministic`, `agent_type=sche
 | 8 | Chat Test badges (super_admin DEV) | API pós-consent + DEV UI | 2026-06-07 | Sim (API: path=deterministic; UI badges DEV local) |
 | 9 | `conversation_metrics` observability | Supabase SQL | 2026-06-08 | Sim |
 | 10 | Migration `20260610060000` aplicada | `list_db_migrations.py` | 2026-06-07 | Sim (22 total) |
-| 11 | Landing `/privacidade` live | HTTP + browser | 2026-06-07 | Sim |
+| 11 | Privacidade/Termos (`VITE_LANDING_URL`) | HTTP + browser | 2026-06-17 | Migrado p/ site externo (gaussix.com) |
 | 12 | Chat Test aviso LGPD (L1/L2) | API `/chat/test` | 2026-06-07 | Sim |
 | 13 | Export/Erase Clientes (L3/L4) | API compliance | 2026-06-07 | Sim (após fix `717dda9`) |
 
@@ -204,7 +203,7 @@ Secrets: Render Environment (sync off) — nunca commitar.
 
 | Variável | Valor prod | Notas |
 |----------|------------|-------|
-| `PRIVACY_POLICY_URL` | `https://flowia-landing.onrender.com/privacidade` | Configurado pós-deploy landing |
+| `PRIVACY_POLICY_URL` | `https://www.gaussix.com/privacidade` | Aponta para o site externo (landing migrada para fora do monorepo) |
 | `PRIVACY_CONTACT_EMAIL` | *(default código)* `privacidade@exemplo.com` | **Trocar antes do 1º cliente pagante** |
 | `SCHEDULER_ENABLED` | `true` | Retenção LGPD + dedup webhook |
 | `CONVERSATION_METRICS_RETENTION_DAYS` | default `365` | Opcional no Dashboard |
@@ -339,12 +338,8 @@ Razões de clarificação: `week_without_weekday`, `multiple_weekdays`, `past_th
 
 ## Landing FlowIA (marketing)
 
-| Campo | Valor |
-|-------|-------|
-| Serviço Render | `flowia-landing` (Static Site `srv-d8jl0mhkh4rs73e8o0vg`) |
-| URL | https://flowia-landing.onrender.com |
-| Código | [`apps/landing/`](../apps/landing/) |
-| Deploy | Criado via Render API Jun/2026; auto-deploy `main` |
-| Status | **Live** — `/`, `/privacidade`, `/termos` HTTP 200 |
+A landing de marketing foi **migrada para projeto externo** (gaussix.com) e não faz mais parte deste monorepo (`apps/landing/` removido). O dashboard linka Privacidade/Termos via `VITE_LANDING_URL` (default `https://www.gaussix.com`) e o backend usa `PRIVACY_POLICY_URL`.
 
-Copy e SEO: [`docs/marketing/FLOWIA_LANDING_COPY.md`](marketing/FLOWIA_LANDING_COPY.md).
+> Ação manual pendente no Render: remover o Static Site `flowia-landing` (`srv-d8jl0mhkh4rs73e8o0vg`) e ajustar `PRIVACY_POLICY_URL` no `flowia-api`.
+
+Copy e SEO de referência (histórico): [`docs/marketing/FLOWIA_LANDING_COPY.md`](marketing/FLOWIA_LANDING_COPY.md).

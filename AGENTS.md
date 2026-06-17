@@ -15,7 +15,7 @@ SaaS multi-tenant para salões (`PRODUCT_LINE=salon`).
 | AI | LangGraph ≥1.0, langchain-openai, OpenAI |
 | Modelos | `gpt-4o-mini` (chat), `gpt-4o` (OCR), `text-embedding-3-small` (RAG) — ver `CLAUDE.md` §9 |
 | DB | Supabase ≥2.3, PostgreSQL + RLS, psycopg3 |
-| Frontend | React 18.3, Vite 7.3 (dashboard) / 5.4 (landing), TS 5.6, Tailwind 4.3, React Router 7.16 |
+| Frontend | React 18.3, Vite 7.3 (dashboard), TS 5.6, Tailwind 4.3, React Router 7.16 |
 | Test/Lint | pytest 8, ruff, vitest 3, Playwright, ESLint 9 |
 
 ## Onde editar
@@ -48,7 +48,6 @@ python scripts/smoke_prod.py --api-url https://flowia-api.onrender.com --dashboa
 python scripts/smoke_hybrid_prod.py --api-url https://flowia-api.onrender.com  # PROD_SMOKE_PASSWORD no .env
 python scripts/smoke_agent.py --api-url https://flowia-api.onrender.com/api/v1
 python scripts/onboard_tenant.py --checklist   # runbook 1º cliente pagante
-cd apps/landing && npm run dev                 # landing marketing local
 start_flowia.bat   # Windows: backend + frontend
 ```
 

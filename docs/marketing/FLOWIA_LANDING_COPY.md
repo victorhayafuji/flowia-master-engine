@@ -1,6 +1,8 @@
 # FlowIA Landing — Copy PT-BR (MVP)
 
-Fonte de verdade para [`apps/landing/`](../apps/landing/). Tom: direto, Neo-Swiss, sem jargão excessivo.
+> **Nota:** a landing foi migrada para projeto externo (gaussix.com); `apps/landing/` não existe mais no monorepo. Esta copy fica como referência histórica.
+
+Tom: direto, Neo-Swiss, sem jargão excessivo.
 
 ---
 

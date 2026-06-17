@@ -44,4 +44,4 @@ disable-model-invocation: true
 ## Env obrigatórias produção
 
 - `PRIVACY_CONTACT_EMAIL`
-- `PRIVACY_POLICY_URL` (landing `/privacidade`)
+- `PRIVACY_POLICY_URL` (site externo, ex.: `https://www.gaussix.com/privacidade`)
