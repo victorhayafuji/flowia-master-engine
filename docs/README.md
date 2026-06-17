@@ -24,6 +24,7 @@
 | Boundaries | [PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md) | Grafo de dependências |
 | Data Lake | [data-lake.md](data-lake.md) | Pipeline Medallion |
 | Ops / Deploy | [STAGING.md](STAGING.md) | Checklist staging |
+| Releases | [RELEASING.md](RELEASING.md) | Versionamento SemVer, fixes, updates, tag + GitHub Release |
 | Render | [RENDER.md](RENDER.md) | Deploy API + dashboard no Render |
 | Produção | [PRODUCTION.md](PRODUCTION.md) | URLs, smoke, rollback |
 | WhatsApp | [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) | Meta Cloud API por tenant |
