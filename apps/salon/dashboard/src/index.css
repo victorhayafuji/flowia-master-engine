@@ -1,48 +1,52 @@
 @import "tailwindcss";
 
 @theme {
-  /* Neo-Swiss Brutalist Palette - Vermillion Accent */
-  --color-brand-50: #fff4ed;
-  --color-brand-100: #ffe6d5;
-  --color-brand-200: #feccaa;
-  --color-brand-300: #fdb074;
-  --color-brand-400: #fa8839;
-  --color-brand-500: #f6660a; 
-  --color-brand-600: #e75107;
-  --color-brand-700: #bf3b07;
-  --color-brand-800: #982f0e;
-  --color-brand-900: #7b290f;
-  
-  /* Modern premium typography */
-  --font-sans: "Outfit", "Inter", system-ui, sans-serif;
+  /* GAUSSIX palette — Deep Tech Purple ramp (mirrors the landing page brand) */
+  --color-brand-50: #f4ecff;
+  --color-brand-100: #e6d3ff;
+  --color-brand-200: #cba6f9;
+  --color-brand-300: #b07cf2;
+  --color-brand-400: #9a52ec;
+  --color-brand-500: #8b2cf6;
+  --color-brand-600: #7a1fd6;
+  --color-brand-700: #5a18a8;
+  --color-brand-800: #45148a;
+  --color-brand-900: #2f0f63;
+
+  /* GAUSSIX typography — Michroma (display/wordmark), Space Grotesk (body), JetBrains Mono (data) */
+  --font-sans: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-display: "Michroma", "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  /* Overriding standard border radius to FORCE sharp edges */
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  --radius-2xl: 0px;
-  --radius-3xl: 0px;
+  /* Soft, premium radii (replaces brutalist zero-radius) */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+  --radius-3xl: 28px;
 }
 
-/* Custom properties for fluid themes */
+/* GAUSSIX dark-first theme tokens */
 :root {
-  --background: #fdfbf7; /* Bone White for Clinical Cleanliness */
-  --foreground: #121212; /* Deep Charcoal */
-  --surface: #ffffff;
-  --border: #121212; /* High contrast raw borders */
-  --accent: #f6660a;
-}
+  --background: #0c0a12;        /* Softened near-black (GAUSSIX bg is #06050A) */
+  --surface: #14111c;          /* Lifted solid panel */
+  --surface-glass: rgba(255, 255, 255, 0.045); /* Translucent glass over the dark bg */
+  --foreground: #eceaf2;       /* GAUSSIX ink */
+  --muted: rgba(236, 234, 242, 0.55);          /* Secondary text */
+  --border: rgba(236, 234, 242, 0.12);         /* Subtle light hairline on dark */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #fdfbf7;
-    --surface: #121212;
-    --border: rgba(253, 251, 247, 0.2);
-    --accent: #f6660a;
-  }
+  --accent: #8b2cf6;           /* Deep Tech Purple — primary accent */
+  --accent-2: #f86606;         /* Kinetic Orange — secondary accent */
+  --accent-deep: #5a18a8;
+  --purple-soft: rgba(139, 44, 246, 0.14);
+  --orange-soft: rgba(248, 102, 6, 0.14);
+  --grad: linear-gradient(100deg, #8b2cf6 0%, #b23fae 48%, #f86606 100%);
+
+  /* Semantic colors (legible on dark) */
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #fb7185;
 }
 
 body {
@@ -63,8 +67,8 @@ body {
 @utility hover-lift {
   @apply spring-transition;
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: 4px 4px 0px 0px var(--border);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -10px var(--purple-soft), 0 0 0 1px var(--border);
   }
 }
 
@@ -72,27 +76,73 @@ body {
   @apply spring-transition;
   &:active {
     transform: translateY(0px);
-    box-shadow: 0px 0px 0px 0px var(--border);
+    box-shadow: none;
   }
 }
 
-/* Base interactive elements */
+/* Base interactive elements — gradient accent + glow (was hard offset shadow) */
 @utility btn-brutal {
-  background-color: var(--foreground);
-  color: var(--background);
-  border: 1px solid var(--border);
+  background-image: var(--grad);
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
   @apply hover-lift active-press;
 }
 
+/* Solid lifted card — soft elevation + hairline (was 4px offset shadow) */
 @utility card-brutal {
   background-color: var(--surface);
   border: 1px solid var(--border);
-  /* Sharp shadows instead of soft blurs */
-  box-shadow: 4px 4px 0px 0px var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.7);
   @apply spring-transition;
+}
+
+/* Translucent glass surface (GAUSSIX glass/depth motif) */
+@utility glass-panel {
+  background-color: var(--surface-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.75);
+}
+
+/* Purple glow halo for accent surfaces */
+@utility glow-accent {
+  box-shadow: 0 0 0 1px var(--purple-soft), 0 8px 28px -8px rgba(139, 44, 246, 0.5);
+}
+
+/* Tri-color gradient text (wordmark / hero) */
+@utility gradient-text {
+  background-image: var(--grad);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Thin tri-color brand bar (top of the app shell) */
+@utility brand-bar {
+  background-image: var(--grad);
+}
+
+/* Subtle technical grid background */
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 38px 38px;
+}
+
+/* Ambient purple/orange glow background */
+@utility bg-glow {
+  background-image:
+    radial-gradient(60% 50% at 12% 0%, var(--purple-soft) 0%, transparent 60%),
+    radial-gradient(55% 45% at 100% 100%, var(--orange-soft) 0%, transparent 60%);
 }
 
 /* App shell — header fixo, listas com scroll próprio */

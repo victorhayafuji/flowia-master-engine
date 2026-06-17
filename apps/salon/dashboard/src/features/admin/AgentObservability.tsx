@@ -27,13 +27,13 @@ interface ConversationRow {
 }
 
 function PathBadge({ path }: { path: string | null | undefined }) {
-  if (!path) return <span className="text-xs text-slate-400">—</span>
+  if (!path) return <span className="text-xs text-[var(--muted)]">—</span>
   const isDeterministic = path === "deterministic"
   return (
     <span
       className={`inline-block px-1.5 py-0.5 border-2 text-[10px] font-black uppercase ${
         isDeterministic
-          ? "border-emerald-600 text-emerald-700 dark:text-emerald-400"
+          ? "border-[var(--success)] text-[var(--success)]"
           : "border-[var(--accent)] text-[var(--accent)]"
       }`}
     >
@@ -79,12 +79,12 @@ export function AgentObservability() {
           <h1 className="text-2xl font-black uppercase tracking-tight flex items-center gap-2">
             <Activity className="w-6 h-6" /> Observabilidade do agente
           </h1>
-          <p className="text-sm text-slate-500 mt-1 font-mono">
+          <p className="text-sm text-[var(--muted)] mt-1 font-mono">
             KPIs híbridos — últimos 7 dias (plataforma Gaussix)
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-xs font-bold uppercase text-slate-500">Canal</label>
+          <label className="text-xs font-bold uppercase text-[var(--muted)]">Canal</label>
           <select
             value={channelFilter}
             onChange={(e) => setChannelFilter(e.target.value)}
@@ -105,7 +105,7 @@ export function AgentObservability() {
       </div>
 
       {error && (
-        <div className="border-2 border-red-600 bg-red-50 dark:bg-red-950/30 p-4 font-mono text-sm text-red-700 dark:text-red-300">
+        <div className="rounded-[var(--radius-md)] border border-[var(--danger)] bg-[var(--danger)]/10 p-4 font-mono text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
@@ -122,7 +122,7 @@ export function AgentObservability() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-black">{kpi.deterministic_rate_pct}%</p>
-              <p className="text-xs font-mono text-slate-500 mt-1">
+              <p className="text-xs font-mono text-[var(--muted)] mt-1">
                 {kpi.deterministic_count} / {kpi.scheduling_turns} turnos scheduling
               </p>
             </CardContent>
@@ -133,7 +133,7 @@ export function AgentObservability() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-black">{kpi.avg_tokens_scheduling}</p>
-              <p className="text-xs font-mono text-slate-500 mt-1">por turno scheduling</p>
+              <p className="text-xs font-mono text-[var(--muted)] mt-1">por turno scheduling</p>
             </CardContent>
           </Card>
           <Card className="card-brutal">
@@ -148,7 +148,7 @@ export function AgentObservability() {
                 </div>
               ))}
               {Object.keys(kpi.by_channel).length === 0 && (
-                <span className="text-slate-400">Sem dados</span>
+                <span className="text-[var(--muted)]">Sem dados</span>
               )}
             </CardContent>
           </Card>
@@ -158,7 +158,7 @@ export function AgentObservability() {
       <Card className="card-brutal">
         <CardHeader>
           <CardTitle className="text-sm font-black uppercase">Conversas recentes</CardTitle>
-          <p className="text-[10px] font-mono text-slate-500 mt-1 uppercase">
+          <p className="text-[10px] font-mono text-[var(--muted)] mt-1 uppercase">
             Uma linha por thread — último turno · tokens turno / acumulado 7d
           </p>
         </CardHeader>
@@ -177,7 +177,7 @@ export function AgentObservability() {
             </thead>
             <tbody>
               {conversations.map((row) => (
-                <tr key={row.thread_id} className="border-b border-slate-200 dark:border-slate-800">
+                <tr key={row.thread_id} className="border-b border-[var(--border)]">
                   <td className="py-2 pr-4 truncate max-w-[120px]">{row.thread_id?.slice(0, 8)}…</td>
                   <td className="py-2 pr-4">{row.agent_type ?? "—"}</td>
                   <td className="py-2 pr-4">
@@ -191,7 +191,7 @@ export function AgentObservability() {
               ))}
               {conversations.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={7} className="py-4 text-slate-400">
+                  <td colSpan={7} className="py-4 text-[var(--muted)]">
                     Nenhuma conversa registrada
                   </td>
                 </tr>

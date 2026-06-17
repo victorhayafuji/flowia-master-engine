@@ -104,10 +104,10 @@ export function DataLake() {
   }
 
   const statusColor = (s: string) => {
-    if (s === "COMPLETED") return "text-green-600"
-    if (s === "ERROR") return "text-red-600"
-    if (s === "PENDING" || s === "PROCESSING") return "text-amber-600"
-    return "text-slate-600"
+    if (s === "COMPLETED") return "text-[var(--success)]"
+    if (s === "ERROR") return "text-[var(--danger)]"
+    if (s === "PENDING" || s === "PROCESSING") return "text-[var(--warning)]"
+    return "text-[var(--muted)]"
   }
 
   if (!organizationId) {
@@ -127,7 +127,7 @@ export function DataLake() {
               <Database className="w-8 h-8 text-[var(--accent)]" />
               Data Lake
             </h1>
-            <p className="text-slate-500 font-mono text-sm mt-1">
+            <p className="text-[var(--muted)] font-mono text-sm mt-1">
               Bronze → Silver (OCR) → Gold (Vetores RAG)
             </p>
           </div>
@@ -140,7 +140,7 @@ export function DataLake() {
                 onChange={handleUpload}
                 disabled={uploading || !organizationId}
               />
-              <span className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[var(--border)] bg-[var(--foreground)] text-[var(--background)] font-black uppercase text-xs shadow-[4px_4px_0px_0px_var(--accent)]">
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] border border-transparent bg-[image:var(--grad)] text-white font-bold uppercase text-xs glow-accent">
                 <Upload className="w-4 h-4" />
                 {uploading ? "Enviando..." : "Upload"}
               </span>
@@ -159,7 +159,7 @@ export function DataLake() {
             { label: "Gold Vetores", value: status?.gold_vectors ?? 0, layer: "🥇" },
             { label: "Erros", value: status?.bronze_error ?? 0, layer: "⚠️" },
           ].map((item) => (
-            <Card key={item.label} className="border-2 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)]">
+            <Card key={item.label}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-mono uppercase">{item.layer} {item.label}</CardTitle>
               </CardHeader>
@@ -180,7 +180,7 @@ export function DataLake() {
           </CardHeader>
           <CardContent className="panel-scroll flex-1 min-h-0">
             {documents.length === 0 ? (
-              <p className="font-mono text-sm text-slate-500">Nenhum documento ingerido ainda.</p>
+              <p className="font-mono text-sm text-[var(--muted)]">Nenhum documento ingerido ainda.</p>
             ) : (
               <ul className="space-y-2">
                 {documents.map((doc) => (
@@ -192,7 +192,7 @@ export function DataLake() {
                       <p className="font-mono text-sm font-bold truncate max-w-[200px]">{doc.file_name}</p>
                       <p className={`text-xs font-mono uppercase ${statusColor(doc.status)}`}>{doc.status}</p>
                     </div>
-                    <span className="text-xs font-mono text-slate-400">
+                    <span className="text-xs font-mono text-[var(--muted)]">
                       {doc.file_size ? `${Math.round(doc.file_size / 1024)}KB` : ""}
                     </span>
                   </li>
@@ -229,11 +229,11 @@ export function DataLake() {
                   return (
                     <li
                       key={i}
-                      className="p-2 border-l-4 border-[var(--accent)] bg-slate-50 dark:bg-slate-900 font-mono text-xs whitespace-pre-wrap"
+                      className="p-2 border-l-4 border-[var(--accent)] bg-[var(--surface-glass)] font-mono text-xs whitespace-pre-wrap"
                     >
                       {preview}
                       {r.similarity != null && (
-                        <span className="block text-slate-400 mt-1">
+                        <span className="block text-[var(--muted)] mt-1">
                           similaridade: {(r.similarity * 100).toFixed(0)}%
                         </span>
                       )}

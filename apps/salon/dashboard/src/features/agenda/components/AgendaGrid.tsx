@@ -67,11 +67,11 @@ export function AgendaGrid({
       onDragEnd={onDragEnd}
     >
       <div
-        className={`border-4 border-[var(--border)] bg-[var(--surface)] shadow-[8px_8px_0px_0px_var(--border)] ${
+        className={`card-brutal ${
           days.length > 1 ? "min-w-[1000px]" : "w-full"
         }`}
       >
-        <div className="grid border-b-4 border-[var(--border)]" style={{ gridTemplateColumns: gridTemplate }}>
+        <div className="grid border-b border-[var(--border)]" style={{ gridTemplateColumns: gridTemplate }}>
           <div className="p-4 border-r-2 border-[var(--border)] bg-[var(--background)] flex items-center justify-center">
             <Clock className="w-5 h-5 text-[var(--foreground)]" />
           </div>
@@ -252,8 +252,8 @@ function DraggableAppointment({
       style={style}
       {...listeners}
       {...attributes}
-      className={`group flex flex-col p-1.5 overflow-hidden cursor-grab active:cursor-grabbing border-2 border-[var(--border)] bg-[var(--background)] shadow-[3px_3px_0px_0px_var(--border)] ${
-        isOverlay ? "scale-105 shadow-[6px_6px_0px_0px_var(--accent)] border-[var(--accent)] z-50" : ""
+      className={`group flex flex-col p-1.5 overflow-hidden cursor-grab active:cursor-grabbing rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] ${
+        isOverlay ? "scale-105 glow-accent border-[var(--accent)] z-50" : ""
       }`}
     >
       <div className="flex items-center gap-1 pr-0.5">

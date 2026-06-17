@@ -211,8 +211,8 @@ export function Agenda() {
       )}
 
       {agenda.loading ? (
-        <div className="border-4 border-[var(--border)] bg-[var(--surface)] flex-1 min-h-[240px] flex items-center justify-center">
-          <div className="animate-spin rounded-none h-12 w-12 border-4 border-[var(--border)] border-t-[var(--accent)]" />
+        <div className="card-brutal flex-1 min-h-[240px] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-[var(--border)] border-t-[var(--accent)]" />
         </div>
       ) : isMobile ? (
         /* Mobile: the week grid constrained to the single selected day. */

@@ -2,9 +2,10 @@ import { useEffect, useState } from "react"
 import { Outlet, Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { LayoutDashboard, Calendar, Settings, LogOut, Users, Database, MessageSquare, MessageCircle, Activity, Menu, X } from "lucide-react"
+import { Wordmark } from "@/components/ui/Wordmark"
 
 export function Layout() {
-  const { signOut, user, organizationName, organizations, organizationId, setSelectedOrgId } = useAuth()
+  const { signOut, user, organizations, organizationId, setSelectedOrgId } = useAuth()
   const location = useLocation()
   const isDev = import.meta.env.DEV
   const [navOpen, setNavOpen] = useState(false)
@@ -39,26 +40,28 @@ export function Layout() {
         ]),
   ]
 
-  const brandName = organizationName || "Salão"
   const roleLabel =
     user?.role === "super_admin" ? "Operador" : isProfessional ? "Profissional" : "Equipe"
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row font-sans overflow-hidden">
+    <div className="h-screen flex flex-col bg-[var(--background)] bg-glow font-sans overflow-hidden">
+
+      {/* Tri-color GAUSSIX brand bar pinned to the very top. */}
+      <div className="brand-bar h-1 w-full shrink-0" aria-hidden="true" />
+
+      <div className="flex flex-1 min-h-0 flex-col md:flex-row">
 
       {/* Mobile top bar with hamburger — hidden on md+. */}
-      <header className="md:hidden shrink-0 h-14 flex items-center gap-3 px-4 border-b-4 border-[var(--border)] bg-[var(--accent)]">
+      <header className="md:hidden shrink-0 h-14 flex items-center gap-3 px-4 border-b border-[var(--border)] glass-panel rounded-none">
         <button
           type="button"
           aria-label="Abrir menu"
           onClick={() => setNavOpen(true)}
-          className="flex items-center justify-center w-10 h-10 -ml-1 text-[var(--background)]"
+          className="flex items-center justify-center w-10 h-10 -ml-1 text-[var(--foreground)]"
         >
           <Menu className="w-6 h-6" />
         </button>
-        <h2 className="text-lg font-black tracking-tighter text-[var(--background)] uppercase truncate">
-          {brandName}
-        </h2>
+        <Wordmark size="sm" />
       </header>
 
       {/* Backdrop behind the mobile drawer. */}
@@ -71,31 +74,29 @@ export function Layout() {
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 max-w-[85%] bg-[var(--surface)] border-r-4 border-[var(--border)] flex-shrink-0 flex flex-col transform transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 max-w-[85%] glass-panel rounded-none border-r border-[var(--border)] flex-shrink-0 flex flex-col transform transition-transform duration-200 md:translate-x-0 ${
           navOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-16 flex items-center justify-between px-6 border-b-4 border-[var(--border)] bg-[var(--accent)]">
-          <h2 className="text-xl font-black tracking-tighter text-[var(--background)] uppercase truncate">
-            {brandName}
-          </h2>
+        <div className="h-16 flex items-center justify-between px-6 border-b border-[var(--border)]">
+          <Wordmark size="md" />
           <button
             type="button"
             aria-label="Fechar menu"
             onClick={() => setNavOpen(false)}
-            className="md:hidden flex items-center justify-center w-9 h-9 -mr-2 text-[var(--background)]"
+            className="md:hidden flex items-center justify-center w-9 h-9 -mr-2 text-[var(--foreground)]"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {user?.role === "super_admin" && organizations.length > 1 && (
-          <div className="p-4 border-b-2 border-[var(--border)]">
-            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Salão ativo</label>
+          <div className="p-4 border-b border-[var(--border)]">
+            <label className="block text-xs font-bold uppercase text-[var(--muted)] mb-1">Salão ativo</label>
             <select
               value={organizationId || ""}
               onChange={(e) => setSelectedOrgId(e.target.value)}
-              className="w-full border-2 border-[var(--border)] bg-[var(--surface)] px-2 py-1 font-mono text-xs"
+              className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] px-2 py-1 font-mono text-xs focus:outline-none focus:border-[var(--accent)]"
             >
               {organizations.map((org) => (
                 <option key={org.id} value={org.id}>
@@ -111,7 +112,7 @@ export function Layout() {
             const isActive = location.pathname === item.path
             return (
               <Link key={item.path} to={item.path} onClick={() => setNavOpen(false)}>
-                <span className={`flex items-center gap-3 px-3 py-3 border-2 border-[var(--border)] shadow-[3px_3px_0px_0px_var(--border)] text-sm font-black uppercase transition-all ${isActive ? "bg-[var(--accent)] text-[var(--background)] shadow-[0px_0px_0px_0px_var(--border)] translate-y-1" : "bg-[var(--surface)] text-[var(--foreground)] hover:shadow-[5px_5px_0px_0px_var(--border)] hover:-translate-y-1"}`}>
+                <span className={`flex items-center gap-3 px-3 py-3 rounded-[var(--radius-md)] border text-sm font-bold uppercase tracking-wide transition-all ${isActive ? "border-transparent bg-[image:var(--grad)] text-white glow-accent" : "border-[var(--border)] bg-[var(--surface-glass)] text-[var(--foreground)] hover:border-[var(--accent)] hover:-translate-y-0.5"}`}>
                   <item.icon className="w-4 h-4" />
                   {item.label}
                 </span>
@@ -120,13 +121,13 @@ export function Layout() {
           })}
         </nav>
 
-        <div className="p-4 border-t-4 border-[var(--border)] bg-[var(--surface)]">
+        <div className="p-4 border-t border-[var(--border)]">
           <div className="mb-4 px-3">
             <p className="text-sm font-medium truncate">{user?.username}</p>
-            <p className="text-xs text-slate-500">{roleLabel}</p>
+            <p className="text-xs text-[var(--muted)]">{roleLabel}</p>
           </div>
           <div className="space-y-1">
-            <div className="px-3 pb-2 font-mono text-[10px] text-slate-500 space-x-2">
+            <div className="px-3 pb-2 font-mono text-[10px] text-[var(--muted)] space-x-2">
               <a
                 href={`${import.meta.env.VITE_LANDING_URL || "http://localhost:5174"}/privacidade`}
                 target="_blank"
@@ -146,7 +147,7 @@ export function Layout() {
             </div>
             {user?.role === "super_admin" && (
               <Link to="/admin/observability">
-                <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/observability" ? "text-[var(--accent)]" : "text-slate-600 dark:text-slate-400 hover:text-[var(--accent)]"}`}>
+                <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/observability" ? "text-[var(--accent)]" : "text-[var(--muted)] hover:text-[var(--accent)]"}`}>
                   <Activity className="w-4 h-4" /> Observabilidade (plataforma)
                 </button>
               </Link>
@@ -154,12 +155,12 @@ export function Layout() {
             {isDev && user?.role === "super_admin" && (
               <>
                 <Link to="/admin/data-lake">
-                  <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/data-lake" ? "text-[var(--accent)]" : "text-slate-600 dark:text-slate-400 hover:text-[var(--accent)]"}`}>
+                  <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/data-lake" ? "text-[var(--accent)]" : "text-[var(--muted)] hover:text-[var(--accent)]"}`}>
                     <Database className="w-4 h-4" /> Data Lake (dev)
                   </button>
                 </Link>
                 <Link to="/admin/chat-test">
-                  <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/chat-test" ? "text-[var(--accent)]" : "text-slate-600 dark:text-slate-400 hover:text-[var(--accent)]"}`}>
+                  <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/chat-test" ? "text-[var(--accent)]" : "text-[var(--muted)] hover:text-[var(--accent)]"}`}>
                     <MessageSquare className="w-4 h-4" /> Chat Test (dev)
                   </button>
                 </Link>
@@ -167,7 +168,7 @@ export function Layout() {
             )}
             <button
               onClick={signOut}
-              className="flex items-center gap-3 px-3 py-3 w-full border-2 border-[var(--border)] bg-[var(--foreground)] text-[var(--background)] shadow-[3px_3px_0px_0px_var(--border)] text-sm font-black uppercase transition-all hover:shadow-[5px_5px_0px_0px_var(--border)] hover:-translate-y-1 active:translate-y-1 active:shadow-none"
+              className="flex items-center gap-3 px-3 py-3 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-glass)] text-[var(--foreground)] text-sm font-bold uppercase tracking-wide transition-all hover:border-[var(--danger)] hover:text-[var(--danger)] hover:-translate-y-0.5"
             >
               <LogOut className="w-4 h-4 mr-3" /> Sair
             </button>
@@ -179,6 +180,7 @@ export function Layout() {
         <Outlet />
       </main>
 
+      </div>
     </div>
   )
 }

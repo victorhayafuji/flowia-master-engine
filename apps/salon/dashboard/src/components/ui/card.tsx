@@ -6,7 +6,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        "rounded-none border-2 border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-[4px_4px_0px_0px_var(--border)] transition-all duration-300 hover:shadow-[8px_8px_0px_0px_var(--border)] hover:-translate-y-1",
+        "rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-[0_12px_32px_-16px_rgba(0,0,0,0.7)] transition-all duration-300 hover:-translate-y-1 hover:glow-accent",
         className
       )}
       {...props}
@@ -20,7 +20,7 @@ const GlassCard = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivE
     <div
       ref={ref}
       className={cn(
-        "rounded-none border-2 border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-[4px_4px_0px_0px_var(--border)] transition-all duration-300 hover:shadow-[8px_8px_0px_0px_var(--border)] hover:-translate-y-1",
+        "glass-panel text-[var(--foreground)] transition-all duration-300 hover:-translate-y-1 hover:glow-accent",
         className
       )}
       {...props}
@@ -55,7 +55,7 @@ const CardDescription = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HT
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("text-sm text-slate-500 dark:text-slate-400", className)}
+      className={cn("text-sm text-[var(--muted)]", className)}
       {...props}
     />
   )

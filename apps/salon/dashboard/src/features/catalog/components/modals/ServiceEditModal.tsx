@@ -103,7 +103,7 @@ export function ServiceEditModal({
           <button
             type="submit"
             disabled={submitting}
-            className="w-full mt-4 flex justify-center items-center gap-3 px-6 py-4 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[4px_4px_0px_0px_var(--border)] disabled:opacity-50 transition-all"
+            className="w-full mt-4 flex justify-center items-center gap-3 px-6 py-4 bg-[image:var(--grad)] text-white font-bold uppercase tracking-widest rounded-[var(--radius-md)] border border-transparent glow-accent hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-50 transition-all"
           >
             {submitting ? "Salvando..." : "Salvar Elegibilidade"}
           </button>

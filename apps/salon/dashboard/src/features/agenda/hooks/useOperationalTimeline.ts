@@ -43,6 +43,11 @@ function statusClass(status: string): string {
   return STATUS_CLASS[status] ?? "timeline-item--pending"
 }
 
+/** Minimal bar text: just the start time (HH:mm). Full details live in the tooltip. */
+export function formatTimelineItemTime(startTime: Moment): string {
+  return startTime.format("HH:mm")
+}
+
 /** Label from live start_time so drag/resize updates text without deselecting the card. */
 export function formatTimelineItemLabel(
   appointment: Appointment,

@@ -33,7 +33,7 @@ function PathBadge({ path }: { path: string }) {
     <span
       className={`inline-block px-1.5 py-0.5 border-2 text-[10px] font-black uppercase ${
         isDeterministic
-          ? "border-emerald-600 text-emerald-700 dark:text-emerald-400"
+          ? "border-[var(--success)] text-[var(--success)]"
           : "border-[var(--accent)] text-[var(--accent)]"
       }`}
     >
@@ -44,7 +44,7 @@ function PathBadge({ path }: { path: string }) {
 
 function TriageBadge({ source }: { source: string }) {
   return (
-    <span className="inline-block px-1.5 py-0.5 border-2 border-slate-500 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase">
+    <span className="inline-block px-1.5 py-0.5 border border-[var(--border)] text-[var(--muted)] text-[10px] font-black uppercase">
       triage={source}
     </span>
   )
@@ -114,13 +114,13 @@ export function ChatTest() {
             <MessageSquare className="w-8 h-8 text-[var(--accent)]" />
             Chat Test
           </h1>
-          <p className="text-slate-500 font-mono text-sm mt-1">
+          <p className="text-[var(--muted)] font-mono text-sm mt-1">
             Playground E2E — recepcionista + agendamento com RAG
           </p>
         </div>
 
         {!canChat && (
-          <Card className="border-2 border-amber-500">
+          <Card className="border border-[var(--warning)]">
             <CardContent className="pt-4 font-mono text-sm">
               Selecione ou vincule uma organização para testar o chat. Super admins precisam de
               uma org específica (não ALL).
@@ -152,7 +152,7 @@ export function ChatTest() {
         <CardContent className="flex flex-col flex-1 min-h-0 pt-4 gap-4">
           <div className="panel-scroll flex-1 min-h-0 space-y-3">
             {messages.length === 0 && (
-              <p className="font-mono text-sm text-slate-500">
+              <p className="font-mono text-sm text-[var(--muted)]">
                 Envie uma pergunta sobre serviços ou preços para validar o RAG.
               </p>
             )}
@@ -161,11 +161,11 @@ export function ChatTest() {
                 key={i}
                 className={`p-3 border-2 font-mono text-sm whitespace-pre-wrap ${
                   m.role === "user"
-                    ? "border-[var(--accent)] bg-slate-50 dark:bg-slate-900 ml-8"
+                    ? "border-[var(--accent)] bg-[var(--surface-glass)] ml-8"
                     : "border-[var(--border)] bg-[var(--surface)] mr-8"
                 }`}
               >
-                <span className="block text-xs uppercase text-slate-400 mb-1">
+                <span className="block text-xs uppercase text-[var(--muted)] mb-1">
                   {m.role === "user" ? "Você" : "Agente"}
                 </span>
                 {m.content}
@@ -177,7 +177,7 @@ export function ChatTest() {
                         {m.meta.triage_source && <TriageBadge source={m.meta.triage_source} />}
                       </div>
                     )}
-                    <span className="block text-xs text-slate-400">
+                    <span className="block text-xs text-[var(--muted)]">
                       agent={m.meta.agent} | tokens={m.meta.tokens_used ?? 0} (in{" "}
                       {m.meta.tokens_in ?? 0} / out {m.meta.tokens_out ?? 0}) | ~R${" "}
                       {(m.meta.estimated_cost_brl ?? 0).toFixed(4)}

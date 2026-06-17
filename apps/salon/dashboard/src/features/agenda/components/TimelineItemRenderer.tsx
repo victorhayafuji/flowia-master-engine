@@ -1,6 +1,6 @@
 import moment from "moment"
 import {
-  formatTimelineItemLabel,
+  formatTimelineItemTime,
   formatTimelineItemTooltip,
   type TimelineItem,
 } from "../hooks/useOperationalTimeline"
@@ -22,14 +22,15 @@ export function TimelineItemRenderer({
 }: TimelineItemRendererProps) {
   const { left: leftResizeProps, right: rightResizeProps } = getResizeProps()
   const start = moment(item.start_time)
-  const label = formatTimelineItemLabel(item.appointment, start)
+  // Minimal bar: show only the time; full info (name · service · status) is in the tooltip.
+  const time = formatTimelineItemTime(start)
   const tooltip = formatTimelineItemTooltip(item.appointment, start)
 
   return (
     <div {...getItemProps({ ...item.itemProps, title: tooltip })}>
       <div {...leftResizeProps} />
       <div {...rightResizeProps} />
-      <div className="rct-item-content">{label}</div>
+      <div className="rct-item-content rct-item-content--minimal">{time}</div>
     </div>
   )
 }
