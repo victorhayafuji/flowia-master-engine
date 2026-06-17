@@ -1198,6 +1198,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | [`docs/STAGING.md`](docs/STAGING.md) | Deploy checklist |
 | [`docs/RENDER.md`](docs/RENDER.md) | Deploy API + dashboard no Render |
 | [`docs/PRODUCTION.md`](docs/PRODUCTION.md) | URLs prod, smoke, rollback |
+| [`docs/RELEASING.md`](docs/RELEASING.md) | Releases SemVer, fixes, updates, tag + GitHub Release |
 | [`docs/TENANCY_AND_SCALE.md`](docs/TENANCY_AND_SCALE.md) | Multi-tenant, onboarding salão, escala 200+ |
 | [`docs/DOC_AUDIT_2026-06.md`](docs/DOC_AUDIT_2026-06.md) | Auditoria documentação (Jun/2026) |
 | [`docs/data-lake.md`](docs/data-lake.md) | Pipeline Medallion |
@@ -1255,6 +1256,8 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 ## 40. Manutenção da fonte da verdade
 
 **Regra de ouro:** decisão importante → atualizar este `CLAUDE.md` no mesmo PR (ou imediatamente após).
+
+**Releases:** versionamento do produto segue [`docs/RELEASING.md`](docs/RELEASING.md) — SemVer ancorado em `_APP_VERSION` ([`apps/salon/api/app_factory.py`](apps/salon/api/app_factory.py)), mudanças registradas em [`CHANGELOG.md`](CHANGELOG.md), cada versão com tag `vX.Y.Z` + GitHub Release. Não confundir com a tabela de versionamento **deste documento** (abaixo).
 
 ### Checklist por tipo de mudança
 
