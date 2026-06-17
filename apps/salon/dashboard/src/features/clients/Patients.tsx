@@ -159,7 +159,7 @@ export function Patients() {
         actions={
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-3 px-5 py-3 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[4px_4px_0px_0px_var(--border)] transition-all rounded-none"
+            className="flex items-center gap-3 px-5 py-3 bg-[image:var(--grad)] text-white font-bold uppercase tracking-widest rounded-[var(--radius-md)] border border-transparent glow-accent hover:-translate-y-0.5 hover:brightness-110 transition-all"
           >
             <Plus className="w-5 h-5" />
             Novo Registro
@@ -168,7 +168,7 @@ export function Patients() {
       />
 
       {/* Control Bar */}
-      <div className="shrink-0 mb-6 p-6 bg-[var(--surface)] border-4 border-[var(--border)] shadow-[8px_8px_0px_0px_var(--border)] flex flex-col md:flex-row gap-6 justify-between items-center relative overflow-hidden">
+      <div className="shrink-0 mb-6 p-6 card-brutal flex flex-col md:flex-row gap-6 justify-between items-center relative overflow-hidden">
         {/* Subtle background texture */}
         <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(var(--foreground) 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
         
@@ -182,7 +182,7 @@ export function Patients() {
               placeholder="Buscar por nome ou contato..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full md:w-96 bg-transparent border-b-4 border-[var(--foreground)]/20 focus:border-[var(--accent)] py-2 font-mono text-lg font-bold uppercase transition-colors focus:outline-none placeholder:text-[var(--foreground)]/30"
+              className="w-full md:w-96 bg-transparent border-b-2 border-[var(--border)] focus:border-[var(--accent)] py-2 font-mono text-lg font-bold uppercase transition-colors focus:outline-none placeholder:text-[var(--muted)]"
             />
           </div>
         </div>
@@ -226,7 +226,7 @@ export function Patients() {
       </div>
 
       {/* Brutalist Data Grid */}
-      <div className="bg-[var(--surface)] border-4 border-[var(--border)] shadow-[8px_8px_0px_0px_var(--border)] relative z-10 flex flex-col min-h-0 flex-1 panel-scroll">
+      <div className="card-brutal relative z-10 flex flex-col min-h-0 flex-1 panel-scroll">
         
         {loading ? (
           <div className="p-12 space-y-6">
@@ -253,7 +253,7 @@ export function Patients() {
                     <div className="font-black uppercase text-xl md:text-2xl tracking-tight truncate flex items-center gap-2">
                       {p.name || 'NÃO ESPECIFICADO'}
                       {p.handoff_requested_at && (
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 border-2 border-amber-600 text-amber-700 group-hover:border-[var(--background)] group-hover:text-[var(--background)]">
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-[var(--radius-sm)] border border-[var(--warning)] text-[var(--warning)] group-hover:border-[var(--background)] group-hover:text-[var(--background)]">
                           Handoff
                         </span>
                       )}
@@ -279,9 +279,9 @@ export function Patients() {
                     <div className="font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/40 group-hover:text-[var(--background)]/50">Faltas / Atendimentos</div>
                     <div className="flex items-center gap-2 font-mono font-bold">
                       <span
-                        className={`px-2 py-0.5 border-2 text-sm ${
+                        className={`px-2 py-0.5 rounded-[var(--radius-sm)] border text-sm ${
                           (p.no_show_count ?? 0) > 0
-                            ? "border-rose-500 bg-rose-500 text-white"
+                            ? "border-[var(--danger)] bg-[var(--danger)] text-[#1a0b0f]"
                             : "border-[var(--border)] group-hover:border-[var(--background)]"
                         }`}
                         data-testid={`patient-no-show-${p.id}`}
@@ -338,14 +338,14 @@ export function Patients() {
       {/* Brutalist Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[var(--background)] border-4 border-[var(--border)] shadow-[12px_12px_0px_0px_var(--border)] w-full max-w-md p-8 relative">
+          <div className="glass-panel rounded-[var(--radius-xl)] w-full max-w-md p-8 relative">
             <button 
               onClick={() => setIsModalOpen(false)}
               className="absolute top-4 right-4 text-[var(--foreground)]/50 hover:text-[var(--foreground)] font-mono text-xl font-bold"
             >
               ×
             </button>
-            <h2 className="text-3xl font-black uppercase tracking-tight text-[var(--foreground)] mb-6 border-b-4 border-[var(--border)] pb-2">Novo Cliente</h2>
+            <h2 className="font-display text-2xl tracking-tight text-[var(--foreground)] mb-6 border-b border-[var(--border)] pb-3" style={{ fontFamily: "var(--font-display)" }}>Novo Cliente</h2>
             
             <form onSubmit={handleCreatePatient} className="space-y-6">
               <div>
@@ -375,7 +375,7 @@ export function Patients() {
               <button 
                 type="submit" 
                 disabled={submitting}
-                className="w-full flex justify-center items-center gap-3 px-6 py-4 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[4px_4px_0px_0px_var(--border)] disabled:opacity-50 transition-all"
+                className="w-full flex justify-center items-center gap-3 px-6 py-4 bg-[image:var(--grad)] text-white font-bold uppercase tracking-widest rounded-[var(--radius-md)] border border-transparent glow-accent hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-50 transition-all"
               >
                 {submitting ? 'Salvando...' : 'Confirmar Registro'}
               </button>
@@ -386,7 +386,7 @@ export function Patients() {
 
       {eraseTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-[var(--background)] border-4 border-[var(--border)] shadow-[12px_12px_0px_0px_var(--border)] w-full max-w-md p-8">
+          <div className="glass-panel rounded-[var(--radius-xl)] w-full max-w-md p-8">
             <h2 className="text-2xl font-black uppercase mb-4">Eliminar dados (LGPD)</h2>
             <p className="font-mono text-sm mb-6">
               Isso anonimiza PII e remove histórico de conversas de{" "}
@@ -404,7 +404,7 @@ export function Patients() {
                 type="button"
                 onClick={handleErasePatient}
                 disabled={actionLoading === eraseTarget.id}
-                className="flex-1 px-4 py-3 bg-rose-600 text-white border-2 border-[var(--border)] font-black uppercase text-sm"
+                className="flex-1 px-4 py-3 rounded-[var(--radius-md)] bg-[var(--danger)] text-[#1a0b0f] border border-transparent font-bold uppercase text-sm hover:brightness-110 transition-all"
               >
                 {actionLoading === eraseTarget.id ? "Processando..." : "Confirmar"}
               </button>

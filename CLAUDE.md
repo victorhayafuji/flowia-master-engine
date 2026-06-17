@@ -981,15 +981,20 @@ src/
 - Base URL: `VITE_API_URL` (default `http://localhost:8000/api/v1`)
 - Envia cookie credentials + header `x-organization-id` quando org selecionada
 
-## 31. Design system: Neo-Swiss Brutalism
+## 31. Design system: identidade GAUSSIX (dark · glass · glow)
 
-- Tailwind CSS v4 via `@tailwindcss/vite`
-- `border-radius: 0` — sem cantos arredondados
-- Paleta alto contraste: preto, branco, laranja accent
-- Utilitários: `card-brutal`, tokens em `src/index.css`
+Espelha a identidade visual da empresa-mãe **GAUSSIX** (ver `gaussix-landing-page`) para manter marca linear entre landing page e produto. Substituiu o antigo "Neo-Swiss Brutalism" (bone white + laranja vermelhão + zero-radius + sombras duras com offset).
+
+- Tailwind CSS v4 via `@tailwindcss/vite`; tokens em `src/index.css` (`@theme` + `:root` dark-first)
+- **Tema dark-first:** `--background #0C0A12`, `--surface #14111C`, `--surface-glass` (vidro translúcido), `--foreground #ECEAF2`, `--muted`, `--border` (hairline translúcida). Sem `@media (prefers-color-scheme)` — sempre dark.
+- **Paleta:** `--accent #8B2CF6` (Deep Tech Purple) + `--accent-2 #F86606` (Kinetic Orange); gradiente tricolor `--grad`. Semânticos: `--success`/`--warning`/`--danger`.
+- **Raio sutil:** `--radius-sm..3xl` (8–28px) — fim do `border-radius: 0`.
+- **Vidro/glow:** `@utility glass-panel` (blur + hairline), `glow-accent` (halo roxo), `gradient-text`, `brand-bar` (faixa tricolor), `bg-grid`, `bg-glow`. `card-brutal`/`btn-brutal`/`hover-lift` reimplementados (mesmos nomes) com elevação suave + glow — sem sombras duras com offset.
+- **Tipografia:** Michroma (`--font-display`, wordmark/títulos) · Space Grotesk (`--font-sans`, corpo) · JetBrains Mono (`--font-mono`, dados) — carregadas via Google Fonts no `index.html`.
+- **Marca:** componente `components/ui/Wordmark.tsx` ("FlowIA" em `gradient-text` + "by GAUSSIX"). Aparece no Login e no topo da sidebar / barra mobile como **logo do produto**. **Decisão de produto (Jun/2026): o nome do salão (tenant) não aparece mais no cabeçalho** — o topo exibe sempre "FlowIA" (white-label do nome no topo abandonado a pedido do dono). O `organization_name` segue disponível via `/auth/me` e no seletor de org do super_admin.
 - Ícones: lucide-react
 - DnD agenda Semana: @dnd-kit (drop target = slot ISO, não card)
-- Timeline operacional: `react-calendar-timeline` + CSS brutal scoped (`operationalTimeline.css`)
+- Timeline operacional: `react-calendar-timeline` + CSS scoped (`operationalTimeline.css`) herdando os tokens GAUSSIX
 
 ## 32. Testes E2E (Playwright)
 

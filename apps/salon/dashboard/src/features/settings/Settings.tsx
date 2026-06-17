@@ -162,10 +162,10 @@ export function Settings() {
   }
 
   const statusStyles: Record<typeof status.kind, string> = {
-    connected: "border-green-600 bg-green-600/10 text-green-700 dark:text-green-400",
-    error: "border-red-600 bg-red-600/10 text-red-700 dark:text-red-400",
-    configured: "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]",
-    empty: "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]/70",
+    connected: "border-[var(--success)] bg-[var(--success)]/10 text-[var(--success)]",
+    error: "border-[var(--danger)] bg-[var(--danger)]/10 text-[var(--danger)]",
+    configured: "border-[var(--accent)] bg-[var(--purple-soft)] text-[var(--foreground)]",
+    empty: "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]",
   }
 
   return (
@@ -173,7 +173,7 @@ export function Settings() {
       <PageHeader title="Configurações" subtitle="Integração WhatsApp" />
 
       {loading ? (
-        <div className="border-4 border-[var(--border)] bg-[var(--surface)] flex-1 min-h-[200px] flex items-center justify-center">
+        <div className="card-brutal flex-1 min-h-[200px] flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
         </div>
       ) : (
@@ -181,7 +181,7 @@ export function Settings() {
           <div className="max-w-2xl space-y-6 pb-8">
             {/* Status banner */}
             <div
-              className={`flex items-center gap-3 border-4 p-4 font-mono text-sm font-bold ${statusStyles[status.kind]}`}
+              className={`flex items-center gap-3 rounded-[var(--radius-lg)] border p-4 font-mono text-sm font-bold ${statusStyles[status.kind]}`}
             >
               {status.kind === "connected" ? (
                 <CheckCircle2 className="w-5 h-5 shrink-0" />
@@ -194,11 +194,11 @@ export function Settings() {
             </div>
 
             {/* Guided "how to connect" card */}
-            <div className="border-4 border-[var(--border)] bg-[var(--surface)]">
+            <div className="card-brutal overflow-hidden">
               <button
                 type="button"
                 onClick={() => setShowHelp((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 border-b-4 border-[var(--border)] bg-[var(--background)] font-black uppercase tracking-widest text-sm"
+                className="w-full flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--background)] font-bold uppercase tracking-widest text-sm"
               >
                 Como conectar meu WhatsApp
                 {showHelp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -236,7 +236,7 @@ export function Settings() {
             </div>
 
             {/* Credentials form */}
-            <form onSubmit={handleSave} className="border-4 border-[var(--border)] bg-[var(--surface)] p-4 space-y-4">
+            <form onSubmit={handleSave} className="card-brutal p-4 space-y-4">
               <div>
                 <label className="block font-mono text-xs font-bold uppercase tracking-widest text-[var(--foreground)]/70 mb-1">
                   Identificador do número (Phone Number ID)
@@ -284,7 +284,7 @@ export function Settings() {
                   type="button"
                   onClick={handleTest}
                   disabled={testing || saving}
-                  className="flex-1 flex justify-center items-center gap-2 px-4 py-3 bg-[var(--surface)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 transition-all"
+                  className="flex-1 flex justify-center items-center gap-2 px-4 py-3 glass-panel text-[var(--foreground)] font-bold uppercase tracking-widest rounded-[var(--radius-md)] hover:border-[var(--accent)] hover:-translate-y-0.5 disabled:opacity-50 transition-all"
                 >
                   {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   {testing ? "Testando..." : "Testar conexão"}
@@ -292,7 +292,7 @@ export function Settings() {
                 <button
                   type="submit"
                   disabled={saving || testing}
-                  className="flex-1 flex justify-center items-center gap-2 px-4 py-3 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 transition-all"
+                  className="flex-1 flex justify-center items-center gap-2 px-4 py-3 bg-[image:var(--grad)] text-white font-bold uppercase tracking-widest rounded-[var(--radius-md)] border border-transparent glow-accent hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-50 transition-all"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   {saving ? "Salvando..." : "Salvar"}
@@ -302,7 +302,7 @@ export function Settings() {
               {feedback && (
                 <p
                   className={`font-mono text-xs font-bold ${
-                    feedback.kind === "ok" ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"
+                    feedback.kind === "ok" ? "text-[var(--success)]" : "text-[var(--danger)]"
                   }`}
                 >
                   {feedback.msg}

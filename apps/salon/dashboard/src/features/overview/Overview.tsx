@@ -48,12 +48,12 @@ export function Overview() {
       <PageHeader title="Visão Geral" subtitle="Resumo operacional do salão para hoje" />
       <div className="space-y-8 shrink-0 mb-6">
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <StatCard icon={<Calendar className="w-4 h-4 text-primary-500" />} label="Agendamentos Hoje" value={stats.appointmentsToday} to="/agenda" />
-          <StatCard icon={<Clock className="w-4 h-4 text-amber-500" />} label="Em Atendimento" value={stats.counts.in_progress} to="/agenda" />
-          <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />} label="Concluídos" value={stats.counts.completed} to="/agenda" />
-          <StatCard icon={<UserX className="w-4 h-4 text-rose-500" />} label="Faltas Hoje" value={stats.counts.no_show} to="/agenda" />
+          <StatCard icon={<Calendar className="w-4 h-4 text-[var(--accent)]" />} label="Agendamentos Hoje" value={stats.appointmentsToday} to="/agenda" />
+          <StatCard icon={<Clock className="w-4 h-4 text-[var(--warning)]" />} label="Em Atendimento" value={stats.counts.in_progress} to="/agenda" />
+          <StatCard icon={<CheckCircle2 className="w-4 h-4 text-[var(--success)]" />} label="Concluídos" value={stats.counts.completed} to="/agenda" />
+          <StatCard icon={<UserX className="w-4 h-4 text-[var(--danger)]" />} label="Faltas Hoje" value={stats.counts.no_show} to="/agenda" />
           <StatCard
-            icon={<UserX className="w-4 h-4 text-rose-600" />}
+            icon={<UserX className="w-4 h-4 text-[var(--danger)]" />}
             label="Faltas acumuladas"
             value={stats.totalNoShows}
             to={showAgentSummary ? "/patients?sort=faltas" : undefined}
@@ -69,19 +69,19 @@ export function Overview() {
             </div>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
               <StatCard
-                icon={<Users className="w-4 h-4 text-amber-600" />}
+                icon={<Users className="w-4 h-4 text-[var(--warning)]" />}
                 label="Precisa de humano"
                 value={stats.agentSummary.handoffsPending}
                 to="/patients?handoff=1"
                 urgent={stats.agentSummary.handoffsPending > 0}
               />
               <StatCard
-                icon={<MessageCircle className="w-4 h-4 text-emerald-600" />}
+                icon={<MessageCircle className="w-4 h-4 text-[var(--success)]" />}
                 label="Agenda via WhatsApp hoje"
                 value={stats.agentSummary.appointmentsWhatsappToday}
               />
               <StatCard
-                icon={<MessageCircle className="w-4 h-4 text-slate-500" />}
+                icon={<MessageCircle className="w-4 h-4 text-[var(--muted)]" />}
                 label="Conversas na semana"
                 value={stats.agentSummary.conversationsThisWeek}
               />
@@ -208,7 +208,7 @@ function StatCard({
 }) {
   const card = (
     <GlassCard
-      className={`h-full ${urgent ? "border-[var(--accent)] shadow-[4px_4px_0px_0px_var(--accent)]" : ""}`}
+      className={`h-full ${urgent ? "border-[var(--accent)] glow-accent" : ""}`}
     >
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className={`text-sm font-medium ${urgent ? "text-[var(--accent)]" : ""}`}>
@@ -231,7 +231,7 @@ function StatCard({
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+    <div className="flex flex-col items-center justify-center py-16 text-[var(--muted)]">
       <p>{text}</p>
     </div>
   )

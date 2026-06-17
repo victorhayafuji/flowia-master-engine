@@ -39,7 +39,7 @@ export function RowMenu({ items, label = "Ações" }: { items: RowMenuItem[]; la
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-center w-10 h-10 border-2 border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--accent)] transition-colors"
+        className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-glass)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
         data-testid="row-menu-trigger"
       >
         <MoreHorizontal className="w-5 h-5" />
@@ -47,7 +47,7 @@ export function RowMenu({ items, label = "Ações" }: { items: RowMenuItem[]; la
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1 z-30 min-w-44 bg-[var(--background)] border-2 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)]"
+          className="absolute right-0 top-full mt-1 z-30 min-w-44 rounded-[var(--radius-md)] glass-panel overflow-hidden"
         >
           {items.map((item) => (
             <button
@@ -62,8 +62,8 @@ export function RowMenu({ items, label = "Ações" }: { items: RowMenuItem[]; la
               }}
               className={`w-full flex items-center gap-2 px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest text-left transition-colors disabled:opacity-50 ${
                 item.destructive
-                  ? "text-rose-600 hover:bg-rose-600 hover:text-white"
-                  : "hover:bg-[var(--accent)]"
+                  ? "text-[var(--danger)] hover:bg-[var(--danger)] hover:text-[#1a0b0f]"
+                  : "hover:bg-[var(--purple-soft)]"
               }`}
             >
               {item.icon}

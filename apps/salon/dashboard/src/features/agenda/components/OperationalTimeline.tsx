@@ -44,15 +44,15 @@ export function OperationalTimeline({
 
   if (professionals.length === 0) {
     return (
-      <div className="border-4 border-[var(--border)] bg-[var(--surface)] p-8 text-center font-mono text-sm font-bold uppercase text-[var(--foreground)]/60">
+      <div className="card-brutal p-8 text-center font-mono text-sm font-bold uppercase text-[var(--muted)]">
         Cadastre profissionais no catálogo para ver a agenda operacional.
       </div>
     )
   }
 
   return (
-    <div className="operational-timeline border-4 border-[var(--border)] bg-[var(--surface)] shadow-[8px_8px_0px_0px_var(--border)] min-h-[480px]">
-      <div className="px-3 py-1.5 border-b-2 border-[var(--border)] bg-[var(--background)] font-mono text-[10px] uppercase tracking-widest text-[var(--foreground)]/50">
+    <div className="operational-timeline card-brutal overflow-hidden min-h-[480px]">
+      <div className="px-3 py-1.5 border-b border-[var(--border)] bg-[var(--background)] font-mono text-[10px] uppercase tracking-widest text-[var(--muted)]">
         Clique para selecionar · arraste para mover · duplo-clique para editar
       </div>
       <Timeline

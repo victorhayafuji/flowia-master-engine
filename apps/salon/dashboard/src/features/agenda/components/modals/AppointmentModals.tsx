@@ -26,10 +26,10 @@ export function EditAppointmentModal({
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="relative z-[10001] bg-[var(--background)] border-4 border-[var(--border)] p-6 shadow-[8px_8px_0px_0px_var(--border)] w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4 border-b-2 border-[var(--border)] pb-2">
-          <h2 className="text-xl font-black uppercase tracking-tight">Editar Horário</h2>
-          <button onClick={onClose} className="hover:bg-[var(--accent)] hover:text-white p-1 transition-colors">
+        <div className="relative z-[10001] glass-panel rounded-[var(--radius-xl)] p-6 w-full max-w-md mx-4">
+        <div className="flex justify-between items-center mb-4 border-b border-[var(--border)] pb-3">
+          <h2 className="font-display text-lg tracking-tight" style={{ fontFamily: "var(--font-display)" }}>Editar Horário</h2>
+          <button onClick={onClose} className="rounded-[var(--radius-sm)] hover:bg-[var(--purple-soft)] hover:text-[var(--accent)] p-1 transition-colors">
             ×
           </button>
         </div>
@@ -127,14 +127,14 @@ export function NewAppointmentModal(props: NewAppointmentModalProps) {
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="relative z-[10001] bg-[var(--background)] border-4 border-[var(--border)] shadow-[12px_12px_0px_0px_var(--border)] w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">
+        <div className="relative z-[10001] glass-panel rounded-[var(--radius-xl)] w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[var(--foreground)]/50 hover:text-[var(--foreground)] font-mono text-xl font-bold"
+          className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--foreground)] font-mono text-xl font-bold"
         >
           ×
         </button>
-        <h2 className="text-2xl font-black uppercase tracking-tight text-[var(--foreground)] mb-6 border-b-4 border-[var(--border)] pb-2">
+        <h2 className="font-display text-xl tracking-tight text-[var(--foreground)] mb-6 border-b border-[var(--border)] pb-3" style={{ fontFamily: "var(--font-display)" }}>
           Novo Agendamento
         </h2>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -205,7 +205,7 @@ export function NewAppointmentModal(props: NewAppointmentModalProps) {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full mt-4 flex justify-center items-center gap-3 px-6 py-4 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[4px_4px_0px_0px_var(--border)] disabled:opacity-50 transition-all"
+            className="w-full mt-4 flex justify-center items-center gap-3 px-6 py-4 bg-[image:var(--grad)] text-white font-bold uppercase tracking-widest rounded-[var(--radius-md)] border border-transparent glow-accent hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-50 transition-all"
           >
             {submitting ? "Salvando..." : "Confirmar Agendamento"}
           </button>

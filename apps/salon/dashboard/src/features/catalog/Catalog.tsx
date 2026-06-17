@@ -217,7 +217,7 @@ export function Catalog() {
 
       <div className="grid gap-8 md:grid-cols-2 flex-1 min-h-0">
         <Card className="flex flex-col min-h-0 h-full">
-          <CardHeader className="border-b-4 border-[var(--border)] bg-[var(--background)] flex flex-row items-center justify-between py-4">
+          <CardHeader className="border-b border-[var(--border)] bg-[var(--background)] flex flex-row items-center justify-between py-4">
             <CardTitle className="flex items-center gap-3 text-xl font-black uppercase">
               <Scissors className="w-6 h-6 text-[var(--accent)]" />
               Serviços
@@ -246,7 +246,7 @@ export function Catalog() {
                       <div className="flex flex-wrap gap-1 mt-2">{renderServicePros(s.id)}</div>
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
-                      <div className="font-black text-xl text-[var(--accent)] bg-[var(--foreground)] px-3 py-1 text-[var(--background)] border-2 border-[var(--border)] shadow-[3px_3px_0px_0px_var(--border)]">
+                      <div className="font-bold text-xl px-3 py-1 rounded-[var(--radius-md)] border border-transparent bg-[image:var(--grad)] text-white glow-accent">
                         R$ {s.price}
                       </div>
                       <Button variant="outline" size="sm" className="font-mono text-xs" onClick={() => setEditingService(s)}>
@@ -261,7 +261,7 @@ export function Catalog() {
         </Card>
 
         <Card className="flex flex-col min-h-0 h-full">
-          <CardHeader className="border-b-4 border-[var(--border)] bg-[var(--background)] flex flex-row items-center justify-between py-4">
+          <CardHeader className="border-b border-[var(--border)] bg-[var(--background)] flex flex-row items-center justify-between py-4">
             <CardTitle className="flex items-center gap-3 text-xl font-black uppercase">
               <UserCog className="w-6 h-6 text-[var(--accent)]" />
               Profissionais
@@ -284,7 +284,7 @@ export function Catalog() {
                       idx % 2 === 0 ? "bg-[var(--surface)]" : "bg-[var(--background)]"
                     } last:border-b-0`}
                   >
-                    <div className="w-12 h-12 border-2 border-[var(--border)] bg-[var(--accent)] flex items-center justify-center text-[var(--background)] font-black text-xl shadow-[3px_3px_0px_0px_var(--border)] shrink-0">
+                    <div className="w-12 h-12 rounded-[var(--radius-md)] border border-transparent bg-[image:var(--grad)] flex items-center justify-center text-white font-bold text-xl glow-accent shrink-0">
                       {p.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -309,15 +309,15 @@ export function Catalog() {
 
       {isServiceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[var(--background)] border-4 border-[var(--border)] shadow-[12px_12px_0px_0px_var(--border)] w-full max-w-md p-8 relative">
+          <div className="glass-panel rounded-[var(--radius-xl)] w-full max-w-md p-8 relative">
             <button
               type="button"
               onClick={() => setIsServiceModalOpen(false)}
-              className="absolute top-4 right-4 text-[var(--foreground)]/50 hover:text-[var(--foreground)] font-mono text-xl font-bold"
+              className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--foreground)] font-mono text-xl font-bold"
             >
               ×
             </button>
-            <h2 className="text-3xl font-black uppercase tracking-tight text-[var(--foreground)] mb-6 border-b-4 border-[var(--border)] pb-2">
+            <h2 className="font-display text-2xl tracking-tight text-[var(--foreground)] mb-6 border-b border-[var(--border)] pb-3" style={{ fontFamily: "var(--font-display)" }}>
               Novo Serviço
             </h2>
             <form onSubmit={handleCreateService} className="space-y-4">
@@ -367,7 +367,7 @@ export function Catalog() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full mt-4 flex justify-center items-center gap-3 px-6 py-4 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[4px_4px_0px_0px_var(--border)] disabled:opacity-50 transition-all"
+                className="w-full mt-4 flex justify-center items-center gap-3 px-6 py-4 bg-[image:var(--grad)] text-white font-bold uppercase tracking-widest rounded-[var(--radius-md)] border border-transparent glow-accent hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-50 transition-all"
               >
                 {submitting ? "Salvando..." : "Confirmar Serviço"}
               </button>
@@ -378,15 +378,15 @@ export function Catalog() {
 
       {isProfModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[var(--background)] border-4 border-[var(--border)] shadow-[12px_12px_0px_0px_var(--border)] w-full max-w-md p-8 relative">
+          <div className="glass-panel rounded-[var(--radius-xl)] w-full max-w-md p-8 relative">
             <button
               type="button"
               onClick={() => setIsProfModalOpen(false)}
-              className="absolute top-4 right-4 text-[var(--foreground)]/50 hover:text-[var(--foreground)] font-mono text-xl font-bold"
+              className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--foreground)] font-mono text-xl font-bold"
             >
               ×
             </button>
-            <h2 className="text-3xl font-black uppercase tracking-tight text-[var(--foreground)] mb-6 border-b-4 border-[var(--border)] pb-2">
+            <h2 className="font-display text-2xl tracking-tight text-[var(--foreground)] mb-6 border-b border-[var(--border)] pb-3" style={{ fontFamily: "var(--font-display)" }}>
               Novo Profissional
             </h2>
             <form onSubmit={handleCreateProf} className="space-y-4">
@@ -418,7 +418,7 @@ export function Catalog() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full mt-4 flex justify-center items-center gap-3 px-6 py-4 bg-[var(--accent)] text-[var(--foreground)] font-black uppercase tracking-widest border-4 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[4px_4px_0px_0px_var(--border)] disabled:opacity-50 transition-all"
+                className="w-full mt-4 flex justify-center items-center gap-3 px-6 py-4 bg-[image:var(--grad)] text-white font-bold uppercase tracking-widest rounded-[var(--radius-md)] border border-transparent glow-accent hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-50 transition-all"
               >
                 {submitting ? "Salvando..." : "Confirmar Profissional"}
               </button>
