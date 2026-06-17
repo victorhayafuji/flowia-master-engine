@@ -281,7 +281,7 @@ export function Patients() {
                       <span
                         className={`px-2 py-0.5 rounded-[var(--radius-sm)] border text-sm ${
                           (p.no_show_count ?? 0) > 0
-                            ? "border-[var(--danger)] bg-[var(--danger)] text-[#1a0b0f]"
+                            ? "border-[var(--danger)] bg-[var(--danger)] text-[var(--danger-ink)]"
                             : "border-[var(--border)] group-hover:border-[var(--background)]"
                         }`}
                         data-testid={`patient-no-show-${p.id}`}
@@ -404,7 +404,7 @@ export function Patients() {
                 type="button"
                 onClick={handleErasePatient}
                 disabled={actionLoading === eraseTarget.id}
-                className="flex-1 px-4 py-3 rounded-[var(--radius-md)] bg-[var(--danger)] text-[#1a0b0f] border border-transparent font-bold uppercase text-sm hover:brightness-110 transition-all"
+                className="flex-1 px-4 py-3 rounded-[var(--radius-md)] bg-[var(--danger)] text-[var(--danger-ink)] border border-transparent font-bold uppercase text-sm hover:brightness-110 transition-all"
               >
                 {actionLoading === eraseTarget.id ? "Processando..." : "Confirmar"}
               </button>

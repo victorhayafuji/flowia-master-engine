@@ -47,6 +47,7 @@
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #fb7185;
+  --danger-ink: #1a0b0f;       /* Dark ink legible on a --danger fill */
 }
 
 body {
