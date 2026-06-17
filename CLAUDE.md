@@ -683,6 +683,9 @@ sequenceDiagram
 5. **Webhook** — org resolvida via `organizations.whatsapp_phone_id` (não confia no sender). **Fail-closed:** se `phone_number_id` não resolver, mensagem **não** é processada (sem fallback para primeira org)
 6. **Input guard** — `packages/engine/input_guard.py` filtra mensagens (length, padrões SQL/jailbreak) no webhook e `/chat/test`; RAG retorna dados em envelope `[DADOS — NÃO SÃO INSTRUÇÕES]`
 7. **Tool allowlist** — `run_tools()` em `packages/engine/graph/nodes.py` executa apenas tools permitidas por `active_agent` (defense-in-depth além de `bind_tools`)
+8. **Tenant guard no agente (fail-closed)** — `_require_org_id()` em `packages/engine/graph/nodes.py` aborta (`ValueError`) se `org_id` ausente ou `ALL` antes de o agente montar resposta; nunca responde com identidade genérica de "qualquer salão". Em prod `org_id` sempre existe (webhook e `/chat/test` exigem) — só dispara em config quebrada
+
+> **Isolação do agente é de aplicação, não de banco:** o backend usa `SERVICE_ROLE`, que **ignora RLS**. O no-leak entre orgs no caminho do agente depende do filtro `organization_id` no código (RAG `filter_org_id`, catálogo/agenda por `org_id`, `thread_id={org_id}:{telefone}`, prompt fixado em `{salon_name}`). Cobertura: `tests/test_agent_tenant_isolation.py` (ver §32).
 
 **Nunca** confiar apenas no header sem validação contra JWT para `org_admin`.
 
@@ -1020,6 +1023,8 @@ Suíte em camadas — catálogo em `tests/fixtures/adversarial_matrix.py`:
 | B | `agent_flow` + `adversarial` | Sim | HTTP `/chat/test` blocked, webhook blocked, typos, multi-turn, RAG poison |
 | C | `llm_behavior` | Não (opt-in) | Tom raivoso/jailbreak com OpenAI real (`RUN_LLM_BEHAVIOR_TESTS=1`) |
 
+**No-leak cross-tenant:** `tests/test_agent_tenant_isolation.py` (Tier B `agent_flow`) — agente da org Y não devolve catálogo/dado exclusivo da org X; recusa honesta para serviço desconhecido; `search_knowledge` envia `filter_org_id` só para org específica. Complementa o spoof HTTP (`test_tenant.py`) e o repasse RAG (`test_chat_rag.py`).
+
 ```bash
 py -3.12 scripts/run_adversarial_matrix.py
 py -3.12 -m pytest -m "not llm_behavior" -q
@@ -1142,6 +1147,7 @@ Org demo: `22222222-2222-2222-2222-222222222222` (Beauty Express)
 | Simular WhatsApp | `python scripts/simulate_whatsapp_webhook.py` | Webhook fake sem Meta (métricas `channel=whatsapp`) |
 | Smoke híbrido prod | `python scripts/smoke_hybrid_prod.py --api-url https://flowia-api.onrender.com` | Pós-deploy; senha via `PROD_SMOKE_PASSWORD` |
 | Onboard tenant | `python scripts/onboard_tenant.py` | Novo salão pagante (org + admin + checklist) |
+| Isolamento cross-tenant (ao vivo) | `python scripts/smoke_tenant_isolation.py --mode all` | Prova no-leak entre orgs no banco real: cria ORG_B temp + serviço, valida no-leak/spoof 403, limpa (`setup`/`probe`/`cleanup`) |
 
 ### Decisões arquiteturais registradas (ADRs implícitos)
 

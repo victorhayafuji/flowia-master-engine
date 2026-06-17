@@ -205,8 +205,22 @@ def _scheduling_context_messages(messages: Sequence[BaseMessage]) -> list[System
     return hints
 
 
-def _invoke_agent(state: AgentState, config: RunnableConfig, agent: str):
+def _require_org_id(config: RunnableConfig) -> str:
+    """Fail-closed tenant guard: never build an agent reply without a concrete org.
+
+    Without this, a missing/``ALL`` org_id would fall back to the generic salon
+    name and answer anyway. We abort instead so the agent never speaks with a
+    cross-tenant or anonymous identity. In production org_id is always present
+    (webhook and /chat/test require it); this only trips on a broken config.
+    """
     org_id = _org_id_from_config(config)
+    if not org_id or org_id == "ALL":
+        raise ValueError("org_id ausente ou inválido no caminho do agente (tenant guard).")
+    return org_id
+
+
+def _invoke_agent(state: AgentState, config: RunnableConfig, agent: str):
+    org_id = _require_org_id(config)
     salon_name = get_salon_name(org_id)
     llm = _build_agent_llm(salon_name, agent)
     messages: Sequence[BaseMessage] = state["messages"]
