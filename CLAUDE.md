@@ -767,7 +767,7 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 | Checkpoint thread legado | Leitura fallback phone-only (1 release); escrita sempre `{org_id}:{phone}` | Sem migração em massa de checkpoints |
 | WhatsApp fila | Tabela `whatsapp_inbound_jobs` FIFO + worker Render (`WHATSAPP_QUEUE_MODE=inline\|worker`) | Inline default até Meta live; serialização por thread_id |
 | Webhook tenant | Fail-closed sem `phone_number_id` válido | Mensagem ignorada (ack 200 Meta) |
-| WhatsApp app secret (assinatura inbound) | `WHATSAPP_APP_SECRET` **global** | No modelo "cliente traz a própria conta" (N apps Meta), uma única app secret **não** valida `X-Hub-Signature` de todos; segurança inbound se apoia na resolução fail-closed por `phone_number_id`. App secret por org exigiria migration — não feito |
+| WhatsApp app secret (assinatura inbound) | `WHATSAPP_APP_SECRET` **global** + `WHATSAPP_ALLOW_UNSIGNED` (default `false`) | Com `APP_SECRET` setado, o inbound é validado por HMAC (`X-Hub-Signature-256`). Sem `APP_SECRET`, o webhook é **fail-closed por padrão** (403) — aceitar inbound não assinado exige `WHATSAPP_ALLOW_UNSIGNED=true` explícito. No modelo "cliente traz a própria conta" (N apps Meta), uma única app secret **não** valida `X-Hub-Signature` de todos; ao optar por `ALLOW_UNSIGNED`, a segurança inbound se apoia na resolução fail-closed por `phone_number_id`. App secret por org exigiria migration — não feito |
 | WhatsApp verify token exposto ao org_admin | `GET /organizations/whatsapp` devolve `verify_token` | Necessário p/ o dono configurar o webhook; segredo compartilhado de baixa sensibilidade (só serve ao handshake de subscription) |
 | LGPD retention | Purge checkpoints + conversation_metrics (scheduler) | Agendamentos anonimizados após erase; Data Lake Bronze sem purge automático por tenant |
 | Consentimento WhatsApp | Aviso 1ª msg; consent tácito 2ª msg | Opt-in explícito SIM/NÃO — fase 2 se exigido |
@@ -1052,7 +1052,8 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `SUPABASE_SERVICE_ROLE` | Sim | Service role (backend only) |
 | `SUPABASE_DB_URL` | Sim | Postgres direct (checkpointer) |
 | `WHATSAPP_VERIFY_TOKEN` | Sim | Verificação webhook Meta |
-| `WHATSAPP_APP_SECRET` | Opcional | Assinatura webhook |
+| `WHATSAPP_APP_SECRET` | Opcional | Assinatura webhook (HMAC `X-Hub-Signature-256`) |
+| `WHATSAPP_ALLOW_UNSIGNED` | Opcional | **Fail-closed (default `false`):** com `WHATSAPP_APP_SECRET` vazio, inbound não assinado só é aceito se `true`. No modelo multi-app "cliente traz a própria conta" ([§20](#20-concorrência-e-limitações-conhecidas)) defina `true` conscientemente |
 | `DASHBOARD_API_KEY` | Sim | API key interna |
 | `DASHBOARD_JWT_SECRET` | Sim | Secret JWT (32+ chars) |
 | `VITE_SUPABASE_URL` | Sim (frontend) | Anon URL browser |

@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # WhatsApp / Meta
     WHATSAPP_VERIFY_TOKEN: str
     WHATSAPP_APP_SECRET: str = ""
+    # Fail-closed: com APP_SECRET vazio (modelo multi-app "cliente traz a própria conta",
+    # CLAUDE.md §20), inbound NÃO assinado só é aceito com este opt-in explícito.
+    # Default seguro = rejeita webhook sem assinatura.
+    WHATSAPP_ALLOW_UNSIGNED: bool = False
 
     # Public API base URL (used to show the WhatsApp webhook callback URL in the dashboard).
     # Default is the production Render API; override only for a custom domain.
