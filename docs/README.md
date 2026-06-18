@@ -28,6 +28,7 @@
 | Render | [RENDER.md](RENDER.md) | Deploy API + dashboard no Render |
 | Produção | [PRODUCTION.md](PRODUCTION.md) | URLs, smoke, rollback |
 | WhatsApp | [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) | Meta Cloud API por tenant |
+| Visão v2.0 | [V2_VISION.md](V2_VISION.md) | Multicanal + inbox humano (futuro — não implementar sem aprovação) |
 | Marketing | [marketing/FLOWIA_LANDING_COPY.md](marketing/FLOWIA_LANDING_COPY.md) | Copy landing FlowIA |
 | Pitch sócio | [pitch/FLOWIA_SOCIO_OUTLINE.md](pitch/FLOWIA_SOCIO_OUTLINE.md) | Deck apresentação Gaussix/FlowIA |
 | Auditoria docs | [DOC_AUDIT_2026-06.md](DOC_AUDIT_2026-06.md) | Gaps documentação (Jun/2026) |
