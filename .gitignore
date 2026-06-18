@@ -57,3 +57,6 @@ node_modules/
 **/dist/
 **/test-results/
 **/playwright-report/
+
+# Material de referência para visão futura (v2.0) — não versionar
+refs/

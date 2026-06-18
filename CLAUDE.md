@@ -1177,6 +1177,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | 5 — Omnichannel WhatsApp | Bloqueado | Webhook prod: `https://flowia-api.onrender.com/api/v1/webhook/whatsapp`; aguardando credenciais Meta — [`docs/WHATSAPP_SETUP.md`](docs/WHATSAPP_SETUP.md). **Conexão self-service** (org_admin cola credenciais + teste em Configurações) **ativa**; **Embedded Signup** (onboarding "um clique" via popup Facebook) é **futuro** — requer FlowIA virar Tech Provider aprovado pela Meta |
 | 6 — Customer Journey Intelligence | **Futuro** | [Parte VIII §42](#42-epic-customer-journey-intelligence) · [`docs/ROADMAP.md`](docs/ROADMAP.md) Cap. 6 |
 | 7 — Reagendamento Inteligente (no-show / atraso) | **Futuro** | [Parte VIII §49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) · [`docs/ROADMAP.md`](docs/ROADMAP.md) Cap. 7 |
+| 8 — v2.0 Multicanal + Inbox Humano | **Futuro** | Camada multicanal nativa (chat de site, IG/Messenger, e-mail) + inbox humano com takeover real, inspirada no Chatwoot mas **sem integrá-lo** — [`docs/V2_VISION.md`](docs/V2_VISION.md). **Não implementar** sem aprovação por onda; começa pós-WhatsApp live |
 
 **Priorização produto salão:** (1) estabilizar MVP atual (Partes I–VII) → (2) Cap. 5 WhatsApp live → (3) Parte VIII só com aprovação explícita → Cap. 2 Sales Analytics permanece isolado do chatbot salão.
 
@@ -1205,6 +1206,7 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | [`docs/DOC_AUDIT_2026-06.md`](docs/DOC_AUDIT_2026-06.md) | Auditoria documentação (Jun/2026) |
 | [`docs/data-lake.md`](docs/data-lake.md) | Pipeline Medallion |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Futuro estratégico |
+| [`docs/V2_VISION.md`](docs/V2_VISION.md) | Blueprint v2.0 multicanal + inbox humano (futuro — não implementar sem aprovação) |
 | [`docs/archive/PLAN.md`](docs/archive/PLAN.md) | Histórico executado |
 
 ## 38. Cursor: AGENTS, rules, skills
