@@ -62,7 +62,7 @@ export function RowMenu({ items, label = "Ações" }: { items: RowMenuItem[]; la
               }}
               className={`w-full flex items-center gap-2 px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest text-left transition-colors disabled:opacity-50 ${
                 item.destructive
-                  ? "text-[var(--danger)] hover:bg-[var(--danger)] hover:text-[#1a0b0f]"
+                  ? "text-[var(--danger)] hover:bg-[var(--danger)] hover:text-[var(--danger-ink)]"
                   : "hover:bg-[var(--purple-soft)]"
               }`}
             >

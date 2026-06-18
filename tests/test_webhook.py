@@ -104,6 +104,34 @@ class TestWebhookPost:
         )
         assert response.status_code == 403
 
+    def test_unsigned_rejected_when_no_secret(self, client, monkeypatch):
+        """Fail-closed: sem APP_SECRET e sem opt-in, inbound não assinado é rejeitado."""
+        monkeypatch.setattr(settings, "WHATSAPP_APP_SECRET", "")
+        monkeypatch.setattr(settings, "WHATSAPP_ALLOW_UNSIGNED", False)
+
+        body = json.dumps(_make_whatsapp_payload()).encode()
+        response = client.post(
+            "/api/v1/webhook/whatsapp",
+            content=body,
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status_code == 403
+
+    def test_unsigned_allowed_with_optin(self, client, mocker, monkeypatch):
+        """Opt-in explícito permite inbound não assinado (modelo multi-app Meta)."""
+        monkeypatch.setattr(settings, "WHATSAPP_APP_SECRET", "")
+        monkeypatch.setattr(settings, "WHATSAPP_ALLOW_UNSIGNED", True)
+        mocker.patch("packages.integrations.webhook.router.process_message_in_background")
+
+        body = json.dumps(_make_whatsapp_payload()).encode()
+        response = client.post(
+            "/api/v1/webhook/whatsapp",
+            content=body,
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+
     def test_oversized_payload_returns_413(self, client):
         response = client.post(
             "/api/v1/webhook/whatsapp",

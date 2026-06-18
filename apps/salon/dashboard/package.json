@@ -18,8 +18,6 @@
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -30,8 +28,7 @@
     "react-calendar-timeline": "^0.30.0-beta.4",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.16.0",
-    "tailwind-merge": "^3.6.0",
-    "ws": "^8.21.0"
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
@@ -39,7 +36,6 @@
     "@tailwindcss/vite": "^4.3.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
-    "@types/moment": "^2.13.0",
     "@types/node": "^25.9.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

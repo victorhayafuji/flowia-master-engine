@@ -13,7 +13,7 @@ const buttonVariants = cva(
         default:
           "border-transparent bg-[image:var(--grad)] text-white hover:glow-accent",
         destructive:
-          "border-transparent bg-[var(--danger)] text-[#1a0b0f] hover:brightness-110",
+          "border-transparent bg-[var(--danger)] text-[var(--danger-ink)] hover:brightness-110",
         outline:
           "bg-transparent text-[var(--foreground)] hover:bg-[var(--purple-soft)] hover:border-[var(--accent)]",
         secondary:

@@ -6,17 +6,18 @@ import { AdminDevRoute } from "./components/AdminDevRoute"
 import { AdminPlatformRoute } from "./components/AdminPlatformRoute"
 import { OrgAdminRoute } from "./components/OrgAdminRoute"
 import { Layout } from "./components/Layout"
-import { Login } from "./pages/Login"
+import { PageFallback } from "./components/PageFallback"
+import { Login } from "@/features/auth/Login"
 
-const Overview = lazy(() => import("./pages/Overview").then(m => ({ default: m.Overview })))
-const Agenda = lazy(() => import("./pages/Agenda").then(m => ({ default: m.Agenda })))
-const Catalog = lazy(() => import("./pages/Catalog").then(m => ({ default: m.Catalog })))
-const Patients = lazy(() => import("./pages/Patients").then(m => ({ default: m.Patients })))
-const Settings = lazy(() => import("./pages/Settings").then(m => ({ default: m.Settings })))
-const DataLake = lazy(() => import("./pages/DataLake").then(m => ({ default: m.DataLake })))
-const ChatTest = lazy(() => import("./pages/ChatTest").then(m => ({ default: m.ChatTest })))
+const Overview = lazy(() => import("@/features/overview/Overview").then(m => ({ default: m.Overview })))
+const Agenda = lazy(() => import("@/features/agenda/Agenda").then(m => ({ default: m.Agenda })))
+const Catalog = lazy(() => import("@/features/catalog/Catalog").then(m => ({ default: m.Catalog })))
+const Patients = lazy(() => import("@/features/clients/Patients").then(m => ({ default: m.Patients })))
+const Settings = lazy(() => import("@/features/settings/Settings").then(m => ({ default: m.Settings })))
+const DataLake = lazy(() => import("@/features/admin/DataLake").then(m => ({ default: m.DataLake })))
+const ChatTest = lazy(() => import("@/features/admin/ChatTest").then(m => ({ default: m.ChatTest })))
 const AgentObservability = lazy(() =>
-  import("./pages/AgentObservability").then(m => ({ default: m.AgentObservability }))
+  import("@/features/admin/AgentObservability").then(m => ({ default: m.AgentObservability }))
 )
 
 function App() {
@@ -29,28 +30,28 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={
-                <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                <Suspense fallback={<PageFallback />}>
                   <Overview />
                 </Suspense>
               } />
               <Route path="/agenda" element={
-                <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                <Suspense fallback={<PageFallback />}>
                   <Agenda />
                 </Suspense>
               } />
               <Route element={<OrgAdminRoute />}>
                 <Route path="/patients" element={
-                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                  <Suspense fallback={<PageFallback />}>
                     <Patients />
                   </Suspense>
                 } />
                 <Route path="/catalog" element={
-                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                  <Suspense fallback={<PageFallback />}>
                     <Catalog />
                   </Suspense>
                 } />
                 <Route path="/settings" element={
-                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                  <Suspense fallback={<PageFallback />}>
                     <Settings />
                   </Suspense>
                 } />
@@ -60,7 +61,7 @@ function App() {
 
               <Route element={<AdminPlatformRoute />}>
                 <Route path="/admin/observability" element={
-                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                  <Suspense fallback={<PageFallback />}>
                     <AgentObservability />
                   </Suspense>
                 } />
@@ -68,12 +69,12 @@ function App() {
 
               <Route element={<AdminDevRoute />}>
                 <Route path="/admin/data-lake" element={
-                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                  <Suspense fallback={<PageFallback />}>
                     <DataLake />
                   </Suspense>
                 } />
                 <Route path="/admin/chat-test" element={
-                  <Suspense fallback={<div className="p-8 font-mono">Carregando...</div>}>
+                  <Suspense fallback={<PageFallback />}>
                     <ChatTest />
                   </Suspense>
                 } />

@@ -57,8 +57,16 @@ async def handle_whatsapp_message(
     body = await request.body()
     signature = request.headers.get("X-Hub-Signature-256")
 
-    if settings.WHATSAPP_APP_SECRET and not validate_signature(body, signature):
-        raise HTTPException(status_code=403, detail="Invalid signature")
+    if settings.WHATSAPP_APP_SECRET:
+        if not validate_signature(body, signature):
+            raise HTTPException(status_code=403, detail="Invalid signature")
+    elif not settings.WHATSAPP_ALLOW_UNSIGNED:
+        # Fail-closed: sem APP_SECRET configurado, só aceitamos inbound não assinado
+        # com opt-in explícito (modelo multi-app Meta — ver CLAUDE.md §20).
+        logger.error(
+            "Inbound webhook rejeitado: WHATSAPP_APP_SECRET ausente e WHATSAPP_ALLOW_UNSIGNED=false"
+        )
+        raise HTTPException(status_code=403, detail="Webhook signature required")
 
     try:
         payload_dict = json.loads(body)
