@@ -8,7 +8,35 @@ from packages.scheduling.guardrails import normalize_phone, sanitize_text_field,
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["normalize_phone", "upsert_patient_by_phone"]
+__all__ = [
+    "find_patient_by_phone",
+    "normalize_phone",
+    "upsert_patient_by_phone",
+]
+
+
+def find_patient_by_phone(org_id: str, phone: str) -> dict | None:
+    """Return active patient {id, name} matching the org + phone, or None."""
+    if not db.client:
+        return None
+    clean_phone, phone_err = validate_phone(phone)
+    if phone_err or not clean_phone:
+        return None
+    try:
+        res = (
+            db.client.table("patients")
+            .select("id, name")
+            .eq("organization_id", org_id)
+            .eq("phone", clean_phone)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        if res.data:
+            return {"id": str(res.data[0]["id"]), "name": res.data[0].get("name") or "Cliente"}
+    except Exception as exc:
+        logger.warning("find_patient_by_phone failed: %s", exc)
+    return None
 
 
 def upsert_patient_by_phone(org_id: str, name: str, phone: str) -> str | None:
@@ -43,19 +71,22 @@ def upsert_patient_by_phone(org_id: str, name: str, phone: str) -> str | None:
             return result.data[0]["id"]
     except Exception as exc:
         logger.warning("Patient upsert failed, falling back to select: %s", exc)
-        existing = (
-            db.client.table("patients")
-            .select("id")
-            .eq("organization_id", org_id)
-            .eq("phone", clean_phone)
-            .limit(1)
-            .execute()
-        )
-        if existing.data:
-            patient_id = existing.data[0]["id"]
-            db.client.table("patients").update({"name": payload["name"], "is_active": True}).eq(
-                "id", patient_id
-            ).execute()
-            return patient_id
+        try:
+            existing = (
+                db.client.table("patients")
+                .select("id")
+                .eq("organization_id", org_id)
+                .eq("phone", clean_phone)
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                patient_id = existing.data[0]["id"]
+                db.client.table("patients").update(
+                    {"name": payload["name"], "is_active": True}
+                ).eq("id", patient_id).execute()
+                return patient_id
+        except Exception as fallback_exc:
+            logger.warning("Patient upsert fallback also failed: %s", fallback_exc)
 
     return None

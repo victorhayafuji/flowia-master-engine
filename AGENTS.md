@@ -112,3 +112,16 @@ py -3.12 -m pytest tests/test_engine_input_guard.py tests/test_lakehouse_governa
 RUN_LLM_BEHAVIOR_TESTS=1 py -3.12 -m pytest tests/test_agent_behavior_llm.py -m llm_behavior -q
 ```
 
+## Metodologia & lições (leia antes de codar)
+
+Registro de erros recorrentes + metodologia uniforme: [`docs/ENGINEERING_PLAYBOOK.md`](docs/ENGINEERING_PLAYBOOK.md).
+Os itens mais críticos (evitam os erros que já cometemos):
+
+- **Flags:** mudança que altera roteamento/triagem entra **atrás de flag**, default = produção. Não tocar `booking_executor`/grafo sem necessidade.
+- **Timezone:** sempre o **fuso da org** (`now_local_naive(tzname)` / `datetime` aware). Nunca `date.today()` do servidor nem slice de string UTC para lógica de dia.
+- **Fonte única de verdade:** um valor/regra em um só lugar (ex.: `financial.py`, `_APP_VERSION`).
+- **Fail-closed:** validar toda entrada do usuário; I/O externa, `fromisoformat` e fallback de DB dentro de `try`, com erro amigável (sem vazar token/PII). Estado in-memory é volátil → recuperação graciosa.
+- **Reuso > reinvenção:** usar utils existentes (`routing.message_text`, `routing.is_booking_data_reply`, `timezone_utils`, `eligibility`, `guardrails`).
+- **Canais/LGPD:** WhatsApp ≤3 botões / ≤10 lista; opt-out de consentimento precisa ser persistido.
+- **Testes/higiene:** mocks com `**kwargs`; E2E por `data-testid`; sem data hardcoded (`_FixedToday`); rodar ruff+pytest+build/vitest; remover código morto; não versionar artefatos (`git status` antes do commit).
+

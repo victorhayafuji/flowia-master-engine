@@ -20,6 +20,8 @@ router = APIRouter()
 class ChatTestRequest(BaseModel):
     message: str
     thread_id: str | None = None
+    guided: bool = False  # dev chat opt-in: selection-based guided booking inline
+    patient_id: str | None = None  # dev chat: simulated client (None = unregistered)
 
 class ChatTestResponse(BaseModel):
     response: str
@@ -36,6 +38,7 @@ class ChatTestResponse(BaseModel):
     messages_count: int = 0
     scheduling_path: str | None = None
     triage_source: str | None = None
+    step: dict | None = None
 
 @router.post("/chat/test", response_model=ChatTestResponse)
 @limiter.limit("30/minute")
@@ -64,5 +67,11 @@ async def test_chat(
         )
 
     with set_tenant_context(org_id):
-        result = await dispatch_chat_test(payload.message, payload.thread_id, org_id=org_id)
+        result = await dispatch_chat_test(
+            payload.message,
+            payload.thread_id,
+            org_id=org_id,
+            guided_enabled=payload.guided,
+            patient_id=payload.patient_id,
+        )
     return ChatTestResponse(**result)

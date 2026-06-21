@@ -1,4 +1,5 @@
-import { Calendar, CheckCircle2, Clock, MessageCircle, UserX, Users } from "lucide-react"
+import { useState } from "react"
+import { Calendar, CheckCircle2, Clock, DollarSign, MessageCircle, TrendingUp, UserX, Users } from "lucide-react"
 import { Link } from "react-router-dom"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -12,7 +13,14 @@ import {
   DESTRUCTIVE_STATUSES,
   allowedTransitions,
 } from "@/features/agenda/lib/appointmentStatus"
-import { useOverviewStats } from "./hooks/useOverviewStats"
+import {
+  useOverviewStats,
+  EMPTY_BUCKET,
+  EMPTY_PERIOD,
+  type FinancialByPeriod,
+  type FinancialPeriodKey,
+} from "./hooks/useOverviewStats"
+import { ProfessionalKpi } from "./components/ProfessionalKpi"
 
 function hhmm(iso: string): string {
   const d = new Date(iso)
@@ -33,6 +41,12 @@ export function Overview() {
   const { user, orgHeader } = useAuth()
   const stats = useOverviewStats(user, orgHeader)
   const showAgentSummary = user?.role !== "professional"
+  const [kpiDate, setKpiDate] = useState(() => new Date().toISOString().slice(0, 10))
+
+  const handleKpiDateChange = (date: string) => {
+    setKpiDate(date)
+    stats.fetchProfessionalKpi(date)
+  }
 
   const handleStatusChange = async (appointmentId: string, status: string) => {
     try {
@@ -44,9 +58,9 @@ export function Overview() {
   }
 
   return (
-    <div className="page-shell overflow-y-auto lg:overflow-hidden">
+    <div className="page-shell overflow-y-auto">
       <PageHeader title="Visão Geral" subtitle="Resumo operacional do salão para hoje" />
-      <div className="space-y-8 shrink-0 mb-6">
+      <div className="space-y-8 mb-6">
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <StatCard icon={<Calendar className="w-4 h-4 text-[var(--accent)]" />} label="Agendamentos Hoje" value={stats.appointmentsToday} to="/agenda" />
           <StatCard icon={<Clock className="w-4 h-4 text-[var(--warning)]" />} label="Em Atendimento" value={stats.counts.in_progress} to="/agenda" />
@@ -59,6 +73,10 @@ export function Overview() {
             to={showAgentSummary ? "/patients?sort=faltas" : undefined}
           />
         </div>
+
+        <FinancialBlock financial={stats.financial} />
+
+        <ProfessionalKpi data={stats.professionalKpi} selectedDate={kpiDate} onDateChange={handleKpiDateChange} />
 
         {showAgentSummary && (
           <div className="space-y-3">
@@ -90,13 +108,13 @@ export function Overview() {
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2 lg:flex-1 lg:min-h-0">
-        <GlassCard className="lg:flex lg:flex-col lg:min-h-0">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <GlassCard className="flex flex-col">
           <CardHeader className="shrink-0">
             <CardTitle>Quadro de Hoje</CardTitle>
             <CardDescription>Quem atende, qual serviço e quando.</CardDescription>
           </CardHeader>
-          <CardContent className="lg:panel-scroll lg:flex-1 lg:min-h-0 pr-2">
+          <CardContent className="panel-scroll max-h-[26rem] pr-2">
             {stats.board.length === 0 ? (
               <EmptyState text="Nenhum profissional ou agendamento para hoje." />
             ) : (
@@ -154,12 +172,12 @@ export function Overview() {
           </CardContent>
         </GlassCard>
 
-        <GlassCard className="lg:flex lg:flex-col lg:min-h-0">
+        <GlassCard className="flex flex-col">
           <CardHeader className="shrink-0">
             <CardTitle>Próximos Horários</CardTitle>
             <CardDescription>Agenda dos próximos dias.</CardDescription>
           </CardHeader>
-          <CardContent className="lg:panel-scroll lg:flex-1 lg:min-h-0 pr-2">
+          <CardContent className="panel-scroll max-h-[26rem] pr-2">
             {stats.upcoming.length === 0 ? (
               <EmptyState text="Nenhum agendamento próximo." />
             ) : (
@@ -234,5 +252,102 @@ function EmptyState({ text }: { text: string }) {
     <div className="flex flex-col items-center justify-center py-16 text-[var(--muted)]">
       <p>{text}</p>
     </div>
+  )
+}
+
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+
+const FINANCE_TABS: { key: FinancialPeriodKey; label: string }[] = [
+  { key: "day", label: "Dia" },
+  { key: "month", label: "Mês" },
+  { key: "year", label: "Ano" },
+]
+
+function FinancialBlock({ financial }: { financial: FinancialByPeriod }) {
+  const [period, setPeriod] = useState<FinancialPeriodKey>("day")
+  // Defensive: never assume the backend returned a complete period shape.
+  const data = financial[period] ?? EMPTY_PERIOD
+  const billed = data.billed ?? EMPTY_BUCKET
+  const toBill = data.to_bill ?? EMPTY_BUCKET
+  const loss = data.loss ?? EMPTY_BUCKET
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-black uppercase tracking-widest text-[var(--foreground)]/60">
+          Financeiro
+        </h2>
+        <div className="flex gap-1">
+          {FINANCE_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setPeriod(tab.key)}
+              className={`px-3 py-1 border-2 font-mono text-xs font-bold uppercase tracking-wide transition-colors ${
+                period === tab.key
+                  ? "border-[var(--accent)] text-[var(--accent)] bg-[var(--surface-glass)]"
+                  : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+        <FinanceCard
+          icon={<CheckCircle2 className="w-4 h-4 text-[var(--success)]" />}
+          label="Faturado"
+          amount={billed.amount}
+          count={billed.count}
+          accent="var(--success)"
+        />
+        <FinanceCard
+          icon={<TrendingUp className="w-4 h-4 text-[var(--warning)]" />}
+          label="A Faturar"
+          amount={toBill.amount}
+          count={toBill.count}
+          accent="var(--warning)"
+        />
+        <FinanceCard
+          icon={<DollarSign className="w-4 h-4 text-[var(--danger)]" />}
+          label="Perda"
+          amount={loss.amount}
+          count={loss.count}
+          accent="var(--danger)"
+        />
+      </div>
+    </div>
+  )
+}
+
+function FinanceCard({
+  icon,
+  label,
+  amount,
+  count,
+  accent,
+}: {
+  icon: React.ReactNode
+  label: string
+  amount: number
+  count: number
+  accent: string
+}) {
+  return (
+    <GlassCard className="h-full" style={{ borderColor: `color-mix(in srgb, ${accent} 40%, var(--border))` }}>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium">{label}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold" style={{ color: accent }}>
+          {BRL.format(amount || 0)}
+        </div>
+        <div className="text-xs font-mono text-[var(--foreground)]/60 mt-1">
+          {count} atendimento{count === 1 ? "" : "s"}
+        </div>
+      </CardContent>
+    </GlassCard>
   )
 }

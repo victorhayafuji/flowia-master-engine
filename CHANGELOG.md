@@ -6,6 +6,25 @@ Todas as mudanças relevantes do FlowIA Master Engine. Formato baseado em
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-21
+
+Dashboard financeiro + KPI por profissional, agente híbrido guiado (chat dev + WhatsApp) e uma rodada de robustez ("quebrar no meio").
+
+### Added
+- **Visão financeira** (`GET /dashboard/financial`): Faturado / A Faturar / Perda por Dia / Mês / Ano, com a regra status→categoria centralizada em `packages/scheduling/financial.py` (fonte única).
+- **KPI por profissional** (`GET /dashboard/professional-kpi?date=`): atendimentos + clientes únicos do dia selecionado vs anterior vs seguinte.
+- **Agente híbrido guiado** (seleção por botões, channel-agnostic): menu de entrada (Agendar × FAQ), FAQ por tópicos respondido via LLM+RAG, consentimento LGPD por botões, Voltar/Cancelar e pós-agendamento; cliente resolvido fora da conversa (telefone no WhatsApp, seletor na tela de teste); adaptador WhatsApp interativo atrás de `GUIDED_BOOKING_WHATSAPP_ENABLED`.
+- **Recuperação fail-soft** do fluxo guiado: se a sessão in-memory sumir no meio (ex.: hot-reload no dev) e o cliente responder nome+telefone, o guiado reinicia e consome a resposta em vez de vazar para o LLM de texto livre.
+
+### Fixed
+- **Timezone no dashboard:** `professional-kpi` agora classifica o dia do agendamento no fuso da org (antes fatiava a string UTC → erro na virada da meia-noite); `today-board` compara `datetime` aware em vez de strings ISO com offsets diferentes (contagem `upcoming`).
+- **Timezone no guiado:** o passo de data usa o fuso da org para "Hoje/Amanhã" (antes `date.today()` do servidor → deslocava 1 dia em host UTC).
+- **Webhook WhatsApp:** normaliza resposta multimodal (conteúdo em lista) para texto antes de enviar, igual ao chat dev — evita cair no fallback por `AttributeError`.
+- **Agendamento guiado robusto:** o passo de horário só aceita um slot ISO válido (digitação livre não vira slot corrompido) e a criação do agendamento nunca levanta exceção crua (devolve mensagem amigável) — evita turno engolido em silêncio no WhatsApp.
+- **Render interativo WhatsApp:** passo "buttons" com >3 opções cai para lista (Meta limita a 3 botões) em vez de descartar opções; aviso em log quando a lista excede 10.
+- **Upsert de cliente:** o fallback de select+update agora é protegido (falha → `None`, refazendo o cadastro) em vez de propagar exceção.
+- **Versão única:** `FastAPI(version=...)` passa a usar `_APP_VERSION` (OpenAPI/`/health` não divergem mais).
+
 ## [1.1.0] - 2026-06-17
 
 Primeira versão etiquetada. Consolida o MVP salão (`PRODUCT_LINE=salon`) em produção piloto.

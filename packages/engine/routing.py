@@ -217,6 +217,31 @@ def has_scheduling_intent(text: str) -> bool:
     return any(keyword in t for keyword in _SCHEDULING_KEYWORDS)
 
 
+_GREETING_PHRASES = (
+    "oi", "ola", "olá", "opa", "ei", "oie",
+    "bom dia", "boa tarde", "boa noite",
+    "e ai", "e aí", "tudo bem",
+    "menu", "ajuda", "começar", "comecar", "inicio", "início",
+)
+
+# Consent acknowledgements (the reply right after the LGPD notice) → entry menu.
+# Matched exactly so they don't swallow real sentences that merely start with "sim".
+_ACK_PHRASES = (
+    "sim", "ok", "okay", "claro", "beleza", "blz", "aceito", "concordo",
+    "certo", "de acordo", "pode", "pode ser", "sim aceito", "sim concordo",
+)
+
+
+def is_greeting(text: str) -> bool:
+    """Short greeting, consent ack, or menu request → show the entry menu (Agendar × FAQ)."""
+    t = _normalize(text).strip(" .!?,").strip()
+    if not t:
+        return False
+    if t in _GREETING_PHRASES or t in _ACK_PHRASES:
+        return True
+    return len(t) <= 20 and any(t.startswith(g) for g in _GREETING_PHRASES)
+
+
 def has_support_with_date_intent(text: str) -> bool:
     """Cancel/absence/policy message that mentions a reference date."""
     return has_support_intent(text) and has_temporal_date_hint(text)

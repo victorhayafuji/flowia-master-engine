@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     INTENT_EXTRACTOR_ENABLED: bool = True
     # Polish opcional pós-composer (validação factual fail-closed)
     RESPONSE_POLISH_ENABLED: bool = False
+    # Fluxo guiado de agendamento por seleção no WhatsApp (interativo list/buttons).
+    # Default false: comportamento WhatsApp de produção (texto livre) inalterado.
+    GUIDED_BOOKING_WHATSAPP_ENABLED: bool = False
     WEBHOOK_DEDUP_RETENTION_DAYS: int = 7
     # Local webhook simulation (scripts/simulate_whatsapp_webhook.py) — dev only
     SIM_WHATSAPP_ORG_ID: str = ""

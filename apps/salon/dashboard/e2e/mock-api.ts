@@ -166,6 +166,220 @@ export async function setupApiMocks(page: Page, role: UserRole = 'org_admin', st
     ...(role === 'professional' ? { professional_id: PROFESSIONAL_ID } : {}),
   }
 
+  // Per-thread state for the guided booking flow mock, driven through /chat/test.
+  type GuidedMockOption = { id: string; title: string; description?: string | null }
+  type GuidedMockData =
+    | { type: 'step'; step: string; text: string; kind: string; options: GuidedMockOption[] }
+    | { type: 'outcome'; success: boolean; message: string }
+  const guidedSessions = new Map<string, { step: string; serviceId?: string }>()
+
+  const dateOptions = () =>
+    Array.from({ length: 5 }, (_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() + i)
+      return d.toISOString().slice(0, 10)
+    })
+  const slotOptions = ['2027-01-04T09:00:00', '2027-01-04T09:30:00']
+
+  function guidedReply(threadId: string, data: GuidedMockData) {
+    const base = {
+      agent: 'scheduling',
+      tokens_used: 0,
+      tokens_in: 0,
+      tokens_out: 0,
+      estimated_cost_brl: 0,
+      thread_id: threadId,
+      scheduling_path: 'deterministic',
+      triage_source: 'guided',
+      messages_count: 0,
+      handoff: false,
+    }
+    return data.type === 'step'
+      ? { ...base, response: data.text, step: data }
+      : { ...base, response: data.message, step: null }
+  }
+
+  const serviceStep = (threadId: string) =>
+    guidedReply(threadId, {
+      type: 'step',
+      step: 'service',
+      text: 'Qual serviço você deseja?',
+      kind: 'list',
+      options: state.services.map((sv) => ({
+        id: sv.id,
+        title: sv.name,
+        description: sv.price ? `R$ ${sv.price}` : null,
+      })),
+    })
+
+  const faqAnswers: Record<string, string> = {
+    faq_precos: 'O corte feminino custa R$ 120,00.',
+    faq_horario: 'Funcionamos de segunda a sábado, das 9h às 19h.',
+    faq_cancelamento: 'Cancele com até 24h de antecedência sem custo.',
+    faq_pagamento: 'Aceitamos dinheiro, Pix e cartões.',
+  }
+
+  function startBooking(threadId: string, patientId: string | null) {
+    if (patientId) {
+      guidedSessions.set(threadId, { step: 'service' })
+      return serviceStep(threadId)
+    }
+    guidedSessions.set(threadId, { step: 'patient_capture' })
+    return guidedReply(threadId, {
+      type: 'step',
+      step: 'patient_capture',
+      text: 'Qual o nome e o telefone (com DDD) do cliente?',
+      kind: 'input',
+      options: [],
+    })
+  }
+
+  function mockGuidedTurn(message: string, threadId: string, patientId: string | null) {
+    const active = guidedSessions.get(threadId)
+    const sel = message
+    const isIntent = /\bagendar\b|\bagendamento\b|\bmarcar\b/i.test(message)
+    const isGreeting =
+      /^(oi|ola|olá|opa|ei|bom dia|boa tarde|boa noite|menu|ajuda)\b/i.test(message.trim()) ||
+      /^(sim|ok|okay|claro|beleza|blz|aceito|concordo|certo|pode)$/i.test(message.trim())
+
+    // FAQ topic → mock RAG answer + buttons back to the deterministic flow.
+    if (faqAnswers[sel]) {
+      return {
+        agent: 'receptionist',
+        tokens_used: 50,
+        tokens_in: 40,
+        tokens_out: 10,
+        estimated_cost_brl: 0.001,
+        thread_id: threadId,
+        scheduling_path: null,
+        triage_source: 'llm',
+        messages_count: 2,
+        handoff: false,
+        response: faqAnswers[sel],
+        step: {
+          type: 'step',
+          step: 'faq_followup',
+          text: 'Posso ajudar com mais alguma coisa?',
+          kind: 'buttons',
+          options: [
+            { id: 'menu_book', title: 'Agendar serviço' },
+            { id: 'menu_faq', title: 'Tirar outra dúvida' },
+          ],
+        },
+      }
+    }
+
+    if (!active) {
+      if (sel === 'menu_book' || isIntent) return startBooking(threadId, patientId)
+      if (sel === 'menu_faq') {
+        return guidedReply(threadId, {
+          type: 'step',
+          step: 'faq',
+          text: 'Sobre o que é sua dúvida?',
+          kind: 'list',
+          options: [
+            { id: 'faq_precos', title: 'Preços' },
+            { id: 'faq_horario', title: 'Horário de funcionamento' },
+            { id: 'faq_cancelamento', title: 'Cancelamento' },
+            { id: 'faq_pagamento', title: 'Formas de pagamento' },
+            { id: 'menu', title: '↩ Voltar ao menu' },
+          ],
+        })
+      }
+      if (isGreeting) {
+        return guidedReply(threadId, {
+          type: 'step',
+          step: 'menu',
+          text: 'Como posso te ajudar?',
+          kind: 'buttons',
+          options: [
+            { id: 'menu_book', title: 'Agendar serviço' },
+            { id: 'menu_faq', title: 'Tirar uma dúvida' },
+          ],
+        })
+      }
+      return null
+    }
+
+    const s = active
+    if (s.step === 'patient_capture') {
+      s.step = 'service'
+      return serviceStep(threadId)
+    } else if (s.step === 'service') {
+      s.serviceId = sel
+      s.step = 'professional'
+      return guidedReply(threadId, {
+        type: 'step',
+        step: 'professional',
+        text: 'Com qual profissional?',
+        kind: 'list',
+        options: state.professionals.map((p) => ({ id: p.id, title: p.name })),
+      })
+    } else if (s.step === 'professional') {
+      s.step = 'date'
+      return guidedReply(threadId, {
+        type: 'step',
+        step: 'date',
+        text: 'Para qual dia?',
+        kind: 'list',
+        options: dateOptions().map((d) => ({ id: d, title: d })),
+      })
+    } else if (s.step === 'date') {
+      s.step = 'slot'
+      return guidedReply(threadId, {
+        type: 'step',
+        step: 'slot',
+        text: 'Qual horário?',
+        kind: 'list',
+        options: slotOptions.map((sl) => ({ id: sl, title: sl.slice(11, 16) })),
+      })
+    } else if (s.step === 'slot') {
+      s.step = 'confirm'
+      return guidedReply(threadId, {
+        type: 'step',
+        step: 'confirm',
+        text: 'Confirmar agendamento?',
+        kind: 'buttons',
+        options: [
+          { id: 'confirm', title: 'Confirmar' },
+          { id: 'back', title: '↩ Voltar' },
+          { id: 'cancel', title: '✕ Cancelar' },
+        ],
+      })
+    } else if (s.step === 'confirm') {
+      if (sel === 'cancel') {
+        guidedSessions.delete(threadId)
+        return guidedReply(threadId, { type: 'outcome', success: false, message: 'Agendamento cancelado.' })
+      }
+      const svc = state.services.find((x) => x.id === s.serviceId)
+      state.appointments.push({
+        id: `appt-${state.appointments.length + 1}`,
+        status: 'confirmed',
+        service: svc ? { name: svc.name } : { name: 'Serviço' },
+      })
+      s.step = 'post'
+      return guidedReply(threadId, {
+        type: 'step',
+        step: 'post',
+        text: 'Agendamento confirmado para 09:00.',
+        kind: 'buttons',
+        options: [
+          { id: 'book_again', title: 'Agendar outro' },
+          { id: 'finish', title: 'Encerrar' },
+        ],
+      })
+    } else if (s.step === 'post') {
+      if (sel === 'book_again') {
+        s.step = 'service'
+        return serviceStep(threadId)
+      }
+      guidedSessions.delete(threadId)
+      return guidedReply(threadId, { type: 'outcome', success: true, message: 'Tudo certo! 👋' })
+    }
+
+    return null
+  }
+
   await page.route(`${API_BASE}/**`, async (route) => {
     const url = new URL(route.request().url())
     const path = url.pathname.replace('/api/v1', '')
@@ -381,10 +595,51 @@ export async function setupApiMocks(page: Page, role: UserRole = 'org_admin', st
     }
 
     if (path === '/chat/test' && method === 'POST') {
-      const body = route.request().postDataJSON() as { message: string; thread_id?: string }
-      const msg = body.message.toLowerCase()
-      const chat = buildMockChatResponse(msg, state)
+      const body = route.request().postDataJSON() as {
+        message: string
+        thread_id?: string
+        patient_id?: string | null
+      }
+      const threadId = body.thread_id || `mock-thread-${guidedSessions.size + 1}`
+      const guided = mockGuidedTurn(body.message, threadId, body.patient_id || null)
+      if (guided) return route.fulfill({ json: guided })
+      const chat = buildMockChatResponse(body.message.toLowerCase(), state)
       return route.fulfill({ json: chat })
+    }
+
+    if (path === '/dashboard/agent-summary' && method === 'GET') {
+      return route.fulfill({
+        json: {
+          status: 'success',
+          data: { handoffsPending: 0, appointmentsWhatsappToday: 0, conversationsThisWeek: 0 },
+        },
+      })
+    }
+
+    if (path === '/dashboard/financial' && method === 'GET') {
+      const zero = { amount: 0, count: 0 }
+      const period = { billed: zero, to_bill: zero, loss: zero }
+      return route.fulfill({
+        json: { status: 'success', data: { day: period, month: period, year: period } },
+      })
+    }
+
+    if (path === '/dashboard/professional-kpi' && method === 'GET') {
+      const zero = { appointments: 0, clients: 0 }
+      return route.fulfill({
+        json: {
+          status: 'success',
+          data: {
+            dates: { prev: '', current: '', next: '' },
+            professionals: state.professionals.map((p) => ({
+              professional: { id: p.id, name: p.name },
+              prev: zero,
+              current: zero,
+              next: zero,
+            })),
+          },
+        },
+      })
     }
 
     return route.fulfill({ status: 404, json: { detail: `Unmocked ${method} ${path}` } })

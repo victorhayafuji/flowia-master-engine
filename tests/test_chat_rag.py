@@ -44,7 +44,7 @@ class TestChatTestEndpoint:
     def test_chat_test_sets_tenant(self, client, user_token, mocker):
         captured: dict = {}
 
-        async def fake_dispatch(message, thread_id=None, org_id=None):
+        async def fake_dispatch(message, thread_id=None, org_id=None, **kwargs):
             captured["org"] = get_current_org_id()
             return {
                 "response": "Resposta de teste",

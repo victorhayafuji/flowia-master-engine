@@ -68,14 +68,7 @@ def _make_payload(
                                 "display_phone_number": "5511888888888",
                                 "phone_number_id": phone_number_id,
                             },
-                            "messages": [
-                                {
-                                    "id": message_id,
-                                    "from": sender,
-                                    "type": "text",
-                                    "text": {"body": text},
-                                }
-                            ],
+                            "messages": [_build_message(text, message_id, sender)],
                         },
                         "field": "messages",
                     }
@@ -83,6 +76,26 @@ def _make_payload(
             }
         ],
     }
+
+
+def _build_message(raw: str, message_id: str, sender: str) -> dict:
+    """Text message, or an interactive reply when ``raw`` is ``list_reply:<id>`` / ``button_reply:<id>``.
+
+    Use the prefixed form to simulate a guided-booking selection (requires
+    GUIDED_BOOKING_WHATSAPP_ENABLED=true on the backend), e.g.:
+      py scripts/simulate_whatsapp_webhook.py "agendar" "list_reply:<service_id>" "list_reply:<pro_id>" ...
+    """
+    for kind in ("list_reply", "button_reply"):
+        prefix = f"{kind}:"
+        if raw.startswith(prefix):
+            reply_id = raw[len(prefix):]
+            return {
+                "id": message_id,
+                "from": sender,
+                "type": "interactive",
+                "interactive": {"type": kind, kind: {"id": reply_id, "title": reply_id}},
+            }
+    return {"id": message_id, "from": sender, "type": "text", "text": {"body": raw}}
 
 
 def _sign(body: bytes, secret: str) -> str:

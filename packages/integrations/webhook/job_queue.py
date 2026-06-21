@@ -144,15 +144,15 @@ def process_job_by_id(job_id: str) -> None:
 
 
 def dispatch_whatsapp_payload(payload: WhatsAppWebhookPayload) -> None:
-    """Enqueue each text message; process inline when WHATSAPP_QUEUE_MODE=inline."""
-    from packages.integrations.webhook.processor import iter_text_messages
+    """Enqueue each text/interactive message; process inline when WHATSAPP_QUEUE_MODE=inline."""
+    from packages.integrations.webhook.processor import extract_inbound_text, iter_messages
 
     inline = settings.WHATSAPP_QUEUE_MODE.lower() != "worker"
 
-    for value, msg in iter_text_messages(payload):
+    for value, msg in iter_messages(payload):
         message_id = msg.get("id")
         sender_id = msg.get("from", "unknown")
-        text_body = msg.get("text", {}).get("body", "")
+        text_body = extract_inbound_text(msg)
         if not text_body:
             continue
 
