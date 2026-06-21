@@ -18,6 +18,10 @@
 | Categoria | Documento | Quando usar |
 |-----------|-----------|-------------|
 | Arquitetura | [ARCHITECTURE.md](ARCHITECTURE.md) | Detalhe técnico (CLAUDE prevalece) |
+| Arquitetura de Solução | [SOLUTION_ARCHITECTURE.md](SOLUTION_ARCHITECTURE.md) | Visão C4 (contexto→contêineres→componentes→runtime→deploy) + ADRs |
+| Processos (BPMN) | [BPMN.md](BPMN.md) | Fluxos de negócio BPMN-style (Mermaid, lanes) |
+| Tecnologias | [TECH_STACK.md](TECH_STACK.md) | Stack com prós/contras e alternativas por tecnologia |
+| Modelo de dados (DER) | [DER.md](DER.md) | DER + dicionário de tabelas/constraints |
 | Negócio MVP | [SALON_BUSINESS_AUDIT.md](SALON_BUSINESS_AUDIT.md) | Personas, regras, matriz funcional |
 | Tenancy & escala | [TENANCY_AND_SCALE.md](TENANCY_AND_SCALE.md) | Onboarding salão, RLS, 200+ orgs, enterprise |
 | Monorepo | [MONOREPO.md](MONOREPO.md) | Produto por diretório, deploys |

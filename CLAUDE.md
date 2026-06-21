@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.1.0 · **Última revisão doc:** Jun/2026 (doc v1.20)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.21)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -462,7 +462,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 
 | Método | Path | Descrição |
 |--------|------|-----------|
-| POST | `/chat/test` | Chat test (dev) |
+| POST | `/chat/test` | Chat test (dev). `guided=true` ativa o agendamento guiado por seleção inline (resposta inclui `step` quando há opções) — ver §23.1 |
 | GET | `/metrics/kpis` | KPIs |
 | GET | `/metrics/conversations` | Conversas |
 | GET | `/metrics/tokens-daily` | Tokens/dia |
@@ -499,6 +499,8 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | GET | `/dashboard/stats` | Stats overview (scoped por `professional_id` se aplicável) |
 | GET | `/dashboard/today-board` | Painel operacional do dia: agendamentos por profissional, status, fim estimado |
 | GET | `/dashboard/agent-summary` | Observabilidade lite do agente (handoffs, WhatsApp hoje, conversas/semana) |
+| GET | `/dashboard/financial` | Faturado / A Faturar / Perda por **Dia/Mês/Ano** (preço do catálogo; regra status→categoria em `packages/scheduling/financial.py`) |
+| GET | `/dashboard/professional-kpi` | Por profissional: atendimentos + clientes únicos no dia (`?date=`) vs anterior vs seguinte |
 
 ### System
 
@@ -763,6 +765,7 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 | Booking overlap | Checagem Python + constraint `appointments_no_overlap` (btree_gist EXCLUDE) | Cancelados/no_show excluídos da constraint |
 | Bronze dedup | content_hash migration | OK |
 | Booking tool rate limit | In-process TTL por `sender_id`/`thread_id` (`scheduling/guardrails.py`) | Não distribuído entre réplicas — OK para MVP |
+| Fluxo guiado (sessão) | Estado por thread in-memory (`scheduling/guided_session_store.py`, espelha `session_store.py`) | Reinício do processo perde sessões em andamento; não compartilhado entre réplicas. **Recuperação fail-soft:** se a sessão sumir no meio (ex.: hot-reload no dev) e o cliente responder nome+telefone (`is_booking_data_reply`), o guiado reinicia e consome a resposta (→ passo serviço) em vez de vazar para o LLM de texto livre — `_maybe_guided_turn` (chat) / `_maybe_handle_guided` (WhatsApp); só-nome no WhatsApp não dispara (best-effort). WhatsApp interativo atrás de `GUIDED_BOOKING_WHATSAPP_ENABLED`; ≤3 opções → botões, senão lista (≤10 linhas — >10 trunca com `warning`; paginação é v2.0); envio real exige credenciais Meta (validado via simulador) |
 | Handoff cooldown | 1 handoff/24h por `{org_id}:{sender}` + `/resume` após 5 min (max 3/h) — `session_store.py` | In-memory; reinício do processo zera contadores |
 | Checkpoint thread legado | Leitura fallback phone-only (1 release); escrita sempre `{org_id}:{phone}` | Sem migração em massa de checkpoints |
 | WhatsApp fila | Tabela `whatsapp_inbound_jobs` FIFO + worker Render (`WHATSAPP_QUEUE_MODE=inline\|worker`) | Inline default até Meta live; serialização por thread_id |
@@ -771,6 +774,7 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 | WhatsApp verify token exposto ao org_admin | `GET /organizations/whatsapp` devolve `verify_token` | Necessário p/ o dono configurar o webhook; segredo compartilhado de baixa sensibilidade (só serve ao handshake de subscription) |
 | LGPD retention | Purge checkpoints + conversation_metrics (scheduler) | Agendamentos anonimizados após erase; Data Lake Bronze sem purge automático por tenant |
 | Consentimento WhatsApp | Aviso 1ª msg; consent tácito 2ª msg | Opt-in explícito SIM/NÃO — fase 2 se exigido |
+| Consentimento guiado — "Discordo" não persiste | Botões `[Concordo]`/`[Discordo]` no fluxo guiado (`consent_decline` encerra sem gravar) | **Limitação LGPD:** como `record_notice_shown` já gravou `privacy_notice_shown_at` no 1º contato e não há coluna `privacy_declined_at`, a **próxima** mensagem do mesmo sender cai no consentimento **tácito** (`evaluate_consent_gate`) e **anula o "Discordo"**. Impacto baixo hoje (guiado WhatsApp atrás de `GUIDED_BOOKING_WHATSAPP_ENABLED`; decline no chat dev é teste). **Fast-follow v2.0:** migration `patients.privacy_declined_at` + ramo no gate que respeita a recusa |
 | Rate limiting geral (slowapi) + cooldowns | In-process (memória do worker) | **Pré-requisito de escala:** mover para backend compartilhado (Postgres/Redis) antes de `scale>1` — ver [Parte VIII §48.3](#483-rate-limiting-distribuído-pré-requisito-de-scale1) |
 
 Documentar novas limitações nesta seção ao descobri-las.
@@ -869,6 +873,8 @@ flowchart TD
 **Checkpoint (`BookingStateSnapshot`):** `sync_booking_state()` materializa slots + `pending_clarification` + `missing_fields`; executor e intent extractor consultam o checkpoint antes de re-parse ambíguo do thread.
 
 **Resposta `/chat/test`:** campos `scheduling_path`, `triage_source` (badges na UI dev).
+
+**Agendamento guiado por seleção (channel-agnostic):** `packages/scheduling/guided_booking.py` + `guided_session_store.py` (sessão in-memory por thread) emitem *structured steps* — `StructuredStep {step, text, kind: list|buttons|input, options}` — que cada canal renderiza: o **chat dev** como botões inline (resposta com campo `step`; `dispatch_chat_test(..., guided_enabled)` ligado por `guided=true` no request), o **WhatsApp** como list/buttons interativos (`processor._maybe_handle_guided`, atrás de `GUIDED_BOOKING_WHATSAPP_ENABLED`). Gatilho por `has_scheduling_intent`. O **cliente é resolvido fora da conversa** (nunca perguntado in-chat): WhatsApp → telefone do sender (`find_patient_by_phone`); chat dev → seletor da tela de teste (`patient_id` no request, simulando o telefone). Cadastrado → fluxo encurtado direto ao serviço; não cadastrado → onboarding via passo `input` (nome[+telefone no teste]). Confirma via `create_appointment` (slot é ISO completo). **Consentimento LGPD explícito (guiado):** com `guided_enabled`/flag, o aviso do 1º contato vira `consent_step()` com botões `[Concordo, continuar]` / `[Discordo, quero encerrar]` (em vez do tácito por texto); `consent_accept` grava `record_consent` e abre o menu, `consent_decline` encerra educadamente sem gravar. Sem guided, mantém o aviso em texto/tácito (§19). **Menu de entrada:** saudação **ou confirmação de consentimento** (`is_greeting`, inclui acks "sim/ok/claro…") abre `menu_step()` `[Agendar serviço] [Tirar uma dúvida]`; **FAQ por tópicos** (`faq_topics_step()`: preços/horário/cancelamento/pagamento + ↩ Voltar) mapeia para perguntas canônicas (`FAQ_TOPIC_QUESTIONS`) respondidas pelo **LLM+RAG** (não pelo `guided_booking`); a resposta do FAQ vem com `post_faq_step()` `[Agendar serviço] [Tirar outra dúvida]` para **retornar ao fluxo determinístico** (não é beco sem saída). Cada passo de booking tem **Voltar/Cancelar**; após confirmar, passo pós-booking `[Agendar outro] [Encerrar]`. **Não** substitui o `booking_executor` de texto livre (default `guided_enabled=false`).
 
 **Env vars:** ver §33 (`SCHEDULING_DETERMINISTIC_ENABLED`, `SCHEDULING_LLM_FALLBACK`, `INTENT_EXTRACTOR_ENABLED`, `RESPONSE_POLISH_ENABLED`).
 
@@ -1064,6 +1070,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `SCHEDULING_LLM_FALLBACK` | Opcional | smart \| always \| never |
 | `INTENT_EXTRACTOR_ENABLED` | Opcional | LLM estruturado em turnos ambíguos (default true) |
 | `RESPONSE_POLISH_ENABLED` | Opcional | Polish LLM pós-composer (default **false**; A/B staging — ver §33.1) |
+| `GUIDED_BOOKING_WHATSAPP_ENABLED` | Opcional | Fluxo guiado por seleção (interativo) no WhatsApp (default **false** — texto livre de produção inalterado) |
 | `SIM_WHATSAPP_ORG_ID` | Dev only | Bypass tenant resolver em simulação local — **nunca produção** |
 | `SIM_WHATSAPP_PHONE_ID` | Dev only | Default `123456789`; parear com simulate script |
 | `PROD_SMOKE_PASSWORD` | Dev/smoke | Senha piloto para `smoke_hybrid_prod.py` — não commitar |
@@ -1194,6 +1201,10 @@ Ver [`docs/ROADMAP.md`](docs/ROADMAP.md). Resumo:
 | [`AGENTS.md`](AGENTS.md) | Comandos, rules/skills Cursor |
 | [`docs/README.md`](docs/README.md) | Índice temático |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Referência arquitetura |
+| [`docs/SOLUTION_ARCHITECTURE.md`](docs/SOLUTION_ARCHITECTURE.md) | Arquitetura de Solução (C4: contexto→contêineres→componentes→runtime→deploy + ADRs) |
+| [`docs/BPMN.md`](docs/BPMN.md) | Processos de negócio BPMN-style (Mermaid, lanes) |
+| [`docs/TECH_STACK.md`](docs/TECH_STACK.md) | Tecnologias empregadas — prós/contras e alternativas |
+| [`docs/DER.md`](docs/DER.md) | Modelo de dados — DER + dicionário de tabelas/constraints |
 | [`docs/SALON_BUSINESS_AUDIT.md`](docs/SALON_BUSINESS_AUDIT.md) | Auditoria negócio MVP |
 | [`docs/PACKAGE_BOUNDARIES.md`](docs/PACKAGE_BOUNDARIES.md) | Boundaries pacotes |
 | [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md) | Rotação secrets |
@@ -1313,6 +1324,8 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.18 | Jun/2026 | Toolchain frontend Vite 5 → 7 concluído (§48.4, §9, §43): Vite 7.3 / Vitest 3.2 / plugin-react 4.7; build+vitest+eslint+E2E verdes no Node 22 |
 | 1.19 | Jun/2026 | Padronização **Node 24 LTS** (§9, §48.4): CI, Render `NODE_VERSION`, `engines >=24`, `.node-version`, `.npmrc` `engine-strict`, `start_flowia.bat` |
 | 1.20 | Jun/2026 | **Integração WhatsApp self-service** (§13, §5, §3, §4.2, §20, §36): rotas tenant-scoped `GET/PATCH/POST /organizations/whatsapp*` (token mascarado, teste real na Graph API), tela Configurações para org_admin (modelo "cliente traz a própria conta"); Embedded Signup permanece futuro; limitações app secret/verify token registradas |
+| 1.21 | Jun/2026 | **Release 1.2.0** (`_APP_VERSION`): dashboard financeiro (`/dashboard/financial`) + KPI por profissional (`/dashboard/professional-kpi`) em §13; agente híbrido guiado (menu/FAQ/consentimento por botões + recuperação fail-soft) e nota de render WhatsApp (≤3 botões / lista ≤10) em §20/§23.1; rodada de robustez: fixes de timezone (KPI/today-board), validação de slot no guiado, fallback de upsert protegido, versão única no `FastAPI(...)` |
+| 1.22 | Jun/2026 | Higiene (remoção do `iter_text_messages` morto) + **documentação robusta**: novos `docs/SOLUTION_ARCHITECTURE.md`, `docs/BPMN.md`, `docs/TECH_STACK.md`, `docs/DER.md` (§37 mapa de documentação); limitação LGPD "Discordo" não-persistente em §20 |
 
 ---
 

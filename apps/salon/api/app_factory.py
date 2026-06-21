@@ -24,7 +24,7 @@ from packages.auth_core.exceptions import (
 from packages.auth_core.limiter import limiter
 
 _APP_START_TIME = time.monotonic()
-_APP_VERSION = "1.1.0"
+_APP_VERSION = "1.2.0"
 
 
 @asynccontextmanager
@@ -131,7 +131,7 @@ def create_salon_app() -> FastAPI:
     app = FastAPI(
         title="FlowIA Salon",
         description="Assistente e gestão para salões de beleza",
-        version="1.1.0",
+        version=_APP_VERSION,
         lifespan=lifespan,
     )
     _register_exception_handlers(app)

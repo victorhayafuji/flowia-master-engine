@@ -9,7 +9,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage
 
 from packages.auth_core.config import settings
-from packages.auth_core.conversation_thread import get_state_with_legacy_fallback
+from packages.auth_core.conversation_thread import build_thread_id, get_state_with_legacy_fallback
 from packages.auth_core.tenant import set_tenant_context
 from packages.compliance.consent import ConsentAction, evaluate_consent_gate
 from packages.compliance.logging_utils import mask_sender_id
@@ -22,6 +22,7 @@ from packages.engine.input_guard import (
 )
 from packages.engine.metrics.service import save_conversation_metric
 from packages.engine.metrics.telemetry import extract_turn_tools_called
+from packages.engine.routing import message_text
 from packages.engine.token_tracking import TurnTokenTracker, resolve_turn_tokens
 from packages.integrations.webhook.dedup import try_claim_message
 from packages.integrations.webhook.schemas import WhatsAppWebhookPayload
@@ -36,6 +37,98 @@ FALLBACK_MESSAGE = (
 )
 
 MAX_JOB_ATTEMPTS = 3
+
+
+def _maybe_handle_guided(org_id: str, sender_id: str, text_body: str) -> bool:
+    """Drive the channel-agnostic guided booking flow on WhatsApp (behind a flag).
+
+    Handles the message when a guided session is active (the body is the selected
+    option id / typed reply) or when the message shows scheduling intent. The client
+    is resolved by the sender's phone (shortened flow if already registered). Returns
+    True when handled. No-op unless GUIDED_BOOKING_WHATSAPP_ENABLED.
+    """
+    if not settings.GUIDED_BOOKING_WHATSAPP_ENABLED:
+        return False
+
+    from packages.engine.routing import has_scheduling_intent, is_booking_data_reply, is_greeting
+    from packages.scheduling import guided_booking
+    from packages.scheduling.guided_session_store import STEP_PATIENT_CAPTURE, has_active_session
+
+    thread_key = build_thread_id(org_id, sender_id)
+    active = has_active_session(thread_key)
+    selection = (text_body or "").strip()
+
+    starts_booking = selection == guided_booking.MENU_BOOK_ID or has_scheduling_intent(selection)
+    # A booking-data reply (name+phone) with no session = dropped onboarding → recover.
+    recover = not active and is_booking_data_reply(selection)
+    if not active and not (
+        starts_booking or selection == guided_booking.MENU_FAQ_ID or is_greeting(selection) or recover
+    ):
+        return False
+
+    async def _run() -> None:
+        wa_service = WhatsAppService()
+        if active:
+            result = await guided_booking.advance(thread_key, selection)
+            if isinstance(result, guided_booking.StructuredStep):
+                await wa_service.send_structured_step(sender_id, result.to_dict())
+            else:
+                await wa_service.send_text_message(sender_id, result.message)
+            return
+        if starts_booking or recover:
+            step = await guided_booking.start_session(
+                thread_key, org_id=org_id, patient_phone=sender_id, channel="whatsapp"
+            )
+            # Recovery: consume the just-typed reply so onboarding isn't re-asked.
+            if recover and isinstance(step, guided_booking.StructuredStep) and step.step == STEP_PATIENT_CAPTURE:
+                result = await guided_booking.advance(thread_key, selection)
+                if isinstance(result, guided_booking.StructuredStep):
+                    await wa_service.send_structured_step(sender_id, result.to_dict())
+                else:
+                    await wa_service.send_text_message(sender_id, result.message)
+                return
+        elif selection == guided_booking.MENU_FAQ_ID:
+            step = guided_booking.faq_topics_step()
+        else:  # greeting
+            step = guided_booking.menu_step()
+        await wa_service.send_structured_step(sender_id, step.to_dict())
+
+    try:
+        with set_tenant_context(org_id):
+            asyncio.run(_run())
+    except Exception as exc:  # noqa: BLE001 — never break inbound on guided errors
+        logger.error("Guided booking failed for %s: %s", mask_sender_id(sender_id), exc)
+    return True
+
+
+def _maybe_handle_consent_buttons(org_id: str, sender_id: str, text_body: str) -> bool:
+    """Explicit LGPD consent buttons on WhatsApp (behind the flag). Returns True when handled."""
+    if not settings.GUIDED_BOOKING_WHATSAPP_ENABLED:
+        return False
+
+    from packages.compliance.consent import record_consent
+    from packages.scheduling import guided_booking
+
+    selection = (text_body or "").strip()
+    if selection not in (guided_booking.CONSENT_ACCEPT_ID, guided_booking.CONSENT_DECLINE_ID):
+        return False
+
+    async def _run() -> None:
+        wa_service = WhatsAppService()
+        if selection == guided_booking.CONSENT_DECLINE_ID:
+            await wa_service.send_text_message(
+                sender_id, "Tudo bem! Encerrando por aqui. Quando quiser, é só chamar. 👋"
+            )
+            return
+        record_consent(org_id, sender_id, "whatsapp")
+        await wa_service.send_structured_step(sender_id, guided_booking.menu_step().to_dict())
+
+    try:
+        with set_tenant_context(org_id):
+            asyncio.run(_run())
+    except Exception as exc:  # noqa: BLE001 — never break inbound on consent errors
+        logger.error("Consent handling failed for %s: %s", mask_sender_id(sender_id), exc)
+    return True
 
 
 def process_inbound_text_message(
@@ -61,9 +154,23 @@ def process_inbound_text_message(
         asyncio.run(wa_service.send_text_message(sender_id, BLOCKED_USER_RESPONSE))
         return
 
+    # FAQ topic shortcut → answer via the normal LLM+RAG engine (canonical question).
+    is_faq_topic = False
+    if settings.GUIDED_BOOKING_WHATSAPP_ENABLED:
+        from packages.scheduling.guided_booking import FAQ_TOPIC_QUESTIONS
+
+        faq_question = FAQ_TOPIC_QUESTIONS.get(text_body.strip())
+        if faq_question:
+            text_body = faq_question
+            is_faq_topic = True
+
     formatted_body = format_user_message_for_agent(text_body)
     masked_body = (text_body[:15] + "...") if len(text_body) > 15 else text_body
     logger.info("Processing message from %s: %s", mask_sender_id(sender_id), masked_body)
+
+    # Explicit LGPD consent buttons (before the tácito gate).
+    if _maybe_handle_consent_buttons(org_id, sender_id, text_body):
+        return
 
     with set_tenant_context(org_id):
         consent_action, notice_msg, lgpd_shown = evaluate_consent_gate(org_id, sender_id, "whatsapp")
@@ -71,7 +178,12 @@ def process_inbound_text_message(
     if consent_action == ConsentAction.SEND_NOTICE and notice_msg:
         try:
             wa_service = WhatsAppService()
-            asyncio.run(wa_service.send_text_message(sender_id, notice_msg))
+            if settings.GUIDED_BOOKING_WHATSAPP_ENABLED:
+                from packages.scheduling.guided_booking import consent_step
+
+                asyncio.run(wa_service.send_structured_step(sender_id, consent_step(notice_msg).to_dict()))
+            else:
+                asyncio.run(wa_service.send_text_message(sender_id, notice_msg))
         except ValueError as wa_err:
             logger.warning("LGPD notice skipped for %s: %s", mask_sender_id(sender_id), wa_err)
         return
@@ -135,6 +247,10 @@ def process_inbound_text_message(
     except Exception as exc:
         logger.warning("Failed to check graph state for handoff: %s", exc)
 
+    # Guided (selection-based) booking — handled before the LLM engine when active.
+    if _maybe_handle_guided(org_id, sender_id, text_body):
+        return
+
     try:
         with set_tenant_context(org_id):
             final_state = asyncio.run(master_engine.ainvoke(initial_state, config=config))
@@ -164,7 +280,9 @@ def process_inbound_text_message(
                 "Como posso te ajudar de outra forma?"
             )
         else:
-            final_ai_msg = getattr(ai_msg_obj, "content", "") if ai_msg_obj else ""
+            # message_text normalizes str / list (multimodal) content → plain text,
+            # matching the dev chat; a raw list would break the .strip() below.
+            final_ai_msg = message_text(ai_msg_obj) if ai_msg_obj else ""
 
         if ai_msg_obj:
             t_in, t_out, t_total = resolve_turn_tokens(messages, token_tracker)
@@ -195,6 +313,13 @@ def process_inbound_text_message(
                         "WhatsApp outbound failed for %s (check org credentials)",
                         mask_sender_id(sender_id),
                     )
+                # After a FAQ answer, offer buttons back to the deterministic flow.
+                if is_faq_topic:
+                    from packages.scheduling.guided_booking import post_faq_step
+
+                    asyncio.run(
+                        wa_service.send_structured_step(sender_id, post_faq_step().to_dict())
+                    )
             except ValueError as wa_err:
                 logger.warning(
                     "WhatsApp outbound skipped for %s: %s",
@@ -214,14 +339,26 @@ def process_inbound_text_message(
     logger.info("AI Response to %s: %s", mask_sender_id(sender_id), masked_response)
 
 
-def iter_text_messages(payload: WhatsAppWebhookPayload):
-    """Yield (value, msg) for each inbound text message in a webhook payload."""
+def iter_messages(payload: WhatsAppWebhookPayload):
+    """Yield (value, msg) for text **and** interactive inbound messages."""
     for entry in payload.entry or []:
         for change in entry.get("changes", []):
             value = change.get("value", {})
             for msg in value.get("messages", []):
-                if msg.get("type") == "text":
+                if msg.get("type") in ("text", "interactive"):
                     yield value, msg
+
+
+def extract_inbound_text(msg: dict[str, Any]) -> str:
+    """Body for a text message, or the selected option id for an interactive reply."""
+    mtype = msg.get("type")
+    if mtype == "text":
+        return msg.get("text", {}).get("body", "") or ""
+    if mtype == "interactive":
+        interactive = msg.get("interactive", {}) or {}
+        reply = interactive.get("list_reply") or interactive.get("button_reply") or {}
+        return reply.get("id", "") or ""
+    return ""
 
 
 def process_message_in_background(payload: WhatsAppWebhookPayload) -> None:

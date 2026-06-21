@@ -161,3 +161,77 @@ class WhatsAppService:
             credentials["token"],
             payload,
         )
+
+    async def send_interactive_buttons(
+        self, to_phone: str, body: str, buttons: list[dict]
+    ) -> bool:
+        """Reply buttons (máx. 3). ``buttons`` = [{id, title}] (title ≤ 20 chars)."""
+        credentials = await self._get_org_whatsapp_credentials()
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_phone,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {"text": body[:1024]},
+                "action": {
+                    "buttons": [
+                        {
+                            "type": "reply",
+                            "reply": {"id": str(b["id"])[:256], "title": str(b["title"])[:20]},
+                        }
+                        for b in buttons[:3]
+                    ]
+                },
+            },
+        }
+        return await self._post_message(credentials["phone_id"], credentials["token"], payload)
+
+    async def send_interactive_list(
+        self, to_phone: str, body: str, button_label: str, rows: list[dict]
+    ) -> bool:
+        """List message (máx. 10 linhas). ``rows`` = [{id, title, description?}]."""
+        credentials = await self._get_org_whatsapp_credentials()
+        if len(rows) > 10:
+            logger.warning(
+                "WhatsApp list truncated: %d options > 10 (pagination is v2.0)", len(rows)
+            )
+        section_rows = []
+        for r in rows[:10]:
+            row = {"id": str(r["id"])[:200], "title": str(r["title"])[:24]}
+            if r.get("description"):
+                row["description"] = str(r["description"])[:72]
+            section_rows.append(row)
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_phone,
+            "type": "interactive",
+            "interactive": {
+                "type": "list",
+                "body": {"text": body[:1024]},
+                "action": {
+                    "button": (button_label or "Escolher")[:20],
+                    "sections": [{"title": "Opções", "rows": section_rows}],
+                },
+            },
+        }
+        return await self._post_message(credentials["phone_id"], credentials["token"], payload)
+
+    async def send_structured_step(self, to_phone: str, step: dict) -> bool:
+        """Render a channel-agnostic StructuredStep (dict) as WhatsApp interactive.
+
+        ``buttons`` for ≤3 options (Meta's reply-button limit), otherwise a ``list``
+        (capped at 10 — extras are dropped with a warning; pagination is v2.0).
+        Empty options fall back to a plain text message.
+        """
+        options = step.get("options") or []
+        body = step.get("text") or ""
+        if not options:
+            return await self.send_text_message(to_phone, body)
+        # Reply buttons cap at 3 (Meta limit). Use them only for ≤3 options — a
+        # "buttons" step with >3 options falls back to a list, never dropping extras.
+        if len(options) <= 3:
+            return await self.send_interactive_buttons(to_phone, body, options)
+        return await self.send_interactive_list(to_phone, body, "Ver opções", options)

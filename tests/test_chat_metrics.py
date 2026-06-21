@@ -100,7 +100,7 @@ class TestCalculateCost:
     def test_chat_response_includes_cost_fields(self, client, user_token, mocker):
         from unittest.mock import AsyncMock
 
-        async def fake_dispatch(message, thread_id=None, org_id=None):
+        async def fake_dispatch(message, thread_id=None, org_id=None, **kwargs):
             return {
                 "response": "R$ 299",
                 "agent": "sdr",

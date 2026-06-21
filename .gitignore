@@ -57,3 +57,6 @@ node_modules/
 **/dist/
 **/test-results/
 **/playwright-report/
+
+# Pasta local de referências (screenshots/specs) — não versionar
+/refs/

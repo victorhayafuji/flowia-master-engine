@@ -34,6 +34,38 @@ interface BoardCounts {
   upcoming: number
 }
 
+export interface FinancialBucket {
+  amount: number
+  count: number
+}
+
+export interface FinancialPeriod {
+  billed: FinancialBucket
+  to_bill: FinancialBucket
+  loss: FinancialBucket
+}
+
+export type FinancialPeriodKey = "day" | "month" | "year"
+
+export type FinancialByPeriod = Record<FinancialPeriodKey, FinancialPeriod>
+
+export interface ProfKpiCounts {
+  appointments: number
+  clients: number
+}
+
+export interface ProfKpiRow {
+  professional: { id: string | null; name: string }
+  prev: ProfKpiCounts
+  current: ProfKpiCounts
+  next: ProfKpiCounts
+}
+
+export interface ProfessionalKpiData {
+  dates: { prev: string; current: string; next: string }
+  professionals: ProfKpiRow[]
+}
+
 interface OverviewStats {
   patients: number
   totalNoShows: number
@@ -42,6 +74,8 @@ interface OverviewStats {
   counts: BoardCounts
   board: BoardItem[]
   agentSummary: AgentSummary
+  financial: FinancialByPeriod
+  professionalKpi: ProfessionalKpiData
 }
 
 export interface AgentSummary {
@@ -58,6 +92,14 @@ const EMPTY_AGENT: AgentSummary = {
 
 const EMPTY_COUNTS: BoardCounts = { total: 0, in_progress: 0, completed: 0, no_show: 0, upcoming: 0 }
 
+export const EMPTY_BUCKET: FinancialBucket = { amount: 0, count: 0 }
+export const EMPTY_PERIOD: FinancialPeriod = { billed: EMPTY_BUCKET, to_bill: EMPTY_BUCKET, loss: EMPTY_BUCKET }
+const EMPTY_FINANCIAL: FinancialByPeriod = { day: EMPTY_PERIOD, month: EMPTY_PERIOD, year: EMPTY_PERIOD }
+const EMPTY_KPI: ProfessionalKpiData = {
+  dates: { prev: "", current: "", next: "" },
+  professionals: [],
+}
+
 export function useOverviewStats(user: unknown, orgHeader: Record<string, string>) {
   const [stats, setStats] = useState<OverviewStats>({
     patients: 0,
@@ -67,6 +109,8 @@ export function useOverviewStats(user: unknown, orgHeader: Record<string, string
     counts: EMPTY_COUNTS,
     board: [],
     agentSummary: EMPTY_AGENT,
+    financial: EMPTY_FINANCIAL,
+    professionalKpi: EMPTY_KPI,
   })
 
   const fetchStats = useCallback(async () => {
@@ -116,17 +160,43 @@ export function useOverviewStats(user: unknown, orgHeader: Record<string, string
     }
   }, [orgHeader])
 
+  const fetchFinancial = useCallback(async () => {
+    try {
+      const res = await api.get("/dashboard/financial", orgHeader)
+      const data = res?.data || res
+      setStats((prev) => ({ ...prev, financial: { ...EMPTY_FINANCIAL, ...data } }))
+    } catch (err) {
+      console.error("Erro ao buscar financeiro:", err)
+    }
+  }, [orgHeader])
+
+  const fetchProfessionalKpi = useCallback(
+    async (date?: string) => {
+      try {
+        const qs = date ? `?date=${date}` : ""
+        const res = await api.get(`/dashboard/professional-kpi${qs}`, orgHeader)
+        const data = res?.data || res
+        setStats((prev) => ({ ...prev, professionalKpi: { ...EMPTY_KPI, ...data } }))
+      } catch (err) {
+        console.error("Erro ao buscar KPI por profissional:", err)
+      }
+    },
+    [orgHeader],
+  )
+
   useEffect(() => {
     if (!user) return
     fetchStats()
     fetchBoard()
     fetchAgentSummary()
-  }, [user, fetchStats, fetchBoard, fetchAgentSummary])
+    fetchFinancial()
+    fetchProfessionalKpi()
+  }, [user, fetchStats, fetchBoard, fetchAgentSummary, fetchFinancial, fetchProfessionalKpi])
 
   /** Refetch the board + counts after a status change. */
   const refreshBoard = useCallback(async () => {
-    await Promise.all([fetchBoard(), fetchStats()])
-  }, [fetchBoard, fetchStats])
+    await Promise.all([fetchBoard(), fetchStats(), fetchFinancial()])
+  }, [fetchBoard, fetchStats, fetchFinancial])
 
-  return { ...stats, refreshBoard }
+  return { ...stats, refreshBoard, fetchProfessionalKpi }
 }

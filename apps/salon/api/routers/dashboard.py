@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from packages.auth_core.database import db
 from packages.auth_core.dependencies import auth_required, professional_scope, validated_tenant_context
 from packages.models.enums import AppointmentStatus
+from packages.scheduling import financial
 
 router = APIRouter(tags=["Salon Dashboard"])
 
@@ -34,6 +35,29 @@ def _get_org_timezone(org_id: str | None) -> str:
         return row.get("timezone") or _DEFAULT_TZ
     except Exception:
         return _DEFAULT_TZ
+
+
+def _parse_aware(scheduled_at: str | None) -> datetime | None:
+    """Parse a stored ``scheduled_at`` (UTC ISO, maybe ``Z``) into an aware datetime."""
+    if not scheduled_at:
+        return None
+    try:
+        dt = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=ZoneInfo("UTC"))
+
+
+def _appt_day_in_tz(scheduled_at: str | None, tz: ZoneInfo) -> str | None:
+    """Calendar day (YYYY-MM-DD) of an appointment in the org timezone.
+
+    Uses the raw string only as a last-resort fallback — slicing the UTC string
+    misclassifies appointments across the day boundary at night.
+    """
+    dt = _parse_aware(scheduled_at)
+    if dt is None:
+        return scheduled_at[:10] if scheduled_at else None
+    return dt.astimezone(tz).date().isoformat()
 
 
 def _day_bounds(org_id: str | None = None):
@@ -141,7 +165,8 @@ async def get_today_board(
                 counts["completed"] += 1
             elif status == AppointmentStatus.NO_SHOW:
                 counts["no_show"] += 1
-            if status in _OPEN_STATUSES and appt.get("scheduled_at", "") >= now.isoformat():
+            appt_dt = _parse_aware(appt.get("scheduled_at"))
+            if status in _OPEN_STATUSES and appt_dt is not None and appt_dt >= now:
                 counts["upcoming"] += 1
 
             ends_at = None
@@ -233,5 +258,169 @@ async def get_agent_summary(
                 "conversationsThisWeek": conversations_this_week,
             },
         }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+def _financial_period_bounds(org_id: str | None):
+    """Day / month / year [start, end] windows in the org timezone."""
+    tzname = _get_org_timezone(org_id)
+    try:
+        tz = ZoneInfo(tzname)
+    except Exception:
+        tz = ZoneInfo(_DEFAULT_TZ)
+    now = datetime.now(tz)
+
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    month_start = day_start.replace(day=1)
+    if now.month == 12:
+        next_month = month_start.replace(year=now.year + 1, month=1)
+    else:
+        next_month = month_start.replace(month=now.month + 1)
+    month_end = next_month - timedelta(microseconds=1)
+    year_start = day_start.replace(month=1, day=1)
+    year_end = day_start.replace(month=12, day=31, hour=23, minute=59, second=59, microsecond=999999)
+
+    return {
+        "day": (day_start, day_end),
+        "month": (month_start, month_end),
+        "year": (year_start, year_end),
+    }
+
+
+@router.get("/dashboard/financial", dependencies=[Depends(auth_required)])
+async def get_dashboard_financial(
+    org_id: str = Depends(validated_tenant_context),
+    prof_scope: str | None = Depends(professional_scope),
+):
+    """Faturado / A Faturar / Perda by Day / Month / Year (org timezone).
+
+    Amounts come from the joined ``service_catalog.price``; the status→category
+    rule lives in ``packages.scheduling.financial`` (single source of truth).
+    """
+    try:
+        bounds = _financial_period_bounds(org_id)
+
+        def summary_for(start: datetime, end: datetime):
+            query = db.client.table("appointments").select(
+                "status, service:service_catalog(price)"
+            )
+            if org_id and org_id != "ALL":
+                query = query.eq("organization_id", org_id)
+            if prof_scope:
+                query = query.eq("professional_id", prof_scope)
+            query = query.gte("scheduled_at", start.isoformat()).lte("scheduled_at", end.isoformat())
+            return financial.summarize(query.execute().data or [])
+
+        data = {period: summary_for(start, end) for period, (start, end) in bounds.items()}
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/dashboard/professional-kpi", dependencies=[Depends(auth_required)])
+async def get_professional_kpi(
+    date: str | None = None,
+    org_id: str = Depends(validated_tenant_context),
+    prof_scope: str | None = Depends(professional_scope),
+):
+    """Per-professional appointments + unique clients for the selected day vs prev vs next.
+
+    ``date`` is YYYY-MM-DD in the org timezone (default: today). ``appointments`` is
+    the throughput metric; ``clients`` counts distinct ``patient_id`` (proxy for
+    unique customers — see limitations).
+    """
+    try:
+        tzname = _get_org_timezone(org_id)
+        try:
+            tz = ZoneInfo(tzname)
+        except Exception:
+            tz = ZoneInfo(_DEFAULT_TZ)
+
+        if date:
+            try:
+                selected = datetime.fromisoformat(date).replace(tzinfo=tz)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail="date deve ser YYYY-MM-DD") from exc
+        else:
+            selected = datetime.now(tz)
+        selected = selected.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        prev_day = selected - timedelta(days=1)
+        next_day = selected + timedelta(days=1)
+        # Query the whole [prev, next] window once, then bucket in Python.
+        window_start = prev_day
+        window_end = next_day.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        prof_query = db.client.table("professionals").select("id, name").eq("is_active", True)
+        if org_id and org_id != "ALL":
+            prof_query = prof_query.eq("organization_id", org_id)
+        if prof_scope:
+            prof_query = prof_query.eq("id", prof_scope)
+        professionals = prof_query.execute().data or []
+
+        appt_query = db.client.table("appointments").select(
+            "professional_id, patient_id, scheduled_at, status"
+        )
+        if org_id and org_id != "ALL":
+            appt_query = appt_query.eq("organization_id", org_id)
+        if prof_scope:
+            appt_query = appt_query.eq("professional_id", prof_scope)
+        appt_query = (
+            appt_query.gte("scheduled_at", window_start.isoformat())
+            .lte("scheduled_at", window_end.isoformat())
+            .neq("status", AppointmentStatus.CANCELLED.value)
+        )
+        appointments = appt_query.execute().data or []
+
+        day_keys = {
+            "prev": prev_day.date().isoformat(),
+            "current": selected.date().isoformat(),
+            "next": next_day.date().isoformat(),
+        }
+
+        def empty_bucket():
+            return {"appointments": 0, "clients": set()}
+
+        per_prof: dict[str, dict[str, dict]] = {
+            p["id"]: {k: empty_bucket() for k in day_keys} for p in professionals
+        }
+
+        for appt in appointments:
+            pid = appt.get("professional_id")
+            if pid not in per_prof:
+                continue
+            appt_day = _appt_day_in_tz(appt.get("scheduled_at"), tz)
+            slot = next((k for k, v in day_keys.items() if v == appt_day), None)
+            if slot is None:
+                continue
+            bucket = per_prof[pid][slot]
+            bucket["appointments"] += 1
+            if appt.get("patient_id"):
+                bucket["clients"].add(appt["patient_id"])
+
+        def serialize(bucket):
+            return {"appointments": bucket["appointments"], "clients": len(bucket["clients"])}
+
+        rows = [
+            {
+                "professional": prof,
+                "prev": serialize(per_prof[prof["id"]]["prev"]),
+                "current": serialize(per_prof[prof["id"]]["current"]),
+                "next": serialize(per_prof[prof["id"]]["next"]),
+            }
+            for prof in professionals
+        ]
+
+        return {
+            "status": "success",
+            "data": {
+                "dates": day_keys,
+                "professionals": rows,
+            },
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

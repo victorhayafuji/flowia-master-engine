@@ -1,13 +1,32 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useAuth } from "@/features/auth/AuthContext"
 import { api } from "@/shared/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { MessageSquare, Send } from "lucide-react"
+import { MessageSquare, Send, User } from "lucide-react"
+
+interface PatientOption {
+  id: string
+  name: string
+}
+
+interface GuidedOption {
+  id: string
+  title: string
+  description?: string | null
+}
+
+interface GuidedStep {
+  step: string
+  text: string
+  kind: "list" | "buttons" | "input"
+  options: GuidedOption[]
+}
 
 interface ChatMessage {
   role: "user" | "agent"
   content: string
+  step?: GuidedStep | null
   meta?: {
     agent?: string
     tokens_used?: number
@@ -55,22 +74,53 @@ export function ChatTest() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
+  const [patients, setPatients] = useState<PatientOption[]>([])
+  // "" simulates an unregistered client (onboarding flow); a UUID simulates the
+  // phone-identified client on WhatsApp.
+  const [patientId, setPatientId] = useState("")
   const threadIdRef = useRef<string | undefined>(undefined)
 
   const orgId = organizationId
   const canChat = Boolean(orgId)
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || !orgId) return
+  useEffect(() => {
+    if (!canChat) return
+    let cancelled = false
+    api
+      .get("/patients/", orgHeader)
+      .then((res) => {
+        if (!cancelled) setPatients(res?.data || res || [])
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [canChat, orgHeader])
+
+  // Switching the simulated client starts a fresh conversation (new identity).
+  const handlePatientChange = (id: string) => {
+    setPatientId(id)
+    setMessages([])
+    threadIdRef.current = undefined
+  }
+
+  // `sentValue` goes to the backend; `displayText` (option title) is shown in the bubble.
+  const sendMessage = async (sentValue: string, displayText?: string) => {
+    if (!sentValue.trim() || !orgId) return
 
     setSending(true)
-    setMessages((prev) => [...prev, { role: "user", content: text.trim() }])
+    setMessages((prev) => [...prev, { role: "user", content: (displayText || sentValue).trim() }])
     setInput("")
 
     try {
       const res = await api.post(
         "/chat/test",
-        { message: text.trim(), thread_id: threadIdRef.current },
+        {
+          message: sentValue.trim(),
+          thread_id: threadIdRef.current,
+          guided: true,
+          patient_id: patientId || null,
+        },
         orgHeader
       )
       threadIdRef.current = res.thread_id
@@ -79,6 +129,7 @@ export function ChatTest() {
         {
           role: "agent",
           content: res.response,
+          step: res.step ?? null,
           meta: {
             agent: res.agent,
             tokens_used: res.tokens_used,
@@ -130,6 +181,36 @@ export function ChatTest() {
 
         <Card className="border-2 border-[var(--border)]">
           <CardHeader>
+            <CardTitle className="font-black uppercase text-sm flex items-center gap-2">
+              <User className="w-4 h-4 text-[var(--accent)]" />
+              Cliente (simulação)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="font-mono text-xs text-[var(--muted)]">
+              No WhatsApp real o cliente é identificado pelo telefone. Aqui você simula: escolha um
+              cliente cadastrado ou "não cadastrado" para testar o onboarding.
+            </p>
+            <select
+              value={patientId}
+              onChange={(e) => handlePatientChange(e.target.value)}
+              disabled={!canChat}
+              aria-label="Cliente simulado"
+              data-testid="chat-patient-select"
+              className="block w-full max-w-sm bg-[var(--surface)] border-2 border-[var(--border)] p-2 font-mono text-sm focus:outline-none focus:border-[var(--accent)]"
+            >
+              <option value="">Cliente não cadastrado (onboarding)</option>
+              {patients.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-[var(--border)]">
+          <CardHeader>
             <CardTitle className="font-black uppercase text-sm">Sugestões de teste</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
@@ -169,6 +250,30 @@ export function ChatTest() {
                   {m.role === "user" ? "Você" : "Agente"}
                 </span>
                 {m.content}
+                {m.role === "agent" &&
+                  i === messages.length - 1 &&
+                  m.step &&
+                  m.step.options.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {m.step.options.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          disabled={!canChat || sending}
+                          onClick={() => sendMessage(opt.id, opt.title)}
+                          className="px-3 py-2 border-2 border-[var(--border)] font-mono text-xs text-left hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
+                          data-testid={`guided-option-${opt.id}`}
+                        >
+                          <span className="block font-bold">{opt.title}</span>
+                          {opt.description && (
+                            <span className="block text-[10px] text-[var(--foreground)]/60">
+                              {opt.description}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 {m.meta && (
                   <div className="mt-2 space-y-1">
                     {(m.meta.scheduling_path || m.meta.triage_source) && (

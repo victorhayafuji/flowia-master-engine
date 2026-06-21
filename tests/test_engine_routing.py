@@ -7,11 +7,42 @@ from packages.engine.routing import (
     has_scheduling_intent,
     has_temporal_scheduling_intent,
     is_booking_conversation,
+    is_greeting,
     is_price_only_question,
+    message_text,
     resolve_triage_agent,
     should_force_scheduling_route,
     triage_source_for,
 )
+
+
+def test_message_text_normalizes_str_and_multimodal_list():
+    """The webhook outbound relies on this to flatten list/multimodal content to text."""
+    assert message_text(AIMessage(content="oi")) == "oi"
+    blocks = [
+        {"type": "text", "text": "parte 1"},
+        {"type": "text", "text": "parte 2"},
+    ]
+    assert message_text(AIMessage(content=blocks)) == "parte 1 parte 2"
+    assert message_text(AIMessage(content=[])) == ""
+
+
+class TestIsGreeting:
+    def test_detects_short_greetings(self):
+        for g in ("oi", "Olá", "bom dia", "Boa tarde", "menu", "ajuda", "oi, tudo bem?"):
+            assert is_greeting(g), g
+
+    def test_detects_consent_acks(self):
+        # Reply right after the LGPD notice → entry menu (not the LLM greeting).
+        for ack in ("Sim", "sim", "ok", "Claro", "aceito", "concordo", "pode"):
+            assert is_greeting(ack), ack
+
+    def test_ignores_questions_and_booking(self):
+        assert not is_greeting("Quanto custa o corte feminino?")
+        assert not is_greeting("Quero agendar um corte amanhã")
+        assert not is_greeting("oi, queria saber o preço da coloração completa")  # too long
+        assert not is_greeting("sim, queria saber quanto custa a coloração")  # ack + real question
+        assert not is_greeting("")
 
 
 class TestSchedulingIntent:
