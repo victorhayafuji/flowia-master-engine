@@ -58,5 +58,5 @@ node_modules/
 **/test-results/
 **/playwright-report/
 
-# Pasta local de referências (screenshots/specs) — não versionar
-/refs/
+# Material de referência para visão futura (v2.0) — não versionar
+refs/
