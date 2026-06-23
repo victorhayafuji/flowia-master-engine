@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.21)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.23)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -640,6 +640,7 @@ Aplicar em ordem via `supabase db push`, SQL Editor ou `python scripts/apply_mig
 | `20260610020000_schedule_blocks.sql` | Tabela `schedule_blocks` (folga/feriado/manual) + RLS |
 | `20260610030000_appointment_payments.sql` | Stub `appointment_payments` (schema + RLS, sem provedor ativo) |
 | `20260610040000_conversation_metrics_observability.sql` | `scheduling_path`, `triage_source`, `channel`, `tools_called` em `conversation_metrics` |
+| `20260610050000_conversation_metrics_sender_text.sql` | `conversation_metrics.sender_id` → TEXT (telefone WhatsApp / thread chat, não só UUID) |
 | `20260610060000_lgpd_consent.sql` | `patients.privacy_*` (consentimento LGPD) + índice org/legacy_sender |
 
 **Requisito Data Lake:** extensão **pgvector** habilitada no Supabase Dashboard.
@@ -738,7 +739,7 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 
 **Rate limiting (slowapi):** login, webhook WhatsApp, endpoints sensíveis — `packages/auth_core/limiter.py`
 
-**Documentação legal (fonte operacional):** [`docs/legal/`](docs/legal/) — PRIVACIDADE, TERMOS, ROPA, SUBPROCESSORS, DSR_RUNBOOK, LGPD_FEATURE_CHECKLIST (rascunhos técnicos — revisão jurídica recomendada).
+**Documentação legal (fonte operacional):** [`docs/legal/`](docs/legal/) — PRIVACIDADE, TERMOS, ROPA, SUBPROCESSORS, DSR_RUNBOOK, LGPD_FEATURE_CHECKLIST, LGPD_ONBOARDING_CHECKLIST (rascunhos técnicos — revisão jurídica recomendada).
 
 **LGPD — controles técnicos:**
 
@@ -1053,6 +1054,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `MODEL_NAME` | Sim | Modelo chat (gpt-4o-mini) |
 | `VISION_MODEL_NAME` | Sim (data lake) | OCR Bronze→Silver (`gpt-4o`) |
 | `EMBEDDING_MODEL_NAME` | Sim | Embeddings RAG (`text-embedding-3-small`) |
+| `EMBEDDING_DIMENSIONS` | Opcional | Dimensão dos vetores pgvector (`docs_gold_vectors`); default 768 |
 | `SUPABASE_URL` | Sim | URL projeto Supabase |
 | `SUPABASE_KEY` | Sim | Anon key (backend) |
 | `SUPABASE_SERVICE_ROLE` | Sim | Service role (backend only) |
@@ -1074,6 +1076,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `SIM_WHATSAPP_ORG_ID` | Dev only | Bypass tenant resolver em simulação local — **nunca produção** |
 | `SIM_WHATSAPP_PHONE_ID` | Dev only | Default `123456789`; parear com simulate script |
 | `PROD_SMOKE_PASSWORD` | Dev/smoke | Senha piloto para `smoke_hybrid_prod.py` — não commitar |
+| `WHATSAPP_QUEUE_MODE` | Opcional | Fila inbound WhatsApp: `inline` (default) \| `worker` (ver §20) |
 | `SCHEDULER_ENABLED` | Opcional | true em prod, false em CI |
 | `WEBHOOK_DEDUP_RETENTION_DAYS` | Opcional | TTL purge dedup WhatsApp (default 7) |
 | `PUBLIC_API_URL` | Opcional | URL pública da API p/ exibir o webhook no dashboard (default `https://flowia-api.onrender.com/api/v1`; override só p/ domínio próprio) |
@@ -1081,6 +1084,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `ALLOWED_ORIGINS` | Prod | URL dashboard produção (CORS) |
 | `ALLOWED_HOSTS` | Prod | Hostname da API (`TrustedHostMiddleware`) |
 | `DEV_*` / `VITE_DEV_*` | Dev only | Login rápido local — **nunca produção** |
+| `LANGCHAIN_TRACING_V2` / `LANGCHAIN_PROJECT` / `LANGCHAIN_API_KEY` · `SLACK_WEBHOOK_URL` · `FALLBACK_USD_TO_BRL` | Opcional | Observabilidade/diagnóstico: tracing LangSmith, alertas Slack, fallback câmbio USD→BRL (default 5.30). Lidas do ambiente — **fora** do `.env.example` |
 
 ### 33.1 RESPONSE_POLISH — decisão A/B (staging)
 
@@ -1104,7 +1108,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 
 Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 
-1. Supabase prod + `supabase db push` (**21 migrations**) + pgvector
+1. Supabase prod + `supabase db push` (**22 migrations**) + pgvector
 2. Secrets novos: `python scripts/generate_prod_secrets.py`
 3. Render API: `uvicorn main:app --host 0.0.0.0 --port $PORT`, health `/health`, scale=1
 4. Render Static Site: `apps/salon/dashboard`, `VITE_API_URL=https://API.onrender.com/api/v1`
@@ -1328,6 +1332,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.20 | Jun/2026 | **Integração WhatsApp self-service** (§13, §5, §3, §4.2, §20, §36): rotas tenant-scoped `GET/PATCH/POST /organizations/whatsapp*` (token mascarado, teste real na Graph API), tela Configurações para org_admin (modelo "cliente traz a própria conta"); Embedded Signup permanece futuro; limitações app secret/verify token registradas |
 | 1.21 | Jun/2026 | **Release 1.2.0** (`_APP_VERSION`): dashboard financeiro (`/dashboard/financial`) + KPI por profissional (`/dashboard/professional-kpi`) em §13; agente híbrido guiado (menu/FAQ/consentimento por botões + recuperação fail-soft) e nota de render WhatsApp (≤3 botões / lista ≤10) em §20/§23.1; rodada de robustez: fixes de timezone (KPI/today-board), validação de slot no guiado, fallback de upsert protegido, versão única no `FastAPI(...)` |
 | 1.22 | Jun/2026 | Higiene (remoção do `iter_text_messages` morto) + **documentação robusta**: novos `docs/SOLUTION_ARCHITECTURE.md`, `docs/BPMN.md`, `docs/TECH_STACK.md`, `docs/DER.md` (§37 mapa de documentação); limitação LGPD "Discordo" não-persistente em §20 |
+| 1.23 | Jun/2026 | Auditoria profunda (doc vs código): sync de migrations (§15/§34 — +`conversation_metrics_sender_text`, 21→22), env vars §33 (`WHATSAPP_QUEUE_MODE`, `EMBEDDING_DIMENSIONS` + linha de observabilidade `LANGCHAIN_*`/`SLACK_WEBHOOK_URL`/`FALLBACK_USD_TO_BRL`), lista legal §19 (`LGPD_ONBOARDING_CHECKLIST`), header doc version. §13/§14/§20 reconciliados e confirmados corretos |
 
 ---
 
