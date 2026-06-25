@@ -33,6 +33,30 @@ def calculate_cost(tokens_in: int, tokens_out: int, model_name: str = None, usd_
     return cost_usd * rate
 
 
+def get_knowledge_gaps(
+    organization_id: str | None = None, limit: int = 50, days: int = 30
+) -> list[dict[str, Any]]:
+    """Top perguntas sem resposta (lacunas) por nº de ocorrências, nos últimos N dias."""
+    if not db.client:
+        return []
+    try:
+        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        query = (
+            db.client.table("knowledge_gaps")
+            .select("question, agent_type, occurrences, last_seen_at")
+            .not_.is_("question", "null")
+            .gte("last_seen_at", cutoff)
+            .order("occurrences", desc=True)
+            .limit(limit)
+        )
+        if organization_id:
+            query = query.eq("organization_id", organization_id)
+        return query.execute().data or []
+    except Exception as e:
+        logger.error("get_knowledge_gaps failed: %s", e)
+        return []
+
+
 
 def save_conversation_metric(
     thread_id: str,
