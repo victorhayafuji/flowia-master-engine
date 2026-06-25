@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.24)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.25)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -467,6 +467,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | GET | `/metrics/conversations` | Conversas |
 | GET | `/metrics/tokens-daily` | Tokens/dia |
 | GET | `/metrics/scheduling-observability` | KPIs path determinístico / canal (últimos N dias) |
+| GET | `/metrics/knowledge-gaps` | Lacunas de conhecimento: perguntas sem resposta na base (top por ocorrências) |
 | GET | `/metrics/system-health` | Saúde sistema |
 | GET/POST | `/system/settings` | Config sistema |
 
@@ -635,6 +636,7 @@ Aplicar em ordem via `supabase db push`, SQL Editor ou `python scripts/apply_mig
 | `20260609010000_soft_delete_and_integrity.sql` | `patients.is_active`, unique serviço ativo por nome, FKs `organization_id` CASCADE → RESTRICT |
 | `20260611000000_whatsapp_phone_id_unique.sql` | UNIQUE parcial em `organizations.whatsapp_phone_id` |
 | `20260611010000_whatsapp_inbound_jobs.sql` | Fila FIFO inbound WhatsApp (tabela interna RLS) |
+| `20260612000000_knowledge_gaps_capture.sql` | Formaliza `knowledge_gaps` (`question`/`agent_type`/`occurrences`/`last_seen_at`) + índice único dedup + função upsert `record_knowledge_gap` |
 | `20260610000000_professional_user_link.sql` | `dashboard_users.professional_id` FK + índice (login funcionário) |
 | `20260610010000_service_professionals.sql` | Tabela M:N `service_professionals` + backfill da FK legada + RLS |
 | `20260610020000_schedule_blocks.sql` | Tabela `schedule_blocks` (folga/feriado/manual) + RLS |
@@ -1074,6 +1076,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `INTENT_EXTRACTOR_ENABLED` | Opcional | LLM estruturado em turnos ambíguos (default true) |
 | `RESPONSE_POLISH_ENABLED` | Opcional | Polish LLM pós-composer (default **false**; A/B staging — ver §33.1) |
 | `GUIDED_BOOKING_WHATSAPP_ENABLED` | Opcional | Fluxo guiado por seleção (interativo) no WhatsApp (default **false** — texto livre de produção inalterado) |
+| `KNOWLEDGE_GAP_CAPTURE_ENABLED` | Opcional | Captura fail-soft de perguntas sem resposta na base RAG (default **true**; fire-and-forget no `search_kb`) |
 | `SIM_WHATSAPP_ORG_ID` | Dev only | Bypass tenant resolver em simulação local — **nunca produção** |
 | `SIM_WHATSAPP_PHONE_ID` | Dev only | Default `123456789`; parear com simulate script |
 | `PROD_SMOKE_PASSWORD` | Dev/smoke | Senha piloto para `smoke_hybrid_prod.py` — não commitar |
@@ -1270,6 +1273,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | UI catálogo working_hours/M:N | `apps/salon/dashboard/.../catalog` | **Resolvido** — modais `ProfessionalEditModal` / `ServiceEditModal` + `workingHours.ts` |
 | Lembretes WhatsApp | `packages/scheduling/reminder_service.py` | **Resolvido** — envio via `WhatsAppService` quando credenciais org configuradas; `mark_failed` se indisponível |
 | Métricas scheduling UI admin | `/metrics/scheduling-observability` + `AgentObservability.tsx` | **Resolvido** — KPI dev-only |
+| `knowledge_gaps` só contada (sem captura/schema) | `knowledge_gaps` + `search_kb` + `/metrics/knowledge-gaps` | **Resolvido** — captura fail-soft no RAG vazio + painel observabilidade |
 | Anamnese / NPS | Parte VIII §42–§43 | **DEFERIDO** — schema only |
 | Pagamentos | `packages/integrations/payments` | **STUB** — contrato + NoOp + schema; execução deferida (Fase 2) |
 
@@ -1335,6 +1339,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.22 | Jun/2026 | Higiene (remoção do `iter_text_messages` morto) + **documentação robusta**: novos `docs/SOLUTION_ARCHITECTURE.md`, `docs/BPMN.md`, `docs/TECH_STACK.md`, `docs/DER.md` (§37 mapa de documentação); limitação LGPD "Discordo" não-persistente em §20 |
 | 1.23 | Jun/2026 | Auditoria profunda (doc vs código): sync de migrations (§15/§34 — +`conversation_metrics_sender_text`, 21→22), env vars §33 (`WHATSAPP_QUEUE_MODE`, `EMBEDDING_DIMENSIONS` + linha de observabilidade `LANGCHAIN_*`/`SLACK_WEBHOOK_URL`/`FALLBACK_USD_TO_BRL`), lista legal §19 (`LGPD_ONBOARDING_CHECKLIST`), header doc version. §13/§14/§20 reconciliados e confirmados corretos |
 | 1.24 | Jun/2026 | **"Ensaie seu assistente"**: chat-test promovido de dev-only a `org_admin` (§3, §5, §29) — rota `/chat-test` sob `OrgAdminRoute` (bloqueia `professional`); telemetria de dev (path/triage/tokens) só para super_admin; backend `/chat/test` inalterado (já aceitava org_admin); E2E auth-nav/professional-nav atualizados |
+| 1.25 | Jun/2026 | **Lacunas de conhecimento**: migration `knowledge_gaps_capture` (schema + upsert `record_knowledge_gap`), captura fail-soft no `search_kb` atrás de `KNOWLEDGE_GAP_CAPTURE_ENABLED`, endpoint `/metrics/knowledge-gaps` e painel em `AgentObservability` (§13/§15/§27/§33/§39) |
 
 ---
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useAuth } from "@/features/auth/AuthContext"
 import { api } from "@/shared/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, BarChart3 } from "lucide-react"
+import { Activity, BarChart3, HelpCircle } from "lucide-react"
 
 interface SchedulingKpi {
   days: number
@@ -26,6 +26,13 @@ interface ConversationRow {
   created_at?: string
 }
 
+interface KnowledgeGap {
+  question: string
+  agent_type?: string | null
+  occurrences: number
+  last_seen_at?: string
+}
+
 function PathBadge({ path }: { path: string | null | undefined }) {
   if (!path) return <span className="text-xs text-[var(--muted)]">—</span>
   const isDeterministic = path === "deterministic"
@@ -46,6 +53,7 @@ export function AgentObservability() {
   const { orgHeader } = useAuth()
   const [kpi, setKpi] = useState<SchedulingKpi | null>(null)
   const [conversations, setConversations] = useState<ConversationRow[]>([])
+  const [gaps, setGaps] = useState<KnowledgeGap[]>([])
   const [channelFilter, setChannelFilter] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,12 +63,14 @@ export function AgentObservability() {
     setError(null)
     try {
       const channelQuery = channelFilter ? `&channel=${encodeURIComponent(channelFilter)}` : ""
-      const [kpiRes, convRes] = await Promise.all([
+      const [kpiRes, convRes, gapsRes] = await Promise.all([
         api.get(`/metrics/scheduling-observability?days=7${channelQuery}`, orgHeader),
         api.get("/metrics/conversations?limit=30&days=7", orgHeader),
+        api.get("/metrics/knowledge-gaps?limit=20&days=30", orgHeader),
       ])
       setKpi(kpiRes as SchedulingKpi)
       setConversations(convRes as ConversationRow[])
+      setGaps((gapsRes as KnowledgeGap[]) || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar métricas")
     } finally {
@@ -154,6 +164,48 @@ export function AgentObservability() {
           </Card>
         </div>
       ) : null}
+
+      <Card className="card-brutal">
+        <CardHeader>
+          <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+            <HelpCircle className="w-4 h-4" /> Lacunas de conhecimento
+          </CardTitle>
+          <p className="text-[10px] font-mono text-[var(--muted)] mt-1 uppercase">
+            Perguntas que a base não respondeu — últimos 30 dias · ordenado por ocorrências
+          </p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="border-b-2 border-[var(--border)]">
+                <th className="py-2 pr-4">Pergunta</th>
+                <th className="py-2 pr-4 text-right">Ocorrências</th>
+                <th className="py-2 pr-4">Origem</th>
+                <th className="py-2 pr-4">Visto por último</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gaps.map((g, i) => (
+                <tr key={i} className="border-b border-[var(--border)]">
+                  <td className="py-2 pr-4">{g.question}</td>
+                  <td className="py-2 pr-4 text-right font-black">{g.occurrences}</td>
+                  <td className="py-2 pr-4">{g.agent_type ?? "—"}</td>
+                  <td className="py-2 pr-4">
+                    {g.last_seen_at ? new Date(g.last_seen_at).toLocaleDateString("pt-BR") : "—"}
+                  </td>
+                </tr>
+              ))}
+              {gaps.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={4} className="py-4 text-[var(--muted)]">
+                    Nenhuma lacuna registrada — a base está cobrindo as perguntas. 🎉
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
       <Card className="card-brutal">
         <CardHeader>

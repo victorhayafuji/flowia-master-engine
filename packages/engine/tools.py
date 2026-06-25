@@ -78,6 +78,11 @@ def search_kb(query: str) -> str:
             logger.info("search_kb: catalog fallback hit org=%s", org_id[:8] if org_id else "?")
             return catalog
 
+        # Lacuna de conhecimento: nem RAG nem catálogo responderam. Registra (fail-soft)
+        # para ops melhorar a base depois — nunca interrompe o fluxo do agente.
+        from packages.engine.knowledge_gaps import record_knowledge_gap
+
+        record_knowledge_gap(org_id, safe_query)
         return (
             "Nenhuma informação foi encontrada na Base de Conhecimento nem no catálogo de serviços "
             "sobre isso."

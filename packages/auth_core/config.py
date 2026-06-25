@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     # Fluxo guiado de agendamento por seleção no WhatsApp (interativo list/buttons).
     # Default false: comportamento WhatsApp de produção (texto livre) inalterado.
     GUIDED_BOOKING_WHATSAPP_ENABLED: bool = False
+    # Captura fail-soft de "lacunas de conhecimento" (perguntas sem resposta na base RAG).
+    KNOWLEDGE_GAP_CAPTURE_ENABLED: bool = True
     WEBHOOK_DEDUP_RETENTION_DAYS: int = 7
     # Local webhook simulation (scripts/simulate_whatsapp_webhook.py) — dev only
     SIM_WHATSAPP_ORG_ID: str = ""

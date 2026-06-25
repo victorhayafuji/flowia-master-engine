@@ -4,6 +4,7 @@ from packages.auth_core.dependencies import auth_required, validated_tenant_cont
 from packages.auth_core.system import get_system_health_metrics
 from packages.engine.metrics.service import (
     get_dashboard_kpis,
+    get_knowledge_gaps,
     get_recent_conversations,
     get_scheduling_observability,
     get_tokens_daily,
@@ -45,6 +46,16 @@ def scheduling_observability(
         days=days,
         channel=channel,
     )
+
+
+@router.get("/metrics/knowledge-gaps", dependencies=[Depends(auth_required)])
+def knowledge_gaps(
+    org_id: str = Depends(validated_tenant_context),
+    limit: int = 50,
+    days: int = 30,
+):
+    org_filter = org_id if org_id != "ALL" else None
+    return get_knowledge_gaps(organization_id=org_filter, limit=limit, days=days)
 
 
 @router.get("/metrics/system-health", dependencies=[Depends(auth_required)])
