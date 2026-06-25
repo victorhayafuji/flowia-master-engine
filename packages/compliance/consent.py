@@ -22,7 +22,7 @@ class ConsentAction(str, Enum):
 
 
 def build_privacy_notice(org_name: str) -> str:
-    contact = settings.PRIVACY_CONTACT_EMAIL or "privacidade@exemplo.com"
+    contact = settings.PRIVACY_CONTACT_EMAIL or "contato@gaussix.com"
     policy_url = settings.PRIVACY_POLICY_URL
     return (
         f"Olá! Sou a assistente virtual do {org_name}.\n\n"
