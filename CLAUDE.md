@@ -84,10 +84,10 @@ flowchart TB
 
 | Persona | Role JWT | O que vê |
 |---------|----------|----------|
-| Dono / recepção do salão | `org_admin` | Overview, Agenda, Clientes, Catálogo — **sem** Data Lake, Chat Test, seletor de org |
+| Dono / recepção do salão | `org_admin` | Overview, Agenda, Clientes, Catálogo, **Ensaie seu assistente** (`/chat-test`) — **sem** Data Lake nem seletor de org |
 | Profissional do salão | `professional` | Overview resumida + Agenda **apenas da própria coluna** — **sem** Clientes nem Catálogo |
 | Operador plataforma | `super_admin` | Mesmo dashboard + seletor de org (filtro `vertical=salon`) |
-| Dev local | `super_admin` + `import.meta.env.DEV` | Rotas extras `/admin/data-lake`, `/admin/chat-test` |
+| Dev local | `super_admin` + `import.meta.env.DEV` | Rota extra `/admin/data-lake` (Data Lake) |
 
 **Regras de acesso:**
 
@@ -184,7 +184,7 @@ flowchart TB
 | Data Lake (upload, sync, RAG) | Não | Não | Não | Sim | Ativo (dev) |
 | Observabilidade agente (lite) | Sim | Não | Sim | — | Ativo — Overview cards |
 | Observabilidade agente (técnica) | Não | Não | Sim | — | Ativo — `/admin/observability` |
-| Chat Test | Não | Não | Não | Sim | Ativo (dev) |
+| Ensaie seu assistente (chat-test, `/chat-test`) | Sim | Não | Sim | — | Ativo — dono testa o assistente (badges path/triage só p/ super_admin) |
 | KPIs tokens/custo IA na Overview | Não | Não | Não | — | Removido |
 | CRM leads / SDR | Não | Não | Não | — | Desativado |
 | Prontuário clínico | Não | Não | Não | — | Removido da UI |
@@ -940,7 +940,7 @@ Thread ID = `{organization_id}:{sender_phone}` (WhatsApp) ou `{organization_id}:
 
 - `TurnTokenTracker` callback por invocação
 - Persistência em `conversation_metrics` via `packages/engine/metrics/service.py` (inclui `organization_id`, path de agendamento, triagem e canal)
-- Chat Test dev expõe badges `path=` / `triage=` por turno na UI (`/admin/chat-test`)
+- "Ensaie seu assistente" (`/chat-test`, org_admin + super_admin) expõe badges `path=` / `triage=` por turno **só para super_admin** (dono vê a conversa limpa)
 - Endpoints `/metrics/*` para dashboard admin (dev)
 
 ---
@@ -970,7 +970,8 @@ src/
 
 - `AuthProvider` — mount → `GET /auth/me`
 - `ProtectedRoute` — redirect `/login` se não autenticado
-- `AdminDevRoute` — super_admin + DEV only (Data Lake, Chat Test)
+- `AdminDevRoute` — super_admin + DEV only (Data Lake)
+- `OrgAdminRoute` — bloqueia `professional` (Clientes, Catálogo, Configurações, **Ensaie seu assistente**)
 - Rotas lazy-loaded com Suspense
 
 **Rotas:**
@@ -982,8 +983,8 @@ src/
 | `/agenda` | Agenda | autenticado |
 | `/patients` | Clientes | autenticado |
 | `/catalog` | Catálogo | autenticado |
+| `/chat-test` | Ensaie seu assistente | OrgAdminRoute (org_admin + super_admin) |
 | `/admin/data-lake` | Data Lake | AdminDevRoute |
-| `/admin/chat-test` | Chat Test | AdminDevRoute |
 | `/admin/observability` | KPIs scheduling path / conversas | AdminDevRoute |
 
 ## 30. API client
@@ -1337,7 +1338,8 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.21 | Jun/2026 | **Release 1.2.0** (`_APP_VERSION`): dashboard financeiro (`/dashboard/financial`) + KPI por profissional (`/dashboard/professional-kpi`) em §13; agente híbrido guiado (menu/FAQ/consentimento por botões + recuperação fail-soft) e nota de render WhatsApp (≤3 botões / lista ≤10) em §20/§23.1; rodada de robustez: fixes de timezone (KPI/today-board), validação de slot no guiado, fallback de upsert protegido, versão única no `FastAPI(...)` |
 | 1.22 | Jun/2026 | Higiene (remoção do `iter_text_messages` morto) + **documentação robusta**: novos `docs/SOLUTION_ARCHITECTURE.md`, `docs/BPMN.md`, `docs/TECH_STACK.md`, `docs/DER.md` (§37 mapa de documentação); limitação LGPD "Discordo" não-persistente em §20 |
 | 1.23 | Jun/2026 | Auditoria profunda (doc vs código): sync de migrations (§15/§34 — +`conversation_metrics_sender_text`, 21→22), env vars §33 (`WHATSAPP_QUEUE_MODE`, `EMBEDDING_DIMENSIONS` + linha de observabilidade `LANGCHAIN_*`/`SLACK_WEBHOOK_URL`/`FALLBACK_USD_TO_BRL`), lista legal §19 (`LGPD_ONBOARDING_CHECKLIST`), header doc version. §13/§14/§20 reconciliados e confirmados corretos |
-| 1.25 | Jun/2026 | **Lacunas de conhecimento** (segue a v1.24 "Ensaie", PR paralelo): migration `knowledge_gaps_capture` (schema + upsert `record_knowledge_gap`), captura fail-soft no `search_kb` atrás de `KNOWLEDGE_GAP_CAPTURE_ENABLED`, endpoint `/metrics/knowledge-gaps` e painel em `AgentObservability` (§13/§15/§27/§33/§39) |
+| 1.24 | Jun/2026 | **"Ensaie seu assistente"**: chat-test promovido de dev-only a `org_admin` (§3, §5, §29) — rota `/chat-test` sob `OrgAdminRoute` (bloqueia `professional`); telemetria de dev (path/triage/tokens) só para super_admin; backend `/chat/test` inalterado (já aceitava org_admin); E2E auth-nav/professional-nav atualizados |
+| 1.25 | Jun/2026 | **Lacunas de conhecimento**: migration `knowledge_gaps_capture` (schema + upsert `record_knowledge_gap`), captura fail-soft no `search_kb` atrás de `KNOWLEDGE_GAP_CAPTURE_ENABLED`, endpoint `/metrics/knowledge-gaps` e painel em `AgentObservability` (§13/§15/§27/§33/§39) |
 
 ---
 

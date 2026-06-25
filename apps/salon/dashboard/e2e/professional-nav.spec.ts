@@ -9,6 +9,7 @@ test.describe('Professional role — scoped navigation', () => {
     await expect(page.getByRole('link', { name: 'Agenda' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Clientes' })).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Catálogo' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Ensaie o assistente' })).toHaveCount(0)
     await expect(page.getByText('Salão ativo')).toHaveCount(0)
   })
 
@@ -19,6 +20,9 @@ test.describe('Professional role — scoped navigation', () => {
     await expect(page).toHaveURL('/')
 
     await page.goto('/catalog')
+    await expect(page).toHaveURL('/')
+
+    await page.goto('/chat-test')
     await expect(page).toHaveURL('/')
   })
 })
