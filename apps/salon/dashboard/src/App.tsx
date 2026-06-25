@@ -55,9 +55,13 @@ function App() {
                     <Settings />
                   </Suspense>
                 } />
+                <Route path="/chat-test" element={
+                  <Suspense fallback={<PageFallback />}>
+                    <ChatTest />
+                  </Suspense>
+                } />
               </Route>
               <Route path="/data-lake" element={<Navigate to="/admin/data-lake" replace />} />
-              <Route path="/chat-test" element={<Navigate to="/admin/chat-test" replace />} />
 
               <Route element={<AdminPlatformRoute />}>
                 <Route path="/admin/observability" element={
@@ -73,12 +77,9 @@ function App() {
                     <DataLake />
                   </Suspense>
                 } />
-                <Route path="/admin/chat-test" element={
-                  <Suspense fallback={<PageFallback />}>
-                    <ChatTest />
-                  </Suspense>
-                } />
               </Route>
+              {/* Caminho legado do chat-test → agora /chat-test (org_admin + super_admin) */}
+              <Route path="/admin/chat-test" element={<Navigate to="/chat-test" replace />} />
             </Route>
           </Route>
 

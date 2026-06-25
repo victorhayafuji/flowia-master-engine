@@ -18,7 +18,7 @@ test.describe('Hybrid agent — menu + guided booking + FAQ', () => {
   test('greeting → menu → Agendar → service → ... → confirm creates appointment', async ({ page }) => {
     const state = seededState()
     await loginAsSuperAdmin(page, state)
-    await page.goto('/admin/chat-test')
+    await page.goto('/chat-test')
 
     const input = page.getByRole('textbox')
     const send = page.getByRole('button', { name: /Enviar/i })
@@ -52,7 +52,7 @@ test.describe('Hybrid agent — menu + guided booking + FAQ', () => {
   test('greeting → menu → FAQ → topic returns an answer from the KB', async ({ page }) => {
     const state = seededState()
     await loginAsSuperAdmin(page, state)
-    await page.goto('/admin/chat-test')
+    await page.goto('/chat-test')
 
     const input = page.getByRole('textbox')
     const send = page.getByRole('button', { name: /Enviar/i })
@@ -78,7 +78,7 @@ test.describe('Hybrid agent — menu + guided booking + FAQ', () => {
   test('unregistered client → onboarding asks name/phone then proceeds', async ({ page }) => {
     const state = seededState()
     await loginAsSuperAdmin(page, state)
-    await page.goto('/admin/chat-test')
+    await page.goto('/chat-test')
 
     const input = page.getByRole('textbox')
     const send = page.getByRole('button', { name: /Enviar/i })

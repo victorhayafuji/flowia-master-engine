@@ -37,6 +37,7 @@ export function Layout() {
           { label: "Clientes", path: "/patients", icon: Users },
           { label: "Catálogo", path: "/catalog", icon: Settings },
           { label: "Configurações", path: "/settings", icon: MessageCircle },
+          { label: "Ensaie o assistente", path: "/chat-test", icon: MessageSquare },
         ]),
   ]
 
@@ -153,18 +154,11 @@ export function Layout() {
               </Link>
             )}
             {isDev && user?.role === "super_admin" && (
-              <>
-                <Link to="/admin/data-lake">
-                  <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/data-lake" ? "text-[var(--accent)]" : "text-[var(--muted)] hover:text-[var(--accent)]"}`}>
-                    <Database className="w-4 h-4" /> Data Lake (dev)
-                  </button>
-                </Link>
-                <Link to="/admin/chat-test">
-                  <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/chat-test" ? "text-[var(--accent)]" : "text-[var(--muted)] hover:text-[var(--accent)]"}`}>
-                    <MessageSquare className="w-4 h-4" /> Chat Test (dev)
-                  </button>
-                </Link>
-              </>
+              <Link to="/admin/data-lake">
+                <button className={`w-full flex items-center justify-start gap-3 px-3 py-2 text-sm font-bold uppercase transition-colors ${location.pathname === "/admin/data-lake" ? "text-[var(--accent)]" : "text-[var(--muted)] hover:text-[var(--accent)]"}`}>
+                  <Database className="w-4 h-4" /> Data Lake (dev)
+                </button>
+              </Link>
             )}
             <button
               onClick={signOut}

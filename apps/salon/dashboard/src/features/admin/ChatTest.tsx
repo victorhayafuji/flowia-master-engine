@@ -82,6 +82,8 @@ export function ChatTest() {
 
   const orgId = organizationId
   const canChat = Boolean(orgId)
+  // Telemetria de dev (path/triage/tokens/custo) é só para o operador da plataforma.
+  const isSuperAdmin = user?.role === "super_admin"
 
   useEffect(() => {
     if (!canChat) return
@@ -163,10 +165,10 @@ export function ChatTest() {
         <div>
           <h1 className="text-3xl font-black uppercase tracking-tight flex items-center gap-3">
             <MessageSquare className="w-8 h-8 text-[var(--accent)]" />
-            Chat Test
+            Ensaie seu assistente
           </h1>
           <p className="text-[var(--muted)] font-mono text-sm mt-1">
-            Playground E2E — recepcionista + agendamento com RAG
+            Converse como se fosse um cliente e veja como o assistente responde, tira dúvidas e agenda.
           </p>
         </div>
 
@@ -274,7 +276,7 @@ export function ChatTest() {
                       ))}
                     </div>
                   )}
-                {m.meta && (
+                {isSuperAdmin && m.meta && (
                   <div className="mt-2 space-y-1">
                     {(m.meta.scheduling_path || m.meta.triage_source) && (
                       <div className="flex flex-wrap gap-1">
