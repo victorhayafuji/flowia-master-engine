@@ -31,6 +31,7 @@ from packages.engine.response_composer import (
     should_skip_stored_acknowledgment,
 )
 from packages.engine.routing import (
+    has_reschedule_intent,
     has_support_intent,
     is_booking_confirmed_in_thread,
     is_booking_conversation,
@@ -380,6 +381,21 @@ async def scheduling_node(state: AgentState, config: RunnableConfig):
     salon_name = get_salon_name(org_id)
     user_ack = state.get("user_acknowledgment")
     slots = _booking_slots_from_state(state)
+
+    # Reagendar NÃO é coleta de novo booking: vai direto ao LLM (tool reschedule_time).
+    # Sem isto, o executor determinístico trataria "remarcar" como agendamento novo
+    # faltando dados e pediria "serviço, data, horário, nome e telefone" — a tool nunca
+    # seria chamada no modo padrão (SCHEDULING_LLM_FALLBACK=smart).
+    last_human = next(
+        (message_text(m) for m in reversed(state["messages"]) if getattr(m, "type", None) == "human"),
+        "",
+    )
+    if has_reschedule_intent(last_human):
+        logger.info("Scheduling path=llm | reschedule intent (bypass executor)")
+        result = _invoke_agent(state, config, "scheduling")
+        result["scheduling_path"] = "llm"
+        result["user_acknowledgment"] = user_ack
+        return result
 
     if settings.SCHEDULING_DETERMINISTIC_ENABLED and org_id:
         snapshot = sync_booking_state(state["messages"], org_id, **slots)

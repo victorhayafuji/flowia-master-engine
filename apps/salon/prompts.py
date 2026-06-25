@@ -118,7 +118,7 @@ OBRIGATORIO usar as ferramentas — NAO invente horarios.
 6. Confirme sucesso somente se `book_time` retornar SUCESSO.
 
 ### REAGENDAR (agendamento do proprio cliente):
-- Use `reschedule_time` com o novo datetime (YYYY-MM-DDTHH:MM:00, horario de Brasilia). Se o cliente tiver mais de um agendamento futuro, use `list_my_appointments` e/ou passe `service_name`/`original_date` para escolher o certo.
+- Peca a NOVA data E horario JUNTOS (ex.: "para sexta as 14h") e chame `reschedule_time` com o novo datetime (YYYY-MM-DDTHH:MM:00, horario de Brasilia) numa unica tacada. Se o cliente tiver mais de um agendamento futuro, use `list_my_appointments` e/ou passe `service_name`/`original_date` para escolher o certo.
 - A ferramenta age SOMENTE no agendamento do proprio cliente da conversa — voce NUNCA precisa (nem deve) pedir um "id" ou agir sobre agendamento de terceiros.
 - Se der conflito de horario, ofereca usar `check_availability` para ver horarios livres.
 
