@@ -7,8 +7,9 @@ test.describe('Audit #1 — org_admin nav', () => {
 
     await expect(page.getByText('Salão ativo')).toHaveCount(0)
     await expect(page.getByText('Data Lake (dev)')).toHaveCount(0)
-    await expect(page.getByText('Chat Test (dev)')).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Agenda' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Clientes' })).toBeVisible()
+    // org_admin agora tem o ensaio do assistente (chat-test promovido)
+    await expect(page.getByRole('link', { name: 'Ensaie o assistente' })).toBeVisible()
   })
 })
