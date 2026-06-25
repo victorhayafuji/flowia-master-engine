@@ -232,6 +232,17 @@ def has_reschedule_intent(text: str) -> bool:
     return any(k in t for k in _RESCHEDULE_ACTION)
 
 
+def is_reschedule_or_cancel_intent(text: str) -> bool:
+    """Reagendar/cancelar o próprio agendamento → deve ir ao AGENTE (scheduling/support),
+    nunca ao fluxo guiado de NOVO booking.
+
+    Necessário porque `has_scheduling_intent` faz match por substring: "remarcar"/
+    "reagendar"/"desmarcar" contêm "marcar"/"agendar" e "cancelar meu horário" contém
+    "horário" — sem este guard, o guiado abriria um novo agendamento por engano.
+    """
+    return has_reschedule_intent(text) or "cancelar" in _normalize(text)
+
+
 _GREETING_PHRASES = (
     "oi", "ola", "olá", "opa", "ei", "oie",
     "bom dia", "boa tarde", "boa noite",

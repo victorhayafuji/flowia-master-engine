@@ -50,7 +50,12 @@ def _maybe_handle_guided(org_id: str, sender_id: str, text_body: str) -> bool:
     if not settings.GUIDED_BOOKING_WHATSAPP_ENABLED:
         return False
 
-    from packages.engine.routing import has_scheduling_intent, is_booking_data_reply, is_greeting
+    from packages.engine.routing import (
+        has_scheduling_intent,
+        is_booking_data_reply,
+        is_greeting,
+        is_reschedule_or_cancel_intent,
+    )
     from packages.scheduling import guided_booking
     from packages.scheduling.guided_session_store import STEP_PATIENT_CAPTURE, has_active_session
 
@@ -58,7 +63,10 @@ def _maybe_handle_guided(org_id: str, sender_id: str, text_body: str) -> bool:
     active = has_active_session(thread_key)
     selection = (text_body or "").strip()
 
-    starts_booking = selection == guided_booking.MENU_BOOK_ID or has_scheduling_intent(selection)
+    # Reagendar/cancelar não abrem novo booking guiado — vão para o agente.
+    starts_booking = (
+        selection == guided_booking.MENU_BOOK_ID or has_scheduling_intent(selection)
+    ) and not is_reschedule_or_cancel_intent(selection)
     # A booking-data reply (name+phone) with no session = dropped onboarding → recover.
     recover = not active and is_booking_data_reply(selection)
     if not active and not (

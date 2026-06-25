@@ -71,7 +71,12 @@ async def _maybe_guided_turn(
     "not registered" → onboarding). Returns a response dict when a guided session is
     active or the message shows scheduling intent; otherwise None (LLM engine).
     """
-    from packages.engine.routing import has_scheduling_intent, is_booking_data_reply, is_greeting
+    from packages.engine.routing import (
+        has_scheduling_intent,
+        is_booking_data_reply,
+        is_greeting,
+        is_reschedule_or_cancel_intent,
+    )
     from packages.scheduling import guided_booking
     from packages.scheduling.guided_session_store import STEP_PATIENT_CAPTURE, has_active_session
 
@@ -81,6 +86,11 @@ async def _maybe_guided_turn(
     if has_active_session(thread_id):
         result = await guided_booking.advance(thread_id, selection)
         return _guided_response(thread_id, result)
+
+    # Reagendar/cancelar vão para o agente (scheduling/support), não para um novo
+    # booking guiado — evita que "remarcar"/"cancelar meu horário" virem novo agendamento.
+    if is_reschedule_or_cancel_intent(message):
+        return None
 
     # Entry routing (no active session).
     if selection == guided_booking.MENU_BOOK_ID or has_scheduling_intent(message):

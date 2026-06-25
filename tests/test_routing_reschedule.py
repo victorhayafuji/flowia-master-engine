@@ -1,7 +1,11 @@
 """Roteamento: reagendar (ação) → scheduling; cancelar → suporte (onde mora a tool)."""
 from langchain_core.messages import HumanMessage
 
-from packages.engine.routing import has_reschedule_intent, resolve_triage_agent
+from packages.engine.routing import (
+    has_reschedule_intent,
+    is_reschedule_or_cancel_intent,
+    resolve_triage_agent,
+)
 
 
 def _agent(text: str) -> str:
@@ -29,3 +33,13 @@ def test_helper_matches_only_reschedule_verbs():
     assert has_reschedule_intent("desmarcar")
     assert not has_reschedule_intent("cancelar meu agendamento")
     assert not has_reschedule_intent("qual a política de cancelamento")
+
+
+def test_guided_guard_lets_reschedule_cancel_reach_agent():
+    # Estas frases NÃO devem abrir um novo booking guiado (vão para o agente).
+    assert is_reschedule_or_cancel_intent("quero remarcar meu horário")
+    assert is_reschedule_or_cancel_intent("cancelar meu horário")
+    assert is_reschedule_or_cancel_intent("preciso reagendar")
+    # Um novo agendamento NÃO deve ser desviado do guiado.
+    assert not is_reschedule_or_cancel_intent("quero agendar corte")
+    assert not is_reschedule_or_cancel_intent("tem horário amanhã?")
