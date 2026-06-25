@@ -6,7 +6,8 @@ test.describe('Audit #5 — chat test RAG', () => {
     await loginAsSuperAdmin(page)
     await page.goto('/chat-test')
 
-    await page.getByRole('button', { name: /Quanto custa corte feminino/i }).click()
+    await page.getByRole('textbox').fill('Quanto custa corte feminino?')
+    await page.getByRole('button', { name: /Enviar/i }).click()
     await expect(page.getByText(/R\$ 120/)).toBeVisible({ timeout: 10000 })
   })
 })

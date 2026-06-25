@@ -39,13 +39,6 @@ interface ChatMessage {
   }
 }
 
-const SUGGESTIONS = [
-  "Quanto custa corte feminino?",
-  "Vocês fazem coloração? Qual o preço?",
-  "Quero agendar manicure amanhã",
-  "Qual a política de cancelamento?",
-]
-
 function PathBadge({ path }: { path: string }) {
   const isDeterministic = path === "deterministic"
   return (
@@ -208,25 +201,6 @@ export function ChatTest() {
                 </option>
               ))}
             </select>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-[var(--border)]">
-          <CardHeader>
-            <CardTitle className="font-black uppercase text-sm">Sugestões de teste</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                disabled={!canChat || sending}
-                onClick={() => sendMessage(s)}
-                className="px-3 py-1 border-2 border-[var(--border)] font-mono text-xs hover:bg-[var(--accent)] hover:text-[var(--background)] disabled:opacity-50"
-              >
-                {s}
-              </button>
-            ))}
           </CardContent>
         </Card>
       </div>
