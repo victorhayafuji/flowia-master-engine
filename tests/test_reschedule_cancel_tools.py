@@ -8,11 +8,13 @@ from packages.scheduling.guardrails import reset_rate_limits_for_tests
 
 FUTURE_ISO = "2030-01-10T10:00:00+00:00"
 APPT_UUID = "11111111-1111-1111-1111-111111111111"
+PRO_UUID = "22222222-2222-2222-2222-222222222222"
 
 
 class _FakeSched:
     def __init__(self):
         self.appts: list[dict] = []
+        self.slots: list[str] = []
         self.reschedule_exc: Exception | None = None
         self.cancelled: tuple | None = None
         self.rescheduled: tuple | None = None
@@ -22,6 +24,9 @@ class _FakeSched:
 
     async def get_upcoming_appointments_for_patient(self, org_id, patient_id):
         return self.appts
+
+    async def get_available_slots(self, professional_id, target_date, service_duration):
+        return self.slots
 
     async def reschedule_appointment(self, appointment_id, new_scheduled_at, organization_id=None):
         if self.reschedule_exc:
@@ -40,6 +45,7 @@ def _appt(appt_id=APPT_UUID, service="Corte", pro="Ana"):
         "scheduled_at": FUTURE_ISO,
         "duration_minutes": 30,
         "status": "confirmed",
+        "professional_id": PRO_UUID,
         "service": {"name": service},
         "professional": {"name": pro},
     }
@@ -69,6 +75,7 @@ async def test_list_my_appointments_lists_caller(fake):
 @pytest.mark.asyncio
 async def test_reschedule_success(fake):
     fake.appts = [_appt()]
+    fake.slots = ["2030-02-01T14:00:00"]  # horário pedido está livre
     res = await tools.reschedule_time.ainvoke({"new_datetime": "2030-02-01T14:00:00"}, config=_cfg())
     assert res.upper().startswith("SUCESSO")
     assert fake.rescheduled and fake.rescheduled[0] == APPT_UUID
@@ -77,9 +84,27 @@ async def test_reschedule_success(fake):
 @pytest.mark.asyncio
 async def test_reschedule_conflict_friendly(fake):
     fake.appts = [_appt()]
+    fake.slots = ["2030-02-01T14:00:00"]
     fake.reschedule_exc = DoubleBookingError("ocupado")
     res = await tools.reschedule_time.ainvoke({"new_datetime": "2030-02-01T14:00:00"}, config=_cfg())
     assert "ocupado" in res.lower() and "check_availability" in res
+
+
+@pytest.mark.asyncio
+async def test_reschedule_to_past_rejected(fake):
+    fake.appts = [_appt()]
+    res = await tools.reschedule_time.ainvoke({"new_datetime": "2020-01-01T10:00:00"}, config=_cfg())
+    assert "passou" in res.lower()
+    assert fake.rescheduled is None
+
+
+@pytest.mark.asyncio
+async def test_reschedule_unavailable_slot_rejected(fake):
+    fake.appts = [_appt()]
+    fake.slots = ["2030-02-01T09:00:00"]  # 14:00 não está na lista de livres
+    res = await tools.reschedule_time.ainvoke({"new_datetime": "2030-02-01T14:00:00"}, config=_cfg())
+    assert "não está disponível" in res.lower()
+    assert fake.rescheduled is None
 
 
 @pytest.mark.asyncio

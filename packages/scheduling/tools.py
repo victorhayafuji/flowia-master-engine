@@ -32,6 +32,7 @@ from packages.scheduling.service import SchedulingService
 from packages.scheduling.timezone_utils import (
     DEFAULT_TIMEZONE,
     format_local_datetime_label,
+    now_local_naive,
     parse_booking_datetime,
     to_local_naive,
 )
@@ -380,13 +381,16 @@ def _filter_appts(
 async def _caller_appts(config: RunnableConfig):
     """(org_id, patient_id, [appts futuros], tzname) do dono da conversa."""
     org_id = _get_org_id_from_config(config)
-    sched = SchedulingService()
-    tzname = sched._get_org_config()["timezone"]
-    patient_id = _caller_patient_id(config)
-    if not patient_id:
-        return org_id, None, [], tzname
-    appts = await sched.get_upcoming_appointments_for_patient(org_id, patient_id)
-    return org_id, patient_id, appts, tzname
+    # set_tenant_context é necessário para _get_org_config() resolver o fuso da org
+    # (ele lê get_current_org_id()); sem isso cairia no timezone default.
+    with set_tenant_context(org_id):
+        sched = SchedulingService()
+        tzname = sched._get_org_config()["timezone"]
+        patient_id = _caller_patient_id(config)
+        if not patient_id:
+            return org_id, None, [], tzname
+        appts = await sched.get_upcoming_appointments_for_patient(org_id, patient_id)
+        return org_id, patient_id, appts, tzname
 
 
 @tool
@@ -435,11 +439,33 @@ async def reschedule_time(
         if dt_err or not local_naive:
             return "Horário inválido. Use YYYY-MM-DDTHH:MM:00 em horário de Brasília, sem Z/UTC."
 
+        appt = candidates[0]
         with set_tenant_context(org_id):
             sched = SchedulingService()
+
+            # Não reagendar para o passado.
+            if local_naive <= now_local_naive(tzname):
+                return "Não consigo reagendar para um horário que já passou. Escolha uma data futura."
+
+            # Valida que o novo horário é um SLOT REAL do profissional (working_hours,
+            # break_times, schedule_blocks e buffer) — reschedule_appointment só checa
+            # conflito de overlap, então sem isto seria possível cair em folga/3h da manhã.
+            prof_id = appt.get("professional_id")
+            duration = appt.get("duration_minutes") or 30
+            if prof_id:
+                available = await sched.get_available_slots(UUID(prof_id), local_naive.date(), duration)
+                target_hhmm = local_naive.strftime("%H:%M")
+                if not any(
+                    datetime.fromisoformat(s).strftime("%H:%M") == target_hhmm for s in available
+                ):
+                    return (
+                        "Esse horário não está disponível para reagendamento. "
+                        "Use check_availability para ver os horários livres."
+                    )
+
             try:
                 updated = await sched.reschedule_appointment(
-                    appointment_id=UUID(candidates[0]["id"]),
+                    appointment_id=UUID(appt["id"]),
                     new_scheduled_at=local_naive,
                     organization_id=org_id,
                 )

@@ -835,7 +835,7 @@ Documentar novas limitações nesta seção ao descobri-las.
 | `check_availability` | `packages/scheduling/tools.py` | Lista slots livres por serviço/data |
 | `book_time` | idem | Cria/upsert patient + insert appointment |
 | `list_my_appointments` | idem | Agendamentos futuros do **próprio** cliente (scheduling + support) |
-| `reschedule_time` | idem | Reagenda o agendamento do próprio cliente (agente **scheduling**); reusa `reschedule_appointment` (conflito → 409) |
+| `reschedule_time` | idem | Reagenda o agendamento do próprio cliente (agente **scheduling**); valida slot real (`get_available_slots`: working_hours/break/blocks/buffer) + rejeita passado, e reusa `reschedule_appointment` (conflito → 409) |
 | `cancel_appointment` | idem | Cancela o agendamento do próprio cliente (agente **support**, onde "cancelar" roteia); exige `confirm=true` após o cliente confirmar |
 
 Tools recebem `RunnableConfig` com `org_id` no configurable — **obrigatório** para tenant isolation. Args validados em `guardrails.py` antes de DB; erros genéricos ao agente (detalhe só em log).
