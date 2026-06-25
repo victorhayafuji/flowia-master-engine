@@ -22,7 +22,14 @@ from packages.engine.prompts import (
     build_support_prompt,
 )
 from packages.engine.tools import get_lakehouse_schema, query_lakehouse, request_human_handoff, search_kb
-from packages.scheduling.tools import book_time, check_availability, list_catalog_services
+from packages.scheduling.tools import (
+    book_time,
+    cancel_appointment,
+    check_availability,
+    list_catalog_services,
+    list_my_appointments,
+    reschedule_time,
+)
 
 logger = logging.getLogger(__name__)
 # ==========================================
@@ -60,14 +67,33 @@ class AgentState(TypedDict):
 # 2. FERRAMENTAS POR AGENTE
 # ==========================================
 receptionist_tools = [search_kb]
-support_tools = [search_kb, request_human_handoff]
-scheduling_tools = [search_kb, list_catalog_services, check_availability, book_time]
+support_tools = [search_kb, request_human_handoff, list_my_appointments, cancel_appointment]
+scheduling_tools = [
+    search_kb,
+    list_catalog_services,
+    check_availability,
+    book_time,
+    list_my_appointments,
+    reschedule_time,
+]
 lakehouse_tools = [get_lakehouse_schema, query_lakehouse]
 
 AGENT_ALLOWED_TOOLS: dict[str, frozenset[str]] = {
     "receptionist": frozenset({"search_kb"}),
-    "support": frozenset({"search_kb", "request_human_handoff"}),
-    "scheduling": frozenset({"search_kb", "list_catalog_services", "check_availability", "book_time"}),
+    # Cancelamento (ação) é tratado pelo suporte — onde "cancelar" roteia.
+    "support": frozenset(
+        {"search_kb", "request_human_handoff", "list_my_appointments", "cancel_appointment"}
+    ),
+    "scheduling": frozenset(
+        {
+            "search_kb",
+            "list_catalog_services",
+            "check_availability",
+            "book_time",
+            "list_my_appointments",
+            "reschedule_time",
+        }
+    ),
     "lakehouse_query": frozenset({"get_lakehouse_schema", "query_lakehouse"}),
 }
 

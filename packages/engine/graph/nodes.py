@@ -53,7 +53,14 @@ from packages.scheduling.booking_state_sync import (
 )
 from packages.scheduling.date_parsing import DateParseMode, format_date_label_pt, resolve_date_detailed
 from packages.scheduling.guardrails import extract_booking_date_from_text, extract_reference_date_from_text
-from packages.scheduling.tools import book_time, check_availability, list_catalog_services
+from packages.scheduling.tools import (
+    book_time,
+    cancel_appointment,
+    check_availability,
+    list_catalog_services,
+    list_my_appointments,
+    reschedule_time,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -639,48 +646,59 @@ async def run_tools(state: AgentState, config: RunnableConfig):
         args = tool_call["args"].copy()
         res = "Ferramenta desconhecida."
 
-        if tool_name == "search_kb":
-            res = search_kb.invoke(args)
-        elif tool_name == "request_human_handoff":
-            if active_agent == "scheduling" and state.get("booking_active"):
-                res = (
-                    "Handoff indisponível durante agendamento. "
-                    "Use check_availability e book_time."
-                )
-            else:
-                args["sender_id"] = state.get("sender_id", "unknown")
-                res = request_human_handoff.invoke(args)
-                handoff_requested = True
-        elif tool_name == "get_lakehouse_schema":
-            res = get_lakehouse_schema.invoke(args)
-        elif tool_name == "query_lakehouse":
-            res = query_lakehouse.invoke(args)
-        elif tool_name == "check_availability":
-            res = await check_availability.ainvoke(args, config=config)
-            target_date = args.get("target_date")
-            service_name = args.get("service_name")
-            if target_date:
-                booking_date = str(target_date)
-            if service_name:
-                booking_service = str(service_name)
-            booking_active = True
-            booking_slots_dirty = True
-        elif tool_name == "list_catalog_services":
-            res = await list_catalog_services.ainvoke(args, config=config)
-        elif tool_name == "book_time":
-            res = await book_time.ainvoke(args, config=config)
-            if isinstance(res, str) and res.upper().startswith("SUCESSO"):
-                booking_active = False
-                booking_success = True
-            else:
+        # Hardening: uma exceção numa tool NUNCA derruba o turno — vira erro amigável.
+        try:
+            if tool_name == "search_kb":
+                res = search_kb.invoke(args)
+            elif tool_name == "request_human_handoff":
+                if active_agent == "scheduling" and state.get("booking_active"):
+                    res = (
+                        "Handoff indisponível durante agendamento. "
+                        "Use check_availability e book_time."
+                    )
+                else:
+                    args["sender_id"] = state.get("sender_id", "unknown")
+                    res = request_human_handoff.invoke(args)
+                    handoff_requested = True
+            elif tool_name == "get_lakehouse_schema":
+                res = get_lakehouse_schema.invoke(args)
+            elif tool_name == "query_lakehouse":
+                res = query_lakehouse.invoke(args)
+            elif tool_name == "check_availability":
+                res = await check_availability.ainvoke(args, config=config)
+                target_date = args.get("target_date")
+                service_name = args.get("service_name")
+                if target_date:
+                    booking_date = str(target_date)
+                if service_name:
+                    booking_service = str(service_name)
+                booking_active = True
                 booking_slots_dirty = True
-                time_arg = args.get("time") or args.get("time_hhmm")
-                if time_arg:
-                    booking_time = str(time_arg)
-                if args.get("patient_name"):
-                    booking_patient_name = str(args["patient_name"])
-                if args.get("patient_phone"):
-                    booking_patient_phone = str(args["patient_phone"])
+            elif tool_name == "list_catalog_services":
+                res = await list_catalog_services.ainvoke(args, config=config)
+            elif tool_name == "list_my_appointments":
+                res = await list_my_appointments.ainvoke(args, config=config)
+            elif tool_name == "reschedule_time":
+                res = await reschedule_time.ainvoke(args, config=config)
+            elif tool_name == "cancel_appointment":
+                res = await cancel_appointment.ainvoke(args, config=config)
+            elif tool_name == "book_time":
+                res = await book_time.ainvoke(args, config=config)
+                if isinstance(res, str) and res.upper().startswith("SUCESSO"):
+                    booking_active = False
+                    booking_success = True
+                else:
+                    booking_slots_dirty = True
+                    time_arg = args.get("time") or args.get("time_hhmm")
+                    if time_arg:
+                        booking_time = str(time_arg)
+                    if args.get("patient_name"):
+                        booking_patient_name = str(args["patient_name"])
+                    if args.get("patient_phone"):
+                        booking_patient_phone = str(args["patient_phone"])
+        except Exception:
+            logger.exception("Tool %s raised; returning graceful error", tool_name)
+            res = "Tive um problema ao executar essa ação. Pode tentar de novo em instantes?"
 
         tool_responses.append(ToolMessage(content=res, tool_call_id=tool_call["id"]))
 

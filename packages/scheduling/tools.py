@@ -5,6 +5,11 @@ from uuid import UUID
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 
+from packages.auth_core.exceptions import (
+    BusinessLogicError,
+    DoubleBookingError,
+    ResourceNotFoundError,
+)
 from packages.auth_core.tenant import set_tenant_context
 from packages.models.enums import AppointmentStatus
 from packages.scheduling.eligibility import (
@@ -21,13 +26,14 @@ from packages.scheduling.guardrails import (
     sanitize_text_field,
     validate_professional_name,
 )
-from packages.scheduling.patient_booking import upsert_patient_by_phone
+from packages.scheduling.patient_booking import find_patient_by_phone, upsert_patient_by_phone
 from packages.scheduling.schemas import AppointmentBase
 from packages.scheduling.service import SchedulingService
 from packages.scheduling.timezone_utils import (
     DEFAULT_TIMEZONE,
     format_local_datetime_label,
     parse_booking_datetime,
+    to_local_naive,
 )
 
 logger = logging.getLogger(__name__)
@@ -320,3 +326,170 @@ async def book_time(
     except Exception as exc:
         logger.error("Erro em book_time: %s", exc)
         return "Erro ao realizar agendamento. Pode haver um conflito de horário."
+
+
+# ---------------------------------------------------------------------------
+# Reagendar / cancelar — agem SOMENTE no agendamento do próprio cliente.
+# A identidade vem do canal (telefone do sender no WhatsApp; patient_id do
+# seletor no Ensaie), NUNCA de id/telefone fornecido pelo LLM (anti-injeção).
+# ---------------------------------------------------------------------------
+def _caller_patient_id(config: RunnableConfig) -> str | None:
+    cfg = _get_configurable(config)
+    sender_phone = cfg.get("sender_phone")
+    if sender_phone:
+        org_id = cfg.get("org_id")
+        patient = find_patient_by_phone(org_id, str(sender_phone)) if org_id else None
+        return patient["id"] if patient else None
+    pid = cfg.get("patient_id")
+    return str(pid) if pid else None
+
+
+def _format_appt_label(appt: dict, tzname: str) -> str:
+    svc = (appt.get("service") or {}).get("name") or "serviço"
+    pro = (appt.get("professional") or {}).get("name") or "profissional"
+    try:
+        dt = datetime.fromisoformat(str(appt["scheduled_at"]).replace("Z", "+00:00"))
+        label = format_local_datetime_label(dt, tzname)
+    except Exception:
+        label = str(appt.get("scheduled_at"))
+    return f"{svc} em {label} (com {pro})"
+
+
+def _filter_appts(
+    appts: list[dict], service_name: str | None, original_date: str | None, tzname: str
+) -> list[dict]:
+    result = appts
+    if service_name:
+        sn = service_name.strip().lower()
+        result = [a for a in result if sn in ((a.get("service") or {}).get("name") or "").lower()]
+    if original_date:
+        parsed, _ = parse_booking_date(original_date)
+        if parsed:
+            kept = []
+            for a in result:
+                try:
+                    dt = datetime.fromisoformat(str(a["scheduled_at"]).replace("Z", "+00:00"))
+                    if to_local_naive(dt, tzname).date() == parsed:
+                        kept.append(a)
+                except Exception:
+                    continue
+            result = kept
+    return result
+
+
+async def _caller_appts(config: RunnableConfig):
+    """(org_id, patient_id, [appts futuros], tzname) do dono da conversa."""
+    org_id = _get_org_id_from_config(config)
+    sched = SchedulingService()
+    tzname = sched._get_org_config()["timezone"]
+    patient_id = _caller_patient_id(config)
+    if not patient_id:
+        return org_id, None, [], tzname
+    appts = await sched.get_upcoming_appointments_for_patient(org_id, patient_id)
+    return org_id, patient_id, appts, tzname
+
+
+@tool
+async def list_my_appointments(config: RunnableConfig) -> str:
+    """Lista os agendamentos FUTUROS do próprio cliente da conversa (para reagendar/cancelar)."""
+    try:
+        _org, patient_id, appts, tzname = await _caller_appts(config)
+        if not patient_id:
+            return "Não localizei seu cadastro. Confirme seu nome e telefone para continuar."
+        if not appts:
+            return "Você não tem agendamentos futuros."
+        lines = [f"{i + 1}. {_format_appt_label(a, tzname)}" for i, a in enumerate(appts)]
+        return "Seus agendamentos:\n" + "\n".join(lines)
+    except Exception as exc:
+        logger.error("Erro em list_my_appointments: %s", exc)
+        return "Erro ao consultar seus agendamentos."
+
+
+@tool
+async def reschedule_time(
+    new_datetime: str,
+    config: RunnableConfig,
+    service_name: str | None = None,
+    original_date: str | None = None,
+) -> str:
+    """Reagenda o agendamento do próprio cliente para new_datetime (YYYY-MM-DDTHH:MM:00, horário de Brasília).
+
+    Use service_name/original_date para escolher quando o cliente tem mais de um agendamento futuro.
+    """
+    sender = _sender_key(config)
+    ok, _ = check_rate_limit(sender, "book_time")
+    if not ok:
+        return "Limite de tentativas atingido. Tente novamente mais tarde."
+    try:
+        org_id, patient_id, appts, tzname = await _caller_appts(config)
+        if not patient_id:
+            return "Não localizei seu cadastro. Confirme seu nome e telefone para continuar."
+        candidates = _filter_appts(appts, service_name, original_date, tzname)
+        if not candidates:
+            return "Não encontrei um agendamento futuro seu para reagendar."
+        if len(candidates) > 1:
+            opts = "; ".join(_format_appt_label(a, tzname) for a in candidates)
+            return f"Você tem mais de um agendamento. Qual deles? {opts}"
+
+        local_naive, _, dt_err = parse_booking_datetime(new_datetime, tzname, assume_local_wall_clock=True)
+        if dt_err or not local_naive:
+            return "Horário inválido. Use YYYY-MM-DDTHH:MM:00 em horário de Brasília, sem Z/UTC."
+
+        with set_tenant_context(org_id):
+            sched = SchedulingService()
+            try:
+                updated = await sched.reschedule_appointment(
+                    appointment_id=UUID(candidates[0]["id"]),
+                    new_scheduled_at=local_naive,
+                    organization_id=org_id,
+                )
+            except DoubleBookingError:
+                return "Esse horário já está ocupado. Use check_availability para ver horários livres."
+            except (ResourceNotFoundError, BusinessLogicError):
+                return "Não consegui reagendar. Verifique os dados e tente novamente."
+        label = format_local_datetime_label(
+            datetime.fromisoformat(str(updated["scheduled_at"]).replace("Z", "+00:00")), tzname
+        )
+        return f"SUCESSO! Seu agendamento foi remarcado para {label}."
+    except Exception as exc:
+        logger.error("Erro em reschedule_time: %s", exc)
+        return "Erro ao reagendar. Tente novamente."
+
+
+@tool
+async def cancel_appointment(
+    config: RunnableConfig,
+    service_name: str | None = None,
+    original_date: str | None = None,
+    confirm: bool = False,
+) -> str:
+    """Cancela o agendamento do próprio cliente. SEMPRE confirme com o cliente antes (confirm=true só após o 'sim')."""
+    try:
+        org_id, patient_id, appts, tzname = await _caller_appts(config)
+        if not patient_id:
+            return "Não localizei seu cadastro. Confirme seu nome e telefone para continuar."
+        candidates = _filter_appts(appts, service_name, original_date, tzname)
+        if not candidates:
+            return "Não encontrei um agendamento futuro seu para cancelar."
+        if len(candidates) > 1:
+            opts = "; ".join(_format_appt_label(a, tzname) for a in candidates)
+            return f"Você tem mais de um agendamento. Qual deles deseja cancelar? {opts}"
+
+        label = _format_appt_label(candidates[0], tzname)
+        if not confirm:
+            return f"Confirma o cancelamento de: {label}? Responda 'sim' para confirmar."
+
+        with set_tenant_context(org_id):
+            sched = SchedulingService()
+            try:
+                await sched.update_appointment_status(
+                    appointment_id=UUID(candidates[0]["id"]),
+                    new_status=AppointmentStatus.CANCELLED,
+                    organization_id=org_id,
+                )
+            except (ResourceNotFoundError, BusinessLogicError):
+                return "Não consegui cancelar. Tente novamente."
+        return f"Pronto, cancelei: {label}."
+    except Exception as exc:
+        logger.error("Erro em cancel_appointment: %s", exc)
+        return "Erro ao cancelar. Tente novamente."

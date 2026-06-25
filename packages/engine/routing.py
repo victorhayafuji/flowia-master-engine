@@ -217,6 +217,21 @@ def has_scheduling_intent(text: str) -> bool:
     return any(keyword in t for keyword in _SCHEDULING_KEYWORDS)
 
 
+_RESCHEDULE_ACTION = ("reagendar", "remarcar", "desmarcar")
+
+
+def has_reschedule_intent(text: str) -> bool:
+    """Ação de REAGENDAR o próprio agendamento → scheduling.
+
+    Obs.: "cancelar" continua roteando para suporte (decisão de produto encodada
+    nos testes) — quem executa o cancelamento é o agente de suporte, que recebe a
+    tool `cancel_appointment`. "Faltei/cancelei anteontem" (data passada) segue no
+    fluxo determinístico de suporte.
+    """
+    t = _normalize(text)
+    return any(k in t for k in _RESCHEDULE_ACTION)
+
+
 _GREETING_PHRASES = (
     "oi", "ola", "olá", "opa", "ei", "oie",
     "bom dia", "boa tarde", "boa noite",
@@ -438,6 +453,10 @@ def resolve_triage_agent(
         if wants_new_booking_after_confirm(message_text(human_msgs[-1])):
             return "scheduling"
         return "receptionist"
+
+    # Ação de reagendar o próprio agendamento → scheduling (antes do suporte).
+    if has_reschedule_intent(last_human):
+        return "scheduling"
 
     if has_support_intent(last_human) or has_support_with_date_intent(last_human):
         return "support"

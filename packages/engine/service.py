@@ -148,6 +148,9 @@ async def dispatch_chat_test(
                 "thread_id": thread_id,
                 "channel": "chat_test",
                 "org_id": effective_org,
+                # Cliente simulado pelo seletor da tela de teste (espelha o sender do WhatsApp)
+                # para tools que agem sobre o próprio agendamento (reschedule/cancel).
+                "patient_id": patient_id,
             },
             "callbacks": [token_tracker],
         }
@@ -292,11 +295,11 @@ async def dispatch_chat_test(
             "step": _faq_followup_step() if is_faq_topic else None,
         }
 
-    except Exception as e:
+    except Exception:
         tb = traceback.format_exc()
         logger.error(f"❌ Critical failure in dispatch_chat_test:\n{tb}")
         return {
-            "response": f"Erro no Motor de IA: {str(e)}",
+            "response": "Tive um problema técnico ao processar sua mensagem. Tente novamente em instantes.",
             "agent": "error",
             "tokens_used": 0,
             "tokens_in": 0,
