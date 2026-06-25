@@ -229,6 +229,29 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
 
         return updated
 
+    async def get_upcoming_appointments_for_patient(
+        self, organization_id: str | None, patient_id: str
+    ) -> list[dict[str, Any]]:
+        """Agendamentos futuros e ativos do paciente (para reagendar/cancelar via agente)."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        query = (
+            self.db.client.table("appointments")
+            .select(
+                "id, scheduled_at, duration_minutes, status, service_id, professional_id, "
+                "service:service_catalog(name), professional:professionals(name)"
+            )
+            .eq("patient_id", str(patient_id))
+            .gte("scheduled_at", now_iso)
+            .not_.in_(
+                "status",
+                [AppointmentStatus.CANCELLED.value, AppointmentStatus.NO_SHOW.value],
+            )
+            .order("scheduled_at")
+        )
+        if organization_id and organization_id != "ALL":
+            query = query.eq("organization_id", organization_id)
+        return query.execute().data or []
+
     async def update_appointment_status(
         self,
         appointment_id: UUID,

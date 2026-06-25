@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.25)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.26)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -245,7 +245,7 @@ sequenceDiagram
 | Handoff WhatsApp | Ativo em `patients` | `handoff_requested_at`, `handoff_reason` via `legacy_sender_id` |
 | Anamnese / NPS pós-atendimento | **DEFERIDO** | Schema (`anamnesis_*`, `recall_days`) existe; fluxo não implementado — ver [Parte VIII §42](#42-epic-customer-journey-intelligence) |
 | **Futuras implementações (todas)** | **Futuro** | Índice consolidado na [Parte VIII §43](#43-índice-consolidado-de-itens-futuros) — **não implementar** sem aprovação explícita |
-| Reagendamento inteligente (no-show / atraso) | **Futuro** | Recuperação proativa, cascata de atraso, tools reschedule/cancel, reativação — [Parte VIII §49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) |
+| Reagendamento inteligente (no-show / atraso) | **Parcial** | **F3 implementado** (cliente reagenda/cancela o próprio agendamento via agente — `reschedule_time`/`cancel_appointment`). Recuperação proativa, cascata de atraso e reativação seguem **futuro** — [Parte VIII §49](#49-epic-reagendamento-inteligente--recuperação-de-no-showatraso-documentação--não-implementar) |
 | Pagamento / convênios | **STUB** | Schema `appointment_payments` + `packages/integrations/payments` (NoOp); flag `integrations.payments.enabled=false`; execução deferida (Fase 2) |
 | `apps/landing/` (site marketing) | **Removido** | Erro de trajetória — landing migrada para projeto externo (gaussix.com). Dashboard linka Privacidade/Termos via `VITE_LANDING_URL` (default `https://www.gaussix.com`) |
 | `src/`, `dashboard/` raiz, `.agent/`, `apps/landing/` | **Proibido recriar** | Migrado para `packages/` + `apps/salon/`; landing fora do monorepo |
@@ -834,10 +834,15 @@ Documentar novas limitações nesta seção ao descobri-las.
 |------|--------|--------|
 | `check_availability` | `packages/scheduling/tools.py` | Lista slots livres por serviço/data |
 | `book_time` | idem | Cria/upsert patient + insert appointment |
+| `list_my_appointments` | idem | Agendamentos futuros do **próprio** cliente (scheduling + support) |
+| `reschedule_time` | idem | Reagenda o agendamento do próprio cliente (agente **scheduling**); reusa `reschedule_appointment` (conflito → 409) |
+| `cancel_appointment` | idem | Cancela o agendamento do próprio cliente (agente **support**, onde "cancelar" roteia); exige `confirm=true` após o cliente confirmar |
 
 Tools recebem `RunnableConfig` com `org_id` no configurable — **obrigatório** para tenant isolation. Args validados em `guardrails.py` antes de DB; erros genéricos ao agente (detalhe só em log).
 
-**Perímetro agente:** allowlist de tools por agente; scheduling **não** inclui `request_human_handoff`; handoff bloqueado durante `booking_active`.
+**Segurança reschedule/cancel:** agem **somente no agendamento do próprio sender** — paciente resolvido pelo telefone do sender (WhatsApp) ou `patient_id` do seletor (Ensaie), **nunca** por `appointment_id`/telefone vindo do LLM (anti-injeção, §52). Reagendar é intenção do agente **scheduling** (`reagendar/remarcar/desmarcar`); cancelar fica no **support** (onde "cancelar" roteia hoje) — `cancel_appointment` na allowlist do support.
+
+**Perímetro agente:** allowlist de tools por agente; scheduling **não** inclui `request_human_handoff`; handoff bloqueado durante `booking_active`. **`run_tools` é fail-safe:** cada `tool.invoke()` roda em `try/except` — exceção de tool vira erro amigável, nunca derruba o turno.
 
 ## 23.1 Motor híbrido de agendamento (deterministic-first)
 
@@ -1274,6 +1279,8 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | Lembretes WhatsApp | `packages/scheduling/reminder_service.py` | **Resolvido** — envio via `WhatsAppService` quando credenciais org configuradas; `mark_failed` se indisponível |
 | Métricas scheduling UI admin | `/metrics/scheduling-observability` + `AgentObservability.tsx` | **Resolvido** — KPI dev-only |
 | `knowledge_gaps` só contada (sem captura/schema) | `knowledge_gaps` + `search_kb` + `/metrics/knowledge-gaps` | **Resolvido** — captura fail-soft no RAG vazio + painel observabilidade |
+| `run_tools` sem try/except (exceção de tool derrubava o turno) | `packages/engine/graph/nodes.py` | **Resolvido** — cada `tool.invoke()` em `try/except` → erro amigável |
+| Agente não reagendava/cancelava | `packages/scheduling/tools.py` (`reschedule_time`/`cancel_appointment`/`list_my_appointments`) | **Resolvido (F3 §49)** — tools vinculadas ao sender; reschedule→scheduling, cancel→support |
 | Anamnese / NPS | Parte VIII §42–§43 | **DEFERIDO** — schema only |
 | Pagamentos | `packages/integrations/payments` | **STUB** — contrato + NoOp + schema; execução deferida (Fase 2) |
 
@@ -1340,6 +1347,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.23 | Jun/2026 | Auditoria profunda (doc vs código): sync de migrations (§15/§34 — +`conversation_metrics_sender_text`, 21→22), env vars §33 (`WHATSAPP_QUEUE_MODE`, `EMBEDDING_DIMENSIONS` + linha de observabilidade `LANGCHAIN_*`/`SLACK_WEBHOOK_URL`/`FALLBACK_USD_TO_BRL`), lista legal §19 (`LGPD_ONBOARDING_CHECKLIST`), header doc version. §13/§14/§20 reconciliados e confirmados corretos |
 | 1.24 | Jun/2026 | **"Ensaie seu assistente"**: chat-test promovido de dev-only a `org_admin` (§3, §5, §29) — rota `/chat-test` sob `OrgAdminRoute` (bloqueia `professional`); telemetria de dev (path/triage/tokens) só para super_admin; backend `/chat/test` inalterado (já aceitava org_admin); E2E auth-nav/professional-nav atualizados |
 | 1.25 | Jun/2026 | **Lacunas de conhecimento**: migration `knowledge_gaps_capture` (schema + upsert `record_knowledge_gap`), captura fail-soft no `search_kb` atrás de `KNOWLEDGE_GAP_CAPTURE_ENABLED`, endpoint `/metrics/knowledge-gaps` e painel em `AgentObservability` (§13/§15/§27/§33/§39) |
+| 1.26 | Jun/2026 | **Reagendar/cancelar pelo agente (§49 F3) + hardening**: tools `reschedule_time` (scheduling) e `cancel_appointment` (support) + `list_my_appointments`, vinculadas ao sender (anti-injeção §52); `run_tools` agora fail-safe (try/except por tool); fix de vazamento de `str(e)` no `/chat/test`; routing `reagendar/remarcar/desmarcar`→scheduling (cancelar segue em support); §23/§39/§7 atualizados |
 
 ---
 
