@@ -204,7 +204,7 @@ Secrets: Render Environment (sync off) — nunca commitar.
 | Variável | Valor prod | Notas |
 |----------|------------|-------|
 | `PRIVACY_POLICY_URL` | `https://www.gaussix.com/privacidade` | Aponta para o site externo (landing migrada para fora do monorepo) |
-| `PRIVACY_CONTACT_EMAIL` | *(default código)* `privacidade@exemplo.com` | **Trocar antes do 1º cliente pagante** |
+| `PRIVACY_CONTACT_EMAIL` | *(default código)* `contato@gaussix.com` | Sobrescrever via env se usar outro e-mail de contato |
 | `SCHEDULER_ENABLED` | `true` | Retenção LGPD + dedup webhook |
 | `CONVERSATION_METRICS_RETENTION_DAYS` | default `365` | Opcional no Dashboard |
 | `CHECKPOINT_RETENTION_DAYS` | default `90` | Opcional no Dashboard |
@@ -253,7 +253,7 @@ L3/L4 export/erase      → OK format=flowia-dsar-v1 / status=erased (pós 717dd
 
 **Nota smoke híbrido:** após LGPD, `smoke_hybrid_prod.py` turno1 deve passar a esperar `agent=compliance` na 1ª mensagem de thread nova — atualizar script em follow-up.
 
-**Pendente:** `PRIVACY_CONTACT_EMAIL` real antes do 1º cliente pagante; revisão jurídica DRAFTs em `docs/legal/`.
+**Pendente:** revisão jurídica dos DRAFTs em `docs/legal/`. (`PRIVACY_CONTACT_EMAIL` já tem default real `contato@gaussix.com` — sobrescrever via env só se usar outro endereço.)
 
 ---
 
