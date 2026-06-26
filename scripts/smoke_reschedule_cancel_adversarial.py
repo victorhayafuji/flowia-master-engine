@@ -64,7 +64,6 @@ def main() -> int:
             print("[FAIL] Sem serviços/profissionais")
             return 1
         service = next((s for s in services if "corte" in (s.get("name") or "").lower()), services[0])
-        pro = pros[0]
 
         # Helpers
         def make_patient(label: str) -> dict:
