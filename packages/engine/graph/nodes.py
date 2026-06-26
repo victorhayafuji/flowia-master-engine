@@ -376,6 +376,17 @@ async def _finalize_scheduling_reply(
     }
 
 
+def _recent_reschedule_intent(messages: Sequence[BaseMessage], window: int = 4) -> bool:
+    """True se alguma das últimas `window` mensagens do cliente pede reagendamento.
+
+    Olhar a janela (não só a última) sustenta o multi-turn ("quero remarcar" →
+    "sexta às 14h") e mantém o turno no LLM durante o loop agente↔tools. Stateless:
+    sai de cena quando a intenção rola para fora da janela.
+    """
+    human_texts = [message_text(m) for m in messages if getattr(m, "type", None) == "human"]
+    return any(has_reschedule_intent(t) for t in human_texts[-window:])
+
+
 async def scheduling_node(state: AgentState, config: RunnableConfig):
     org_id = _org_id_from_config(config)
     salon_name = get_salon_name(org_id)
@@ -386,11 +397,7 @@ async def scheduling_node(state: AgentState, config: RunnableConfig):
     # Sem isto, o executor determinístico trataria "remarcar" como agendamento novo
     # faltando dados e pediria "serviço, data, horário, nome e telefone" — a tool nunca
     # seria chamada no modo padrão (SCHEDULING_LLM_FALLBACK=smart).
-    last_human = next(
-        (message_text(m) for m in reversed(state["messages"]) if getattr(m, "type", None) == "human"),
-        "",
-    )
-    if has_reschedule_intent(last_human):
+    if _recent_reschedule_intent(state["messages"]):
         logger.info("Scheduling path=llm | reschedule intent (bypass executor)")
         result = _invoke_agent(state, config, "scheduling")
         result["scheduling_path"] = "llm"
