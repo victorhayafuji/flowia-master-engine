@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
-from packages.models.enums import AppointmentStatus
+from packages.scheduling.services.appointments import _SLOT_FREEING_STATUSES
 from packages.scheduling.services.config_helpers import (
     WEEKDAY_KEYS,
     SchedulingConfigMixin,
@@ -23,8 +23,7 @@ class SchedulingAvailabilityMixin(SchedulingConfigMixin):
             .eq("professional_id", str(professional_id))
             .gte("scheduled_at", start_of_day)
             .lte("scheduled_at", end_of_day)
-            .neq("status", AppointmentStatus.CANCELLED.value)
-            .neq("status", AppointmentStatus.NO_SHOW.value)
+            .not_.in_("status", list(_SLOT_FREEING_STATUSES))
             .execute()
         )
         return response.data or []
@@ -35,8 +34,8 @@ class SchedulingAvailabilityMixin(SchedulingConfigMixin):
         from packages.auth_core.tenant import get_current_org_id
 
         logger = logging.getLogger(__name__)
-        start_of_day = datetime.combine(target_date, datetime.min.time()).isoformat()
-        end_of_day = datetime.combine(target_date, datetime.max.time()).isoformat()
+        tzname = self._get_org_config()["timezone"]
+        start_of_day, end_of_day = local_day_utc_bounds(target_date, tzname)
         org_id = get_current_org_id()
         try:
             query = (

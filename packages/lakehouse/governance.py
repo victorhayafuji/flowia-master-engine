@@ -156,7 +156,7 @@ def execute_lakehouse_query_json(query: str) -> tuple[bool, Any]:
 
     except Exception as e:
         logger.error(f"❌ [LAKEHOUSE] Erro inesperado ao executar query: {e}")
-        return False, str(e)
+        return False, "Erro ao executar a consulta."
 
 
 # ==========================================

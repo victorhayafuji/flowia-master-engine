@@ -1,10 +1,9 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from packages.auth_core.dependencies import auth_required, professional_scope, tenant_context
-from packages.auth_core.exceptions import DoubleBookingError, ResourceNotFoundError
 from packages.auth_core.tenant import set_tenant_context
 from packages.scheduling.repository import SchedulingRepository
 from packages.scheduling.schemas import (
@@ -76,16 +75,15 @@ async def update_appointment(
     service: SchedulingService = Depends(get_scheduling_service),
 ):
     with set_tenant_context(org_id):
-        try:
-            data = await service.reschedule_appointment(
-                UUID(appointment_id),
-                update_data.scheduled_at,
-                duration_minutes=update_data.duration_minutes,
-                organization_id=org_id,
-            )
-            return {"status": "success", "data": data}
-        except DoubleBookingError as e:
-            raise HTTPException(status_code=409, detail=str(e)) from e
+        # Domain errors (DoubleBookingError → 409, BusinessLogicError → 422,
+        # ResourceNotFoundError → 404) bubble to the central handlers in app_factory.
+        data = await service.reschedule_appointment(
+            UUID(appointment_id),
+            update_data.scheduled_at,
+            duration_minutes=update_data.duration_minutes,
+            organization_id=org_id,
+        )
+        return {"status": "success", "data": data}
 
 
 @router.patch("/calendar/{appointment_id}/status", dependencies=[Depends(auth_required)])
@@ -136,8 +134,6 @@ async def delete_block(
     service: SchedulingService = Depends(get_scheduling_service),
 ):
     with set_tenant_context(org_id):
-        try:
-            data = await service.delete_block(UUID(block_id), organization_id=org_id)
-            return {"status": "success", "data": data}
-        except ResourceNotFoundError as e:
-            raise HTTPException(status_code=404, detail=str(e)) from e
+        # ResourceNotFoundError → 404 via the central handler in app_factory.
+        data = await service.delete_block(UUID(block_id), organization_id=org_id)
+        return {"status": "success", "data": data}

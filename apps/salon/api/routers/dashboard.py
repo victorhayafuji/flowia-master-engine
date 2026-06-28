@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -7,6 +8,8 @@ from packages.auth_core.database import db
 from packages.auth_core.dependencies import auth_required, professional_scope, validated_tenant_context
 from packages.models.enums import AppointmentStatus
 from packages.scheduling import financial
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Salon Dashboard"])
 
@@ -121,7 +124,8 @@ async def get_dashboard_stats(
             },
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Erro ao carregar stats do dashboard (org=%s)", org_id)
+        raise HTTPException(status_code=400, detail="Erro ao carregar estatísticas.") from e
 
 
 @router.get("/dashboard/today-board", dependencies=[Depends(auth_required)])
@@ -192,7 +196,8 @@ async def get_today_board(
             "data": {"date": today.date().isoformat(), "counts": counts, "board": board},
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Erro ao carregar painel operacional (org=%s)", org_id)
+        raise HTTPException(status_code=400, detail="Erro ao carregar o painel do dia.") from e
 
 
 @router.get("/dashboard/agent-summary", dependencies=[Depends(auth_required)])
@@ -259,7 +264,8 @@ async def get_agent_summary(
             },
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Erro ao carregar resumo do agente (org=%s)", org_id)
+        raise HTTPException(status_code=400, detail="Erro ao carregar o resumo do agente.") from e
 
 
 def _financial_period_bounds(org_id: str | None):
@@ -316,7 +322,8 @@ async def get_dashboard_financial(
         data = {period: summary_for(start, end) for period, (start, end) in bounds.items()}
         return {"status": "success", "data": data}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Erro ao carregar financeiro do dashboard (org=%s)", org_id)
+        raise HTTPException(status_code=400, detail="Erro ao carregar dados financeiros.") from e
 
 
 @router.get("/dashboard/professional-kpi", dependencies=[Depends(auth_required)])
@@ -423,4 +430,5 @@ async def get_professional_kpi(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Erro ao carregar KPI por profissional (org=%s)", org_id)
+        raise HTTPException(status_code=400, detail="Erro ao carregar KPIs por profissional.") from e

@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from apps.salon.domain.clients.schemas import PatientBase
 from packages.auth_core.database import SupabaseHandler
 from packages.auth_core.dependencies import auth_required, get_db, tenant_context
 from packages.auth_core.tenant import set_tenant_context
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/patients", tags=["Patients"])
 
@@ -22,8 +26,11 @@ async def create_patient(
             if not result.data:
                 raise HTTPException(status_code=400, detail="Erro ao criar paciente")
             return {"status": "success", "data": result.data[0]}
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception("Erro ao criar paciente (org=%s)", org_id)
+            raise HTTPException(status_code=400, detail="Erro ao criar paciente.") from e
 
 @router.get("/", dependencies=[Depends(auth_required)])
 async def list_patients(
@@ -41,7 +48,8 @@ async def list_patients(
             result = query.execute()
             return {"status": "success", "data": result.data}
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception("Erro ao listar pacientes (org=%s)", org_id)
+            raise HTTPException(status_code=400, detail="Erro ao listar clientes.") from e
 
 
 @router.delete("/{patient_id}", dependencies=[Depends(auth_required)])
@@ -63,4 +71,5 @@ async def deactivate_patient(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception("Erro ao desativar paciente %s (org=%s)", patient_id, org_id)
+            raise HTTPException(status_code=400, detail="Erro ao desativar cliente.") from e
