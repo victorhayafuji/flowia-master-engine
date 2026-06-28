@@ -51,20 +51,22 @@ class TestValidatePhone:
 
 
 class TestValidateDate:
+    # Fixed reference so the suite never depends on the real clock (CI-safe).
+    FIXED = date(2026, 6, 15)
+
     def test_valid_today(self):
-        today = date.today().isoformat()
-        parsed, err = validate_date(today)
+        parsed, err = validate_date(self.FIXED.isoformat(), reference=self.FIXED)
         assert err is None
-        assert parsed == date.today()
+        assert parsed == self.FIXED
 
     def test_rejects_past(self):
-        past = (date.today() - timedelta(days=1)).isoformat()
-        _, err = validate_date(past)
+        past = (self.FIXED - timedelta(days=1)).isoformat()
+        _, err = validate_date(past, reference=self.FIXED)
         assert err == "past_date"
 
     def test_rejects_too_far(self):
-        far = (date.today() + timedelta(days=120)).isoformat()
-        _, err = validate_date(far)
+        far = (self.FIXED + timedelta(days=120)).isoformat()
+        _, err = validate_date(far, reference=self.FIXED)
         assert err == "too_far"
 
 
