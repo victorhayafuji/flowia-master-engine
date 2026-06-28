@@ -1,5 +1,5 @@
 """Unit tests for deterministic support executor."""
-from datetime import date
+from datetime import date, datetime, time
 from unittest.mock import patch
 
 from langchain_core.messages import HumanMessage
@@ -27,14 +27,24 @@ class TestSupportExecutor:
         messages = [HumanMessage(content="Faltei ontem")]
         assert should_run_deterministic_support(messages)
 
+    # Freeze the tenant clock so "ontem" resolves deterministically on any CI date.
+    @patch(
+        "packages.scheduling.timezone_utils.now_local_naive",
+        return_value=datetime.combine(date(2026, 6, 7), time(12, 0)),
+    )
     @patch("packages.engine.support_executor.search_kb")
-    def test_compose_reply_cites_date(self, mock_kb):
+    def test_compose_reply_cites_date(self, mock_kb, _mock_now):
         mock_kb.invoke.return_value = "[DADOS OFICIAIS DA BASE]\nCancelamento até 24h antes."
         messages = [HumanMessage(content="Faltei ontem")]
         result = run_support_turn(messages, "22222222-2222-2222-2222-222222222222")
         assert result is not None
-        assert "06/06" in result.message or "ontem" in result.message.lower() or "ausência" in result.message.lower()
-        assert result.reference_date == (date.today().fromordinal(date.today().toordinal() - 1)).isoformat()
+        yesterday = date(2026, 6, 7).fromordinal(date(2026, 6, 7).toordinal() - 1)
+        assert (
+            yesterday.strftime("%d/%m") in result.message
+            or "ontem" in result.message.lower()
+            or "ausência" in result.message.lower()
+        )
+        assert result.reference_date == yesterday.isoformat()
 
     @patch("packages.engine.support_executor.search_kb")
     def test_ambiguous_week_runs_with_clarification(self, mock_kb):

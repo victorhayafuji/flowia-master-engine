@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from datetime import date
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, Field
@@ -17,6 +16,7 @@ from packages.scheduling.guardrails import (
     parse_booking_date,
     resolve_service_from_catalog,
 )
+from packages.scheduling.timezone_utils import org_today
 
 logger = logging.getLogger(__name__)
 
@@ -67,14 +67,14 @@ def should_run_intent_extractor(
     if ctx_date and ctx_service:
         return False
 
-    if extract_booking_date_from_text(combined) and _guess_service_query(combined, org_id):
+    if extract_booking_date_from_text(combined, reference=org_today(org_id)) and _guess_service_query(combined, org_id):
         return False
 
     return True
 
 
 def _resolve_extracted_fields(raw: BookingExtract, org_id: str) -> BookingExtract:
-    ref = date.today()
+    ref = org_today(org_id)
     resolved_date: str | None = None
     if raw.date_hint:
         parsed = extract_booking_date_from_text(raw.date_hint, reference=ref)

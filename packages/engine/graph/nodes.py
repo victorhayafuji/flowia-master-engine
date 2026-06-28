@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from datetime import date
 from typing import Any, Literal
 
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
@@ -54,6 +53,7 @@ from packages.scheduling.booking_state_sync import (
 )
 from packages.scheduling.date_parsing import DateParseMode, format_date_label_pt, resolve_date_detailed
 from packages.scheduling.guardrails import extract_booking_date_from_text, extract_reference_date_from_text
+from packages.scheduling.timezone_utils import org_today
 from packages.scheduling.tools import (
     book_time,
     cancel_appointment,
@@ -163,8 +163,8 @@ def triage_node(state: AgentState, config: RunnableConfig):
     return {"active_agent": agent, "booking_active": booking_active, "triage_source": triage_source}
 
 
-def _scheduling_date_context() -> SystemMessage:
-    today = date.today()
+def _scheduling_date_context(org_id: str | None = None) -> SystemMessage:
+    today = org_today(org_id)
     return SystemMessage(
         content=(
             f"[CONTEXTO AGENDA] Hoje: {today.isoformat()} ({today.strftime('%d/%m/%Y')}). "
@@ -175,9 +175,11 @@ def _scheduling_date_context() -> SystemMessage:
     )
 
 
-def _scheduling_resolved_date_hint(messages: Sequence[BaseMessage]) -> SystemMessage | None:
+def _scheduling_resolved_date_hint(
+    messages: Sequence[BaseMessage], org_id: str | None = None
+) -> SystemMessage | None:
     """Inject programmatically resolved booking date from client text."""
-    today = date.today()
+    today = org_today(org_id)
     for msg in reversed(messages):
         if msg.type != "human":
             continue
@@ -205,9 +207,11 @@ def _scheduling_resolved_date_hint(messages: Sequence[BaseMessage]) -> SystemMes
     return None
 
 
-def _scheduling_context_messages(messages: Sequence[BaseMessage]) -> list[SystemMessage]:
-    hints = [_scheduling_date_context()]
-    resolved = _scheduling_resolved_date_hint(messages)
+def _scheduling_context_messages(
+    messages: Sequence[BaseMessage], org_id: str | None = None
+) -> list[SystemMessage]:
+    hints = [_scheduling_date_context(org_id)]
+    resolved = _scheduling_resolved_date_hint(messages, org_id)
     if resolved:
         hints.append(resolved)
     return hints
@@ -233,7 +237,7 @@ def _invoke_agent(state: AgentState, config: RunnableConfig, agent: str):
     llm = _build_agent_llm(salon_name, agent)
     messages: Sequence[BaseMessage] = state["messages"]
     if agent == "scheduling":
-        messages = [*_scheduling_context_messages(state["messages"]), *messages]
+        messages = [*_scheduling_context_messages(state["messages"], org_id), *messages]
     response = llm.invoke({"messages": messages})
     booking_active = agent == "scheduling" or bool(state.get("booking_active"))
     return {
@@ -584,8 +588,10 @@ async def scheduling_node(state: AgentState, config: RunnableConfig):
     return result
 
 
-def _support_reference_date_hint(messages: Sequence[BaseMessage]) -> SystemMessage | None:
-    today = date.today()
+def _support_reference_date_hint(
+    messages: Sequence[BaseMessage], org_id: str | None = None
+) -> SystemMessage | None:
+    today = org_today(org_id)
     for msg in reversed(messages):
         if msg.type != "human":
             continue
@@ -607,7 +613,9 @@ def _support_reference_date_hint(messages: Sequence[BaseMessage]) -> SystemMessa
 
 def support_node(state: AgentState, config: RunnableConfig):
     org_id = _org_id_from_config(config)
-    if org_id and should_run_deterministic_support(state["messages"]):
+    if org_id and should_run_deterministic_support(
+        state["messages"], reference=org_today(org_id)
+    ):
         turn = run_support_turn(state["messages"], org_id)
         if turn:
             salon_name = get_salon_name(org_id)
@@ -623,7 +631,7 @@ def support_node(state: AgentState, config: RunnableConfig):
     salon_name = get_salon_name(org_id)
     llm = _build_agent_llm(salon_name, "support")
     messages: list[BaseMessage] = list(state["messages"])
-    hint = _support_reference_date_hint(messages)
+    hint = _support_reference_date_hint(messages, org_id)
     if hint:
         messages = [hint, *messages]
     response = llm.invoke({"messages": messages})

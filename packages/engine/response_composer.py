@@ -380,7 +380,11 @@ def should_skip_stored_acknowledgment(
     if len(msg) >= 72:
         return False
 
-    if extract_booking_date_from_text(msg, reference=date.today()):
+    from packages.scheduling.timezone_utils import org_today
+
+    ref = org_today(org_id) if org_id else date.today()
+
+    if extract_booking_date_from_text(msg, reference=ref):
         return True
 
     if org_id:
@@ -397,7 +401,7 @@ def should_skip_stored_acknowledgment(
     from packages.scheduling.booking_flow_memory import is_date_choice_opinion_question
 
     if is_date_choice_opinion_question(msg) and not extract_booking_date_from_text(
-        msg, reference=date.today()
+        msg, reference=ref
     ):
         return True
 

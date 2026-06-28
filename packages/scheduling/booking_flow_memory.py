@@ -239,22 +239,25 @@ _DATE_CONFIRM_HINTS = (
 )
 
 
-def is_date_confirmation_without_new_time(text: str, date_iso: str | None) -> bool:
+def is_date_confirmation_without_new_time(
+    text: str, date_iso: str | None, *, reference: date | None = None
+) -> bool:
     """True when the client confirms the day without picking a new time slot."""
     if not date_iso:
         return False
     if extract_booking_time_from_text(text):
         return False
 
+    ref = reference or date.today()
     from packages.scheduling.booking_executor import is_date_reaffirmation
 
-    if is_date_reaffirmation(text, date_iso):
+    if is_date_reaffirmation(text, date_iso, reference=ref):
         return True
 
     lower = text.lower().strip()
     if not any(hint in lower for hint in _DATE_CONFIRM_HINTS):
         return False
-    extracted = extract_booking_date_from_text(text, reference=date.today())
+    extracted = extract_booking_date_from_text(text, reference=ref)
     return extracted == date_iso
 
 

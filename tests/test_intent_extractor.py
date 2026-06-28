@@ -1,5 +1,5 @@
 """Tests for intent extractor field resolution."""
-from datetime import date
+from datetime import date, datetime, time
 
 from packages.engine.intent_extractor import BookingExtract, _resolve_extracted_fields
 
@@ -17,7 +17,12 @@ def test_resolve_extracted_fields_parses_weekday_date_hint(mocker):
             {"id": "1", "name": "Coloração Completa", "duration_minutes": 120, "price": 200},
         ],
     )
-    mocker.patch("packages.engine.intent_extractor.date", _FixedToday)
+    # intent_extractor anchors "today" in the tenant tz via org_today() ->
+    # now_local_naive(); freeze that clock to the fixed reference.
+    mocker.patch(
+        "packages.scheduling.timezone_utils.now_local_naive",
+        return_value=datetime.combine(_FixedToday.today(), time(12, 0)),
+    )
     raw = BookingExtract(
         service_hint="mechas",
         date_hint="sexta",

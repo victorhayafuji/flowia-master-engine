@@ -17,5 +17,8 @@
 | 9 | Lembretes WhatsApp | Tel, horário consulta | Cliente | Lembrete | Contrato | Até envio + logs | Scheduler tenant |
 | 10 | Handoff humano | Motivo, timestamp | Cliente | Suporte | Contrato | Enquanto patient ativo | patients.handoff_* |
 | 11 | Consentimento LGPD | Versão aviso, timestamps | Cliente | Conformidade | Obrigação legal | Enquanto patient + legal | patients.privacy_* |
+| 12 | Notificação de handoff via Slack | Telefone **mascarado** (`***1234`), motivo truncado | Cliente | Alerta operacional (transferência humana) | Legítimo interesse | Conforme retenção do Slack (subprocessador) | Telefone mascarado antes do envio (`mask_sender_id`), motivo truncado |
+| 13 | Fila inbound WhatsApp (`whatsapp_inbound_jobs`) | sender_id (telefone), payload da mensagem | Cliente | Processamento assíncrono/serialização do inbound | Contrato + consentimento aviso | **A definir** — sem purge automático hoje | Tabela interna RLS sem policies, backend-only |
+| 14 | Lacunas de conhecimento (`knowledge_gaps`) | Pergunta do cliente (texto), tipo de agente | Cliente | Observabilidade RAG (perguntas sem resposta) | Legítimo interesse | **A definir** — sem purge automático hoje | RLS tenant, captura fail-soft |
 
 **Responsável operacional:** equipe Gaussix · **Revisão:** a cada release com dados novos (ver [`LGPD_FEATURE_CHECKLIST.md`](LGPD_FEATURE_CHECKLIST.md))

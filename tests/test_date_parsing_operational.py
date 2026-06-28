@@ -40,6 +40,16 @@ def _freeze_today(mocker):
 
     mocker.patch("packages.scheduling.booking_executor.date", _FixedToday)
     mocker.patch("packages.scheduling.booking_flow_memory.date", _FixedToday)
+    # org_today() anchors "today" via now_local_naive(); follow the frozen date.
+    from datetime import datetime as _dt
+    from datetime import time as _time
+
+    import packages.scheduling.booking_executor as _be
+
+    mocker.patch(
+        "packages.scheduling.timezone_utils.now_local_naive",
+        side_effect=lambda *a, **k: _dt.combine(_be.date.today(), _time(12, 0)),
+    )
 
 
 class TestSubstringFalsePositives:

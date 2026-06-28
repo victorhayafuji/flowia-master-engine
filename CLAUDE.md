@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.26)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.27)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -1117,7 +1117,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 
 Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 
-1. Supabase prod + `supabase db push` (**22 migrations**) + pgvector
+1. Supabase prod + `supabase db push` (**23 migrations**) + pgvector
 2. Secrets novos: `python scripts/generate_prod_secrets.py`
 3. Render API: `uvicorn main:app --host 0.0.0.0 --port $PORT`, health `/health`, scale=1
 4. Render Static Site: `apps/salon/dashboard`, `VITE_API_URL=https://API.onrender.com/api/v1`
@@ -1283,6 +1283,8 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | Agente não reagendava/cancelava | `packages/scheduling/tools.py` (`reschedule_time`/`cancel_appointment`/`list_my_appointments`) | **Resolvido (F3 §49)** — tools vinculadas ao sender; reschedule→scheduling, cancel→support |
 | Anamnese / NPS | Parte VIII §42–§43 | **DEFERIDO** — schema only |
 | Pagamentos | `packages/integrations/payments` | **STUB** — contrato + NoOp + schema; execução deferida (Fase 2) |
+| `org_today()` faz `SELECT organizations.timezone` a cada parse de data | `packages/scheduling/timezone_utils.py` (`resolve_org_timezone`) | **Aberto (perf)** — uma query por parse, e há vários parses por turno; follow-up: cachear a tz por org (TTL) ou resolver 1× por turno e threadar pelo state |
+| `conversation_metrics.sender_id` persiste o telefone cru (não mascarado) | `packages/engine/metrics/service.py` | **Aberto (LGPD)** — só os logs são mascarados; a coluna grava o telefone do cliente em claro; follow-up: mascarar/hashear antes de persistir (decisão de modelo de dado + ROPA) |
 
 ## 40. Manutenção da fonte da verdade
 
@@ -1348,6 +1350,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.24 | Jun/2026 | **"Ensaie seu assistente"**: chat-test promovido de dev-only a `org_admin` (§3, §5, §29) — rota `/chat-test` sob `OrgAdminRoute` (bloqueia `professional`); telemetria de dev (path/triage/tokens) só para super_admin; backend `/chat/test` inalterado (já aceitava org_admin); E2E auth-nav/professional-nav atualizados |
 | 1.25 | Jun/2026 | **Lacunas de conhecimento**: migration `knowledge_gaps_capture` (schema + upsert `record_knowledge_gap`), captura fail-soft no `search_kb` atrás de `KNOWLEDGE_GAP_CAPTURE_ENABLED`, endpoint `/metrics/knowledge-gaps` e painel em `AgentObservability` (§13/§15/§27/§33/§39) |
 | 1.26 | Jun/2026 | **Reagendar/cancelar pelo agente (§49 F3) + hardening**: tools `reschedule_time` (scheduling) e `cancel_appointment` (support) + `list_my_appointments`, vinculadas ao sender (anti-injeção §52); `run_tools` agora fail-safe (try/except por tool); fix de vazamento de `str(e)` no `/chat/test`; routing `reagendar/remarcar/desmarcar`→scheduling (cancelar segue em support); §23/§39/§7 atualizados |
+| 1.27 | Jun/2026 | **Follow-up auditoria P0 (governança)**: fix de fuso (`org_today()` ancora datas coloquiais em `organizations.timezone`) e mascaramento de PII em logs (handoff Slack, auth, webhook, dispatch). Doc: contagem de migrations 22→23 (§34); 2 dívidas abertas em §39 (perf `org_today` por parse; `conversation_metrics.sender_id` cru); Slack como subprocessador (telefone mascarado) em `SUBPROCESSORS.md`; ROPA +handoff Slack, `whatsapp_inbound_jobs`, `knowledge_gaps` (retenção **a definir**) |
 
 ---
 

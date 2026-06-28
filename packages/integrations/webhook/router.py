@@ -79,5 +79,6 @@ async def handle_whatsapp_message(
         logger.error("Failed to decode JSON payload")
         return WebhookResponse(status="error", message="Invalid JSON")
     except Exception as e:
-        logger.error(f"Unexpected error in webhook: {e}", exc_info=True)
+        # Don't interpolate {e}: the message may echo inbound payload (phone/text). PII-safe.
+        logger.error("Unexpected error in webhook: %s", type(e).__name__, exc_info=True)
         return WebhookResponse(status="error", message="Internal error")
