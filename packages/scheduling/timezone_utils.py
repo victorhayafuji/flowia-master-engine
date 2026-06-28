@@ -2,10 +2,18 @@
 from __future__ import annotations
 
 import re
+import time as _time
 from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
 
 DEFAULT_TIMEZONE = "America/Sao_Paulo"
+
+# Process-local cache for org timezone lookups (one SELECT per parse otherwise,
+# and there are several parses per agent turn). Acceptable in-process like the
+# in-memory rate-limit/cooldown state (§20, MVP scale=1); 5 min TTL absorbs tz
+# changes without explicit invalidation. Keyed by org_id → (cached_at, tzname).
+_TZ_CACHE: dict[str, tuple[float, str]] = {}
+_TZ_CACHE_TTL_SECONDS = 300
 _TZ_SUFFIX_RE = re.compile(r"[+-]\d{2}:\d{2}$")
 _TIME_HHMM_RE = re.compile(r"\b(\d{1,2}):(\d{2})\b")
 _TIME_AS_RE = re.compile(r"\b(?:as|às)\s*(\d{1,2})(?::(\d{2}))?\b", re.I)
@@ -67,6 +75,11 @@ def resolve_org_timezone(org_id: str | None) -> str:
     """
     if not org_id or org_id == "ALL":
         return DEFAULT_TIMEZONE
+
+    cached = _TZ_CACHE.get(org_id)
+    if cached is not None and (_time.monotonic() - cached[0]) < _TZ_CACHE_TTL_SECONDS:
+        return cached[1]
+
     try:
         from packages.auth_core.database import db
 
@@ -78,7 +91,11 @@ def resolve_org_timezone(org_id: str | None) -> str:
             .execute()
         )
         row = (res.data if res else None) or {}
-        return row.get("timezone") or DEFAULT_TIMEZONE
+        tzname = row.get("timezone") or DEFAULT_TIMEZONE
+        # Cache only on the success path — never pin DEFAULT during a transient
+        # DB failure (the except below returns the fallback uncached).
+        _TZ_CACHE[org_id] = (_time.monotonic(), tzname)
+        return tzname
     except Exception:
         return DEFAULT_TIMEZONE
 

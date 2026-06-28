@@ -1,4 +1,6 @@
 """Service catalog and service-professional M:N."""
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from apps.salon.domain.catalog.helpers import sync_service_professionals
@@ -10,6 +12,8 @@ from apps.salon.domain.catalog.schemas import (
 from packages.auth_core.database import SupabaseHandler
 from packages.auth_core.dependencies import auth_required, get_db, tenant_context
 from packages.auth_core.tenant import set_tenant_context
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -36,7 +40,8 @@ async def create_service(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception("Erro ao criar serviço (org=%s)", org_id)
+            raise HTTPException(status_code=400, detail="Erro ao criar serviço.") from e
 
 
 @router.put("/services/{service_id}", dependencies=[Depends(auth_required)])
@@ -73,7 +78,8 @@ async def update_service(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception("Erro ao atualizar serviço %s (org=%s)", service_id, org_id)
+            raise HTTPException(status_code=400, detail="Erro ao atualizar serviço.") from e
 
 
 @router.get("/services/{service_id}/professionals", dependencies=[Depends(auth_required)])
@@ -92,7 +98,12 @@ async def list_service_professionals(
             result = query.execute()
             return {"status": "success", "data": result.data}
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception(
+                "Erro ao listar profissionais do serviço %s (org=%s)", service_id, org_id
+            )
+            raise HTTPException(
+                status_code=400, detail="Erro ao listar profissionais do serviço."
+            ) from e
 
 
 @router.put("/services/{service_id}/professionals", dependencies=[Depends(auth_required)])
@@ -113,7 +124,12 @@ async def set_service_professionals(
                 },
             }
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception(
+                "Erro ao definir elegibilidade do serviço %s (org=%s)", service_id, org_id
+            )
+            raise HTTPException(
+                status_code=400, detail="Erro ao definir profissionais do serviço."
+            ) from e
 
 
 @router.get("/services", dependencies=[Depends(auth_required)])
@@ -151,7 +167,8 @@ async def list_services(
 
             return {"status": "success", "data": services}
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception("Erro ao listar serviços (org=%s)", org_id)
+            raise HTTPException(status_code=400, detail="Erro ao listar serviços.") from e
 
 
 @router.delete("/services/{service_id}", dependencies=[Depends(auth_required)])
@@ -172,4 +189,5 @@ async def deactivate_service(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception("Erro ao desativar serviço %s (org=%s)", service_id, org_id)
+            raise HTTPException(status_code=400, detail="Erro ao desativar serviço.") from e

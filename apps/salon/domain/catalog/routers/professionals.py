@@ -1,10 +1,14 @@
 """Professional CRUD."""
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from apps.salon.domain.catalog.schemas import ProfessionalBase, ProfessionalUpdate
 from packages.auth_core.database import SupabaseHandler
 from packages.auth_core.dependencies import auth_required, get_db, tenant_context
 from packages.auth_core.tenant import set_tenant_context
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -27,7 +31,8 @@ async def create_professional(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception("Erro ao criar profissional (org=%s)", org_id)
+            raise HTTPException(status_code=400, detail="Erro ao criar profissional.") from e
 
 
 @router.put("/professionals/{professional_id}", dependencies=[Depends(auth_required)])
@@ -52,7 +57,12 @@ async def update_professional(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception(
+                "Erro ao atualizar profissional %s (org=%s)", professional_id, org_id
+            )
+            raise HTTPException(
+                status_code=400, detail="Erro ao atualizar profissional."
+            ) from e
 
 
 @router.get("/professionals", dependencies=[Depends(auth_required)])
@@ -71,7 +81,8 @@ async def list_professionals(
             result = query.execute()
             return {"status": "success", "data": result.data}
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception("Erro ao listar profissionais (org=%s)", org_id)
+            raise HTTPException(status_code=400, detail="Erro ao listar profissionais.") from e
 
 
 @router.delete("/professionals/{professional_id}", dependencies=[Depends(auth_required)])
@@ -92,4 +103,9 @@ async def deactivate_professional(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            logger.exception(
+                "Erro ao desativar profissional %s (org=%s)", professional_id, org_id
+            )
+            raise HTTPException(
+                status_code=400, detail="Erro ao desativar profissional."
+            ) from e
