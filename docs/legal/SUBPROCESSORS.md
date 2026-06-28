@@ -8,6 +8,7 @@
 | **OpenAI** | OpenAI API | Mensagens, docs OCR, embeddings | EUA | IA conversacional, RAG |
 | **Meta Platforms** | WhatsApp Cloud API | Mensagens, phone_id | EUA / global | Canal WhatsApp |
 | **Render Services Inc.** | Web hosting | Tráfego HTTP, env vars | EUA | API + dashboard |
+| **Slack Technologies** | Incoming Webhook (`SLACK_WEBHOOK_URL`) | Alerta de handoff: telefone do cliente **mascarado** (`***1234`) + motivo truncado | EUA | Notificação operacional de transferência humana |
 
 **Obrigações:** contratos SaaS / termos dos provedores; salão controlador informado via Política de Privacidade.
 
