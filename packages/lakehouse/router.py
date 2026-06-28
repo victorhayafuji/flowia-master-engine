@@ -82,9 +82,11 @@ async def upload_document(
         raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("Erro no upload do Lakehouse: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Erro no upload do Lakehouse")
+        raise HTTPException(status_code=500, detail="Erro ao processar o upload.") from e
 
 
 @router.post("/lakehouse/ingest", dependencies=[Depends(auth_required)])
@@ -108,10 +110,10 @@ async def ingest_document(
             "message": "Arquivo ingerido e processamento em background iniciado.",
         }
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado.") from e
     except Exception as e:
-        logger.error("Erro na ingestão do Lakehouse: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Erro na ingestão do Lakehouse")
+        raise HTTPException(status_code=500, detail="Erro ao ingerir o documento.") from e
 
 
 @router.post("/lakehouse/search", dependencies=[Depends(auth_required)])
@@ -129,8 +131,8 @@ async def search_lakehouse(
         )
         return {"status": "success", "results": results}
     except Exception as e:
-        logger.error("Erro na busca do Lakehouse: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Erro na busca do Lakehouse")
+        raise HTTPException(status_code=500, detail="Erro ao realizar a busca.") from e
 
 
 @router.post("/lakehouse/sync", dependencies=[Depends(auth_required)])
@@ -226,5 +228,5 @@ async def generate_sql(request: Request, payload: GenerateSQLRequest):
         return {"status": "success", "query": cleaned_sql}
 
     except Exception as e:
-        logger.error("Erro ao gerar SQL via IA: %s", e)
-        raise HTTPException(status_code=500, detail=f"Erro interno da IA: {str(e)}") from e
+        logger.exception("Erro ao gerar SQL via IA")
+        raise HTTPException(status_code=500, detail="Erro interno ao gerar a consulta.") from e
