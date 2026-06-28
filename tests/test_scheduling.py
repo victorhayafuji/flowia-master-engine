@@ -457,9 +457,11 @@ async def test_create_conflict_query_excludes_cancelled_and_no_show(
 @pytest.mark.asyncio
 async def test_create_active_slot_still_conflicts_409(scheduling_service, mock_scheduling_db, mocker):
     """#4 guard: an ACTIVE overlapping appointment must still raise 409."""
-    scheduled = datetime.now() + timedelta(days=1)
+    # Use an aware UTC instant + explicit "Z" so the overlap check is correct
+    # regardless of the system timezone (CI runs UTC; mirrors the double_booking test).
+    scheduled = datetime.now(timezone.utc) + timedelta(days=1)
     recorder = _ConflictRecorder([
-        {"scheduled_at": scheduled.strftime("%Y-%m-%dT%H:%M:%S"), "duration_minutes": 30}
+        {"scheduled_at": scheduled.strftime("%Y-%m-%dT%H:%M:%S") + "Z", "duration_minutes": 30}
     ])
     mock_scheduling_db.client.table.side_effect = [recorder]
 
