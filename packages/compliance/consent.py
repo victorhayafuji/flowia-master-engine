@@ -131,6 +131,9 @@ def record_consent(org_id: str, sender_id: str, channel: str) -> None:
         "privacy_consent_at": now,
         "privacy_consent_channel": channel,
         "privacy_notice_version": PRIVACY_NOTICE_VERSION,
+        # An explicit consent always clears a prior refusal — gives the gate an exit
+        # via "Concordo" after a "Discordo".
+        "privacy_declined_at": None,
     }
     try:
         if patient:
@@ -154,6 +157,40 @@ def record_consent(org_id: str, sender_id: str, channel: str) -> None:
         logger.error("record_consent failed: %s", exc)
 
 
+def record_decline(org_id: str, sender_id: str, channel: str) -> None:
+    """Persist an explicit consent refusal ("Discordo") without recording consent.
+
+    Honors the data subject's refusal: the next message will re-present the notice
+    instead of being treated as tacit consent (see ``evaluate_consent_gate``).
+    """
+    if not db.client:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    patient = find_patient_by_sender(org_id, sender_id)
+    payload = {
+        "privacy_declined_at": now,
+        "privacy_consent_channel": channel,
+        "privacy_notice_version": PRIVACY_NOTICE_VERSION,
+    }
+    try:
+        if patient:
+            db.client.table("patients").update(payload).eq("id", patient["id"]).execute()
+        else:
+            phone = _phone_from_sender(sender_id)
+            db.client.table("patients").insert(
+                {
+                    "organization_id": org_id,
+                    "legacy_sender_id": sender_id,
+                    "phone": phone,
+                    "name": f"WhatsApp {sender_id[-4:]}" if len(sender_id) >= 4 else "WhatsApp",
+                    "is_active": True,
+                    **payload,
+                }
+            ).execute()
+    except Exception as exc:
+        logger.error("record_decline failed: %s", exc)
+
+
 def evaluate_consent_gate(org_id: str, sender_id: str, channel: str) -> tuple[ConsentAction, str | None, bool]:
     """
     Returns (action, notice_message, lgpd_shown).
@@ -166,6 +203,14 @@ def evaluate_consent_gate(org_id: str, sender_id: str, channel: str) -> tuple[Co
         return ConsentAction.PROCEED, None, True
 
     org_name = _get_org_name(org_id)
+
+    # Honor an explicit refusal: re-present the notice and do NOT consent tacitly.
+    # This branch precedes the tácito path, so a persisted "Discordo" is never
+    # overridden by the next message. Exit is via an explicit "Concordo"
+    # (record_consent clears privacy_declined_at).
+    if patient and patient.get("privacy_declined_at") and not patient.get("privacy_consent_at"):
+        notice = build_privacy_notice(org_name)
+        return ConsentAction.SEND_NOTICE, notice, False
 
     if patient and patient.get("privacy_notice_shown_at") and not patient.get("privacy_consent_at"):
         record_consent(org_id, sender_id, channel)

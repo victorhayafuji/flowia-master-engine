@@ -16,9 +16,13 @@
 | 8 | Data Lake upload | Docs KB | Salão | RAG | Contrato | Contrato tenant | PII mask query, sem anon browser |
 | 9 | Lembretes WhatsApp | Tel, horário consulta | Cliente | Lembrete | Contrato | Até envio + logs | Scheduler tenant |
 | 10 | Handoff humano | Motivo, timestamp | Cliente | Suporte | Contrato | Enquanto patient ativo | patients.handoff_* |
-| 11 | Consentimento LGPD | Versão aviso, timestamps | Cliente | Conformidade | Obrigação legal | Enquanto patient + legal | patients.privacy_* |
+| 11 | Consentimento LGPD | Versão aviso, timestamps (incl. **recusa** `privacy_declined_at`) | Cliente | Conformidade | Obrigação legal | Enquanto patient + legal | patients.privacy_*; **recusa persistida e respeitada** — sem tratamento até consentir |
 | 12 | Notificação de handoff via Slack | Telefone **mascarado** (`***1234`), motivo truncado | Cliente | Alerta operacional (transferência humana) | Legítimo interesse | Conforme retenção do Slack (subprocessador) | Telefone mascarado antes do envio (`mask_sender_id`), motivo truncado |
 | 13 | Fila inbound WhatsApp (`whatsapp_inbound_jobs`) | sender_id (telefone), payload da mensagem | Cliente | Processamento assíncrono/serialização do inbound | Contrato + consentimento aviso | **A definir** — sem purge automático hoje | Tabela interna RLS sem policies, backend-only |
 | 14 | Lacunas de conhecimento (`knowledge_gaps`) | Pergunta do cliente (texto), tipo de agente | Cliente | Observabilidade RAG (perguntas sem resposta) | Legítimo interesse | **A definir** — sem purge automático hoje | RLS tenant, captura fail-soft |
+
+**Consentimento — recusa explícita (LGPD):** quando o titular recusa o aviso de privacidade no fluxo guiado ("Discordo"), `record_decline` grava `patients.privacy_declined_at` **sem** registrar consentimento. O gate (`evaluate_consent_gate`) passa a **reapresentar o aviso** a cada nova mensagem e **nunca** trata a recusa como consentimento tácito — não há tratamento (motor de IA não roda) até consentimento explícito ("Concordo", que zera a recusa). DSAR erase reseta `privacy_declined_at`.
+
+**DSAR — abrangência (export + erase):** além de `patients`, `appointments`, `conversation_metrics` e checkpoints, o DSAR cobre `anamnesis_responses` (dado de saúde — `answers` anonimizado no erase) e `appointment_payments` (dado financeiro — `external_id`/`metadata` anonimizados; nunca apagado, FK `ON DELETE RESTRICT`). Correlação por `patient_id` (anamnese) e pelos `appointment_id` do próprio paciente (pagamentos).
 
 **Responsável operacional:** equipe Gaussix · **Revisão:** a cada release com dados novos (ver [`LGPD_FEATURE_CHECKLIST.md`](LGPD_FEATURE_CHECKLIST.md))

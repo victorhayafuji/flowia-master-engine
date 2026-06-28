@@ -5,6 +5,8 @@ from packages.compliance.consent import (
     ConsentAction,
     evaluate_consent_gate,
     has_valid_consent,
+    record_consent,
+    record_decline,
     record_notice_shown,
 )
 from tests.conftest import ORG_A
@@ -93,3 +95,61 @@ def test_record_notice_shown_updates_existing(mock_db):
         record_notice_shown(ORG_A, "5511999999999", "chat_test")
 
     table.update.assert_called_once()
+
+
+def test_declined_patient_re_presents_notice_without_tacit_consent(mock_db):
+    """A persisted "Discordo" must re-present the notice and NOT consent tacitly."""
+    patient = {
+        "id": "p1",
+        "privacy_notice_shown_at": "2026-06-01T00:00:00Z",
+        "privacy_declined_at": "2026-06-02T00:00:00Z",
+        "privacy_consent_at": None,
+    }
+    table = MagicMock()
+    table.select.return_value = _chain_mock([patient])
+
+    org_table = MagicMock()
+    org_table.select.return_value = _chain_mock([{"name": "Beauty Express"}])
+    mock_db.client.table.side_effect = lambda name: org_table if name == "organizations" else table
+
+    with patch("packages.compliance.consent.db", mock_db), patch(
+        "packages.compliance.consent.record_consent"
+    ) as mock_record_consent:
+        action, msg, lgpd = evaluate_consent_gate(ORG_A, "5511999999999", "whatsapp")
+
+    assert action == ConsentAction.SEND_NOTICE
+    assert msg is not None
+    assert lgpd is False
+    # Refusal honored: no tacit consent recorded.
+    mock_record_consent.assert_not_called()
+
+
+def test_record_consent_clears_decline_flag(mock_db):
+    """An explicit "Concordo" after a refusal clears privacy_declined_at (the exit)."""
+    patient = {"id": "p1", "privacy_notice_shown_at": "2026-06-01T00:00:00Z"}
+    table = MagicMock()
+    table.select.return_value = _chain_mock([patient])
+    table.update.return_value = _chain_mock([patient])
+    mock_db.client.table.return_value = table
+
+    with patch("packages.compliance.consent.db", mock_db):
+        record_consent(ORG_A, "5511999999999", "whatsapp")
+
+    payload = table.update.call_args[0][0]
+    assert payload["privacy_consent_at"] is not None
+    assert payload["privacy_declined_at"] is None
+
+
+def test_record_decline_persists_timestamp_without_consent(mock_db):
+    patient = {"id": "p1", "privacy_notice_shown_at": "2026-06-01T00:00:00Z"}
+    table = MagicMock()
+    table.select.return_value = _chain_mock([patient])
+    table.update.return_value = _chain_mock([patient])
+    mock_db.client.table.return_value = table
+
+    with patch("packages.compliance.consent.db", mock_db):
+        record_decline(ORG_A, "5511999999999", "whatsapp")
+
+    payload = table.update.call_args[0][0]
+    assert payload["privacy_declined_at"] is not None
+    assert "privacy_consent_at" not in payload

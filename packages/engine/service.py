@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from packages.auth_core.config import settings
 from packages.auth_core.conversation_thread import build_thread_id
 from packages.auth_core.tenant import get_current_org_id, set_tenant_context
-from packages.compliance.consent import ConsentAction, evaluate_consent_gate, record_consent
+from packages.compliance.consent import ConsentAction, evaluate_consent_gate, record_consent, record_decline
 from packages.compliance.logging_utils import mask_thread_id
 from packages.engine.checkpointer import master_engine
 from packages.engine.input_guard import MessageVerdict, assess_user_message, format_user_message_for_agent
@@ -179,6 +179,8 @@ async def dispatch_chat_test(
 
             consent_sel = (message or "").strip()
             if consent_sel == _gb.CONSENT_DECLINE_ID:
+                with set_tenant_context(effective_org):
+                    record_decline(effective_org, thread_id, "chat_test")
                 return _compliance_response(
                     thread_id,
                     "Tudo bem! Encerrando por aqui. Quando quiser, é só chamar. 👋",
