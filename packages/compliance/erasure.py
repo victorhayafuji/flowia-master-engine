@@ -67,6 +67,16 @@ def erase_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
         raise ValueError("Cliente não encontrado")
 
     patient = patient_res.data[0]
+    # Patient's own appointment ids — used to correlate appointment_payments
+    # (which has no patient_id column) without touching another patient's rows.
+    appointments = (
+        db.client.table("appointments")
+        .select("id")
+        .eq("patient_id", patient_id)
+        .execute()
+        .data
+        or []
+    )
     effective_org = org_id if org_id and org_id != "ALL" else str(patient.get("organization_id") or "")
     thread_ids = patient_thread_id_candidates(effective_org, patient) if effective_org else []
     anon = _anonymized_phone(patient_id)
@@ -78,6 +88,36 @@ def erase_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
         checkpoints_removed += purge_checkpoints(tid)
 
     metrics_removed = purge_conversation_metrics(org_id, thread_ids)
+
+    # Anamnesis responses (sensitive health PII): anonymize the content rather than
+    # deleting the row — appointments hold an FK, and the project policy is
+    # anonymization over hard delete (CLAUDE.md §14). Zeroing `answers` removes the PII
+    # while preserving referential integrity with appointments.
+    anamnesis_anonymized = 0
+    try:
+        aq = db.client.table("anamnesis_responses").update({"answers": {}}).eq("patient_id", patient_id)
+        if org_id and org_id != "ALL":
+            aq = aq.eq("organization_id", org_id)
+        anamnesis_anonymized = len(aq.execute().data or [])
+    except Exception as exc:
+        logger.warning("erase anamnesis_responses failed: %s", exc)
+
+    # Appointment payments (financial, FK ON DELETE RESTRICT): never delete — strip the
+    # identifiable fields (external_id, metadata) for the patient's own appointments.
+    payments_anonymized = 0
+    appointment_ids = [a["id"] for a in appointments if a.get("id")]
+    if appointment_ids:
+        try:
+            pq = (
+                db.client.table("appointment_payments")
+                .update({"external_id": None, "metadata": {}})
+                .in_("appointment_id", appointment_ids)
+            )
+            if org_id and org_id != "ALL":
+                pq = pq.eq("organization_id", org_id)
+            payments_anonymized = len(pq.execute().data or [])
+        except Exception as exc:
+            logger.warning("erase appointment_payments failed: %s", exc)
 
     anon_phone = _anonymized_phone(patient_id)
     update_payload = {
@@ -92,6 +132,7 @@ def erase_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
         "privacy_notice_shown_at": None,
         "privacy_notice_version": None,
         "privacy_consent_channel": None,
+        "privacy_declined_at": None,
     }
     db.client.table("patients").update(update_payload).eq("id", patient_id).execute()
 
@@ -100,4 +141,6 @@ def erase_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
         "patient_id": patient_id,
         "checkpoints_rows_removed": checkpoints_removed,
         "metrics_rows_removed": metrics_removed,
+        "anamnesis_rows_anonymized": anamnesis_anonymized,
+        "payments_rows_anonymized": payments_anonymized,
     }
