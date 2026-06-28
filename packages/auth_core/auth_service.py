@@ -7,6 +7,7 @@ import jwt
 from packages.auth_core.config import settings
 from packages.auth_core.database import db
 from packages.auth_core.dependencies import ALGORITHM, SECRET_KEY
+from packages.compliance.logging_utils import mask_email
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ def get_user_by_username(username: str):
             }
         return None
     except Exception as e:
-        logger.error(f"Error fetching user {username}: {e}")
+        logger.error(f"Error fetching user {mask_email(username)}: {e}")
         return None
 
 def authenticate_user(username: str, password: str):
@@ -80,7 +81,7 @@ def authenticate_user(username: str, password: str):
 
         return get_user_by_username(username)
     except Exception as e:
-        logger.error(f"Authentication failed for {username}: {e}")
+        logger.error(f"Authentication failed for {mask_email(username)}: {type(e).__name__}")
         return False
 
 def change_user_password(username: str, new_password: str) -> bool:
@@ -98,7 +99,7 @@ def change_user_password(username: str, new_password: str) -> bool:
         db.client.auth.admin.update_user_by_id(user_id, {"password": new_password})
         return True
     except Exception as e:
-        logger.error(f"Error changing password for {username}: {e}")
+        logger.error(f"Error changing password for {mask_email(username)}: {e}")
         return False
 
 def register_dashboard_user(
@@ -127,5 +128,5 @@ def register_dashboard_user(
         db.client.table("dashboard_users").insert(new_user).execute()
         return True
     except Exception as e:
-        logger.error(f"Error registering user {username}: {e}")
+        logger.error(f"Error registering user {mask_email(username)}: {e}")
         return False

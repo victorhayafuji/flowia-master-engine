@@ -99,6 +99,7 @@ def search_kb(query: str) -> str:
 def request_human_handoff(reason: str, sender_id: str = "unknown") -> str:
     """Solicita transferência da conversa para um atendente humano do salão. Use quando o cliente pedir falar com alguém ou a base de conhecimento não resolver."""
     from packages.auth_core.tenant import get_current_org_id
+    from packages.compliance.logging_utils import mask_sender_id
     from packages.integrations.webhook.session_store import can_request_handoff, update_session_state
     from packages.scheduling.guardrails import sanitize_text_field
 
@@ -109,15 +110,16 @@ def request_human_handoff(reason: str, sender_id: str = "unknown") -> str:
     org_id = get_current_org_id()
     allowed, cooldown = can_request_handoff(sender_id, org_id=org_id)
     if not allowed:
-        logger.info("Handoff cooldown active for %s", sender_id[:8])
+        logger.info("Handoff cooldown active for %s", mask_sender_id(sender_id))
         return "Um atendente já foi acionado recentemente. Aguarde o contato da equipe."
 
-    logger.info("request_human_handoff: sender=%s", sender_id[:8] if sender_id else "?")
+    logger.info("request_human_handoff: sender=%s", mask_sender_id(sender_id))
 
     update_session_state(sender_id, {"handoff_reason": safe_reason}, org_id=org_id)
 
+    # LGPD: never send the full client phone to Slack (third-party subprocessor).
     send_slack_notification(
-        f"🔥 *HANDOFF SOLICITADO* 🔥\nSessão: {sender_id}\nMotivo: {safe_reason[:100]}"
+        f"🔥 *HANDOFF SOLICITADO* 🔥\nSessão: {mask_sender_id(sender_id)}\nMotivo: {safe_reason[:100]}"
     )
     return "Handoff solicitado com sucesso. Diga ao usuário que você está transferindo."
 
