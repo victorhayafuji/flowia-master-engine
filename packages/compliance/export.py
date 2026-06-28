@@ -36,6 +36,33 @@ def export_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
         or []
     )
 
+    # Anamnesis responses (sensitive health PII) — filed directly against the patient.
+    anamnesis_q = (
+        db.client.table("anamnesis_responses")
+        .select("id, appointment_id, answers, created_at, updated_at")
+        .eq("patient_id", pid)
+    )
+    if org_id and org_id != "ALL":
+        anamnesis_q = anamnesis_q.eq("organization_id", org_id)
+    anamnesis_responses = anamnesis_q.execute().data or []
+
+    # Appointment payments (financial PII) — no patient_id column; correlate via
+    # the patient's own appointment ids (never another patient's).
+    appointment_payments: list[dict] = []
+    appointment_ids = [a["id"] for a in appointments if a.get("id")]
+    if appointment_ids:
+        payments_q = (
+            db.client.table("appointment_payments")
+            .select(
+                "id, appointment_id, amount_cents, currency, status, "
+                "provider, external_id, metadata, created_at"
+            )
+            .in_("appointment_id", appointment_ids)
+        )
+        if org_id and org_id != "ALL":
+            payments_q = payments_q.eq("organization_id", org_id)
+        appointment_payments = payments_q.execute().data or []
+
     effective_org = org_id if org_id and org_id != "ALL" else str(patient.get("organization_id") or "")
     thread_ids = patient_thread_id_candidates(effective_org, patient) if effective_org else []
 
@@ -58,6 +85,8 @@ def export_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
         "format": "flowia-dsar-v1",
         "patient": patient,
         "appointments": appointments,
+        "anamnesis_responses": anamnesis_responses,
+        "appointment_payments": appointment_payments,
         "conversation_metrics": metrics,
         "note": "Conteúdo integral de mensagens não incluído; solicite ao encarregado se necessário.",
     }

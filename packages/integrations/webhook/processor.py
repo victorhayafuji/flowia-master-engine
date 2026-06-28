@@ -114,7 +114,7 @@ def _maybe_handle_consent_buttons(org_id: str, sender_id: str, text_body: str) -
     if not settings.GUIDED_BOOKING_WHATSAPP_ENABLED:
         return False
 
-    from packages.compliance.consent import record_consent
+    from packages.compliance.consent import record_consent, record_decline
     from packages.scheduling import guided_booking
 
     selection = (text_body or "").strip()
@@ -124,6 +124,7 @@ def _maybe_handle_consent_buttons(org_id: str, sender_id: str, text_body: str) -
     async def _run() -> None:
         wa_service = WhatsAppService()
         if selection == guided_booking.CONSENT_DECLINE_ID:
+            record_decline(org_id, sender_id, "whatsapp")
             await wa_service.send_text_message(
                 sender_id, "Tudo bem! Encerrando por aqui. Quando quiser, é só chamar. 👋"
             )

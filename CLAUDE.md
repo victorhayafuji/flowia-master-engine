@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.27)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.28)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -644,6 +644,7 @@ Aplicar em ordem via `supabase db push`, SQL Editor ou `python scripts/apply_mig
 | `20260610040000_conversation_metrics_observability.sql` | `scheduling_path`, `triage_source`, `channel`, `tools_called` em `conversation_metrics` |
 | `20260610050000_conversation_metrics_sender_text.sql` | `conversation_metrics.sender_id` → TEXT (telefone WhatsApp / thread chat, não só UUID) |
 | `20260610060000_lgpd_consent.sql` | `patients.privacy_*` (consentimento LGPD) + índice org/legacy_sender |
+| `20260613000000_patient_privacy_declined.sql` | `patients.privacy_declined_at` (recusa LGPD persistida; reapresenta aviso, sem consent tácito) |
 
 **Requisito Data Lake:** extensão **pgvector** habilitada no Supabase Dashboard.
 
@@ -777,7 +778,7 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 | WhatsApp verify token exposto ao org_admin | `GET /organizations/whatsapp` devolve `verify_token` | Necessário p/ o dono configurar o webhook; segredo compartilhado de baixa sensibilidade (só serve ao handshake de subscription) |
 | LGPD retention | Purge checkpoints + conversation_metrics (scheduler) | Agendamentos anonimizados após erase; Data Lake Bronze sem purge automático por tenant |
 | Consentimento WhatsApp | Aviso 1ª msg; consent tácito 2ª msg | Opt-in explícito SIM/NÃO — fase 2 se exigido |
-| Consentimento guiado — "Discordo" não persiste | Botões `[Concordo]`/`[Discordo]` no fluxo guiado (`consent_decline` encerra sem gravar) | **Limitação LGPD:** como `record_notice_shown` já gravou `privacy_notice_shown_at` no 1º contato e não há coluna `privacy_declined_at`, a **próxima** mensagem do mesmo sender cai no consentimento **tácito** (`evaluate_consent_gate`) e **anula o "Discordo"**. Impacto baixo hoje (guiado WhatsApp atrás de `GUIDED_BOOKING_WHATSAPP_ENABLED`; decline no chat dev é teste). **Fast-follow v2.0:** migration `patients.privacy_declined_at` + ramo no gate que respeita a recusa |
+| Consentimento guiado — "Discordo" persistido | Botões `[Concordo]`/`[Discordo]` no fluxo guiado; `record_decline` grava `patients.privacy_declined_at` (sem consent) | **Resolvido (LGPD):** migration `20260613000000_patient_privacy_declined.sql` adiciona `privacy_declined_at`; `evaluate_consent_gate` ganhou ramo que, havendo recusa persistida sem consent, **reapresenta o aviso** e **não** consente tacitamente (recusa nunca vira consentimento tácito). Saída só via "Concordo" explícito (`record_consent` zera `privacy_declined_at`). `record_decline` ligado nos dois handlers de decline (chat dev `service.py`, WhatsApp `processor.py`); erase reseta `privacy_declined_at`. Decisão de produto: na recusa o motor não roda — reapresenta o aviso a cada mensagem até consentir de fato |
 | Rate limiting geral (slowapi) + cooldowns | In-process (memória do worker) | **Pré-requisito de escala:** mover para backend compartilhado (Postgres/Redis) antes de `scale>1` — ver [Parte VIII §48.3](#483-rate-limiting-distribuído-pré-requisito-de-scale1) |
 
 Documentar novas limitações nesta seção ao descobri-las.
@@ -1117,7 +1118,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 
 Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 
-1. Supabase prod + `supabase db push` (**23 migrations**) + pgvector
+1. Supabase prod + `supabase db push` (**24 migrations**) + pgvector
 2. Secrets novos: `python scripts/generate_prod_secrets.py`
 3. Render API: `uvicorn main:app --host 0.0.0.0 --port $PORT`, health `/health`, scale=1
 4. Render Static Site: `apps/salon/dashboard`, `VITE_API_URL=https://API.onrender.com/api/v1`
@@ -1351,6 +1352,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.25 | Jun/2026 | **Lacunas de conhecimento**: migration `knowledge_gaps_capture` (schema + upsert `record_knowledge_gap`), captura fail-soft no `search_kb` atrás de `KNOWLEDGE_GAP_CAPTURE_ENABLED`, endpoint `/metrics/knowledge-gaps` e painel em `AgentObservability` (§13/§15/§27/§33/§39) |
 | 1.26 | Jun/2026 | **Reagendar/cancelar pelo agente (§49 F3) + hardening**: tools `reschedule_time` (scheduling) e `cancel_appointment` (support) + `list_my_appointments`, vinculadas ao sender (anti-injeção §52); `run_tools` agora fail-safe (try/except por tool); fix de vazamento de `str(e)` no `/chat/test`; routing `reagendar/remarcar/desmarcar`→scheduling (cancelar segue em support); §23/§39/§7 atualizados |
 | 1.27 | Jun/2026 | **Follow-up auditoria P0 (governança)**: fix de fuso (`org_today()` ancora datas coloquiais em `organizations.timezone`) e mascaramento de PII em logs (handoff Slack, auth, webhook, dispatch). Doc: contagem de migrations 22→23 (§34); 2 dívidas abertas em §39 (perf `org_today` por parse; `conversation_metrics.sender_id` cru); Slack como subprocessador (telefone mascarado) em `SUBPROCESSORS.md`; ROPA +handoff Slack, `whatsapp_inbound_jobs`, `knowledge_gaps` (retenção **a definir**) |
+| 1.28 | Jun/2026 | **Cluster LGPD (auditoria)**: DSAR completo — export+erase de `anamnesis_responses` (saúde, anonimização de `answers`) e `appointment_payments` (financeiro, anonimização de `external_id`/`metadata` via `appointment_id` do paciente), fail-soft; **recusa de consentimento persistida** — migration `20260613000000_patient_privacy_declined.sql` (§15, contagem 23→24 §34) + `record_decline` + ramo no `evaluate_consent_gate` que reapresenta o aviso (recusa nunca vira consent tácito; saída só via "Concordo"), ligado nos handlers de decline chat dev/WhatsApp; §20 "Discordo" de limitação aberta → resolvida; ROPA atualizado |
 
 ---
 
