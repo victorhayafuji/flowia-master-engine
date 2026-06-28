@@ -14,6 +14,7 @@ from packages.engine.graph.state import (
     AgentState,
     _build_agent_llm,
     _normalize_agent,
+    cap_agent_history,
     get_safe_context,
 )
 
@@ -23,6 +24,7 @@ __all__ = [
     "_build_agent_llm",
     "_invoke_agent",
     "_normalize_agent",
+    "cap_agent_history",
     "compile_master_engine",
     "get_safe_context",
     "receptionist_node",

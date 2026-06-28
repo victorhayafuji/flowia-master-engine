@@ -1,12 +1,14 @@
 """Tests for LangGraph engine triage and context helpers."""
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from packages.engine.engine import (
     _normalize_agent,
+    cap_agent_history,
     get_safe_context,
     route_start,
     triage_node,
 )
+from packages.engine.graph.state import AGENT_HISTORY_CAP
 
 
 class TestNormalizeAgent:
@@ -50,6 +52,43 @@ class TestGetSafeContext:
         ]
         result = get_safe_context(msgs)
         assert result[0].type == "human"
+
+
+class TestCapAgentHistory:
+    def test_empty_returns_empty(self):
+        assert cap_agent_history([]) == []
+
+    def test_caps_to_window(self):
+        msgs = [HumanMessage(content=str(i)) for i in range(AGENT_HISTORY_CAP + 20)]
+        result = cap_agent_history(msgs)
+        assert len(result) == AGENT_HISTORY_CAP
+        # mantém o sufixo (contexto recente), não o início da thread
+        assert result[-1].content == str(AGENT_HISTORY_CAP + 19)
+
+    def test_preserves_tool_call_pairing_intact(self):
+        # Diferente de get_safe_context: NÃO funde papéis nem reescreve tool_calls.
+        msgs = [
+            HumanMessage(content="quero agendar"),
+            AIMessage(content="", tool_calls=[{"id": "1", "name": "check_availability", "args": {}}]),
+            ToolMessage(content="14:00, 15:00", tool_call_id="1"),
+        ]
+        result = cap_agent_history(msgs)
+        assert len(result) == 3
+        assert getattr(result[1], "tool_calls", None)
+        assert result[2].type == "tool"
+
+    def test_repairs_orphan_tool_message_at_window_boundary(self):
+        # Se o corte deixaria um ToolMessage órfão no início (sem o AIMessage com
+        # tool_calls), ele é descartado — OpenAI rejeita tool sem o assistant.
+        msgs = [
+            AIMessage(content="", tool_calls=[{"id": "1", "name": "search_kb", "args": {}}]),
+            ToolMessage(content="resultado", tool_call_id="1"),
+            HumanMessage(content="ok"),
+        ]
+        result = cap_agent_history(msgs, max_messages=2)
+        # janela bruta seria [Tool, Human]; o Tool órfão é removido
+        assert result[0].type != "tool"
+        assert all(m.type != "tool" or i > 0 for i, m in enumerate(result))
 
 
 class TestTriageNode:
