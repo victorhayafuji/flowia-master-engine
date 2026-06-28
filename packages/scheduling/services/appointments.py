@@ -39,6 +39,14 @@ _MANUAL_TARGET_STATUSES: set[AppointmentStatus] = {
     AppointmentStatus.CANCELLED,
 }
 
+# Statuses that free a slot for double-booking purposes. Mirrors the DB EXCLUDE
+# constraint (appointments_no_overlap) and `_get_day_appointments` in
+# services/availability.py — a cancelled or no_show slot may be re-booked.
+_SLOT_FREEING_STATUSES: tuple[str, ...] = (
+    AppointmentStatus.CANCELLED.value,
+    AppointmentStatus.NO_SHOW.value,
+)
+
 
 class SchedulingAppointmentsMixin(SchedulingConfigMixin):
     def _assert_entities_belong_to_org(self, appointment: AppointmentBase, org_id: str) -> None:
@@ -107,7 +115,7 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
             .eq("professional_id", str(appointment.professional_id))
             .gte("scheduled_at", start_of_day)
             .lte("scheduled_at", end_of_day)
-            .neq("status", AppointmentStatus.CANCELLED.value)
+            .not_.in_("status", list(_SLOT_FREEING_STATUSES))
         )
 
         conflicts = conflict_query.execute()
@@ -178,6 +186,14 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
         target_duration = duration_minutes if duration_minutes is not None else row["duration_minutes"]
 
         sched_local = to_local_naive(target_scheduled_at, tzname)
+
+        # Reject moving an appointment into the past (tenant wall clock). Single
+        # source for this rule — the endpoint POST /scheduling/calendar/{id} calls
+        # this service directly, so the tool-level guard alone is not enough.
+        # Duration-only edits (new_scheduled_at is None) keep the original time.
+        if new_scheduled_at is not None and sched_local < now_local_naive(tzname):
+            raise BusinessLogicError("Não é possível reagendar para um horário no passado.")
+
         start_of_day, end_of_day = local_day_utc_bounds(sched_local.date(), tzname)
         conflicts = (
             self.db.client.table("appointments")
@@ -185,7 +201,7 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
             .eq("professional_id", str(row["professional_id"]))
             .gte("scheduled_at", start_of_day)
             .lte("scheduled_at", end_of_day)
-            .neq("status", AppointmentStatus.CANCELLED.value)
+            .not_.in_("status", list(_SLOT_FREEING_STATUSES))
             .neq("id", str(appointment_id))
             .execute()
         )
@@ -343,8 +359,8 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
         return response.data
 
     async def list_blocks(self, start_date: date, end_date: date) -> list[dict[str, Any]]:
-        start_time = datetime.combine(start_date, datetime.min.time()).isoformat()
-        end_time = datetime.combine(end_date, datetime.max.time()).isoformat()
+        tzname = self._get_org_config()["timezone"]
+        start_time, end_time = local_date_range_utc_bounds(start_date, end_date, tzname)
         org_id = get_current_org_id()
         query = (
             self.db.client.table("schedule_blocks")

@@ -82,10 +82,11 @@ async def test_create_appointment_success(scheduling_service, mock_scheduling_db
     mock_eq = mock_select.eq.return_value
     mock_gte = mock_eq.gte.return_value
     mock_lte = mock_gte.lte.return_value
-    mock_neq = mock_lte.neq.return_value
+    # Conflict query now excludes both cancelled AND no_show via not_.in_(...).
+    mock_not_in = mock_lte.not_.in_.return_value
 
     empty = _mock_response([])
-    mock_neq.execute.return_value = empty
+    mock_not_in.execute.return_value = empty
     mock_lte.execute.return_value = empty
 
     mock_insert = mock_table.insert.return_value
@@ -130,17 +131,15 @@ async def test_create_appointment_double_booking(scheduling_service, mock_schedu
     mock_table = mock_scheduling_db.client.table.return_value
     mock_select = mock_table.select.return_value
     mock_eq = mock_select.eq.return_value
-    mock_neq_first = mock_eq.neq.return_value
     mock_gte = mock_eq.gte.return_value
     mock_lte = mock_gte.lte.return_value
-    mock_neq_second = mock_lte.neq.return_value
+    mock_not_in = mock_lte.not_.in_.return_value
 
     conflict = _mock_response([{
         "scheduled_at": scheduled_time.strftime("%Y-%m-%dT%H:%M:%S") + "Z",
         "duration_minutes": 30,
     }])
-    mock_neq_first.execute.return_value = _mock_response([])
-    mock_neq_second.execute.return_value = conflict
+    mock_not_in.execute.return_value = conflict
 
     appointment = AppointmentBase(
         patient_id=uuid4(),
@@ -167,8 +166,8 @@ async def test_create_appointment_db_overlap_raises_409(scheduling_service, mock
     mock_eq = mock_select.eq.return_value
     mock_gte = mock_eq.gte.return_value
     mock_lte = mock_gte.lte.return_value
-    mock_neq = mock_lte.neq.return_value
-    mock_neq.execute.return_value = _mock_response([])
+    mock_not_in = mock_lte.not_.in_.return_value
+    mock_not_in.execute.return_value = _mock_response([])
 
     mock_insert = mock_table.insert.return_value
     mock_insert.execute.side_effect = Exception("exclusion constraint appointments_no_overlap violated")
@@ -366,7 +365,7 @@ async def test_reschedule_appointment_updates_duration(scheduling_service, mock_
     )
 
     conflict_table = MagicMock()
-    conflict_table.select.return_value.eq.return_value.gte.return_value.lte.return_value.neq.return_value.neq.return_value.execute.return_value = (
+    conflict_table.select.return_value.eq.return_value.gte.return_value.lte.return_value.not_.in_.return_value.neq.return_value.execute.return_value = (
         _mock_response([])
     )
 
@@ -389,6 +388,168 @@ async def test_reschedule_appointment_updates_duration(scheduling_service, mock_
     )
     assert result["duration_minutes"] == 60
     refresh.assert_called_once()
+
+
+class _ConflictRecorder:
+    """Chainable stub for the conflict query that records the not_.in_ filter."""
+
+    def __init__(self, data):
+        self._data = data
+        self.not_in_args: tuple[str, list] | None = None
+
+    def select(self, *_a, **_k):
+        return self
+
+    def eq(self, *_a, **_k):
+        return self
+
+    def gte(self, *_a, **_k):
+        return self
+
+    def lte(self, *_a, **_k):
+        return self
+
+    def neq(self, *_a, **_k):
+        return self
+
+    @property
+    def not_(self):
+        return self
+
+    def in_(self, column, values):
+        self.not_in_args = (column, values)
+        return self
+
+    def execute(self):
+        return _mock_response(self._data)
+
+
+@pytest.mark.asyncio
+async def test_create_conflict_query_excludes_cancelled_and_no_show(
+    scheduling_service, mock_scheduling_db, mocker
+):
+    """#4: a cancelled OR no_show slot must NOT block a new booking — the conflict
+    query excludes both statuses (mirrors the DB EXCLUDE constraint)."""
+    mocker.patch(
+        "packages.scheduling.reminder_service.ReminderService.create_appointment_reminders",
+        return_value=[],
+    )
+    recorder = _ConflictRecorder([])  # no active conflicts returned
+    insert_table = MagicMock()
+    insert_table.insert.return_value.execute.return_value = _mock_response([{"id": "ok"}])
+    mock_scheduling_db.client.table.side_effect = [recorder, insert_table]
+
+    appointment = AppointmentBase(
+        patient_id=uuid4(),
+        professional_id=uuid4(),
+        service_id=uuid4(),
+        scheduled_at=datetime.now() + timedelta(days=1),
+        duration_minutes=30,
+    )
+
+    result = await scheduling_service.create_appointment(appointment)
+    assert result["id"] == "ok"
+    column, values = recorder.not_in_args
+    assert column == "status"
+    assert set(values) == {"cancelled", "no_show"}
+
+
+@pytest.mark.asyncio
+async def test_create_active_slot_still_conflicts_409(scheduling_service, mock_scheduling_db, mocker):
+    """#4 guard: an ACTIVE overlapping appointment must still raise 409."""
+    scheduled = datetime.now() + timedelta(days=1)
+    recorder = _ConflictRecorder([
+        {"scheduled_at": scheduled.strftime("%Y-%m-%dT%H:%M:%S"), "duration_minutes": 30}
+    ])
+    mock_scheduling_db.client.table.side_effect = [recorder]
+
+    appointment = AppointmentBase(
+        patient_id=uuid4(),
+        professional_id=uuid4(),
+        service_id=uuid4(),
+        scheduled_at=scheduled,
+        duration_minutes=30,
+    )
+
+    with pytest.raises(DoubleBookingError):
+        await scheduling_service.create_appointment(appointment)
+
+
+@pytest.mark.asyncio
+async def test_reschedule_rejects_past(scheduling_service, mock_scheduling_db, mocker):
+    """#7: moving an appointment into the past must be rejected (tenant wall clock)."""
+    # Freeze tenant "now" to a fixed instant so the past-check is deterministic.
+    fixed_now = datetime(2026, 6, 10, 12, 0)
+    mocker.patch(
+        "packages.scheduling.services.appointments.now_local_naive",
+        return_value=fixed_now,
+    )
+    appointment_id = uuid4()
+    existing_row = {
+        "id": str(appointment_id),
+        "patient_id": str(uuid4()),
+        "professional_id": str(uuid4()),
+        "service_id": str(uuid4()),
+        "scheduled_at": datetime(2026, 6, 10, 14, 0, tzinfo=timezone.utc).isoformat(),
+        "duration_minutes": 30,
+        "status": "confirmed",
+    }
+    fetch_table = MagicMock()
+    fetch_table.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = (
+        _mock_response(existing_row)
+    )
+    mock_scheduling_db.client.table.side_effect = [fetch_table]
+
+    # Move to 09:00 local on the same day — before the frozen 12:00 "now".
+    past_target = datetime(2026, 6, 10, 9, 0)
+    with pytest.raises(BusinessLogicError, match="passado"):
+        await scheduling_service.reschedule_appointment(
+            appointment_id,
+            new_scheduled_at=past_target,
+            organization_id="org-1",
+        )
+
+
+@pytest.mark.asyncio
+async def test_reschedule_future_is_allowed(scheduling_service, mock_scheduling_db, mocker):
+    """#7 guard: a future reschedule still passes the past-check."""
+    fixed_now = datetime(2026, 6, 10, 12, 0)
+    mocker.patch(
+        "packages.scheduling.services.appointments.now_local_naive",
+        return_value=fixed_now,
+    )
+    mocker.patch(
+        "packages.scheduling.reminder_service.ReminderService.refresh_reminders_for_appointment",
+        return_value=[],
+    )
+    appointment_id = uuid4()
+    existing_row = {
+        "id": str(appointment_id),
+        "patient_id": str(uuid4()),
+        "professional_id": str(uuid4()),
+        "service_id": str(uuid4()),
+        "scheduled_at": datetime(2026, 6, 10, 14, 0, tzinfo=timezone.utc).isoformat(),
+        "duration_minutes": 30,
+        "status": "confirmed",
+    }
+    fetch_table = MagicMock()
+    fetch_table.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = (
+        _mock_response(existing_row)
+    )
+    conflict = _ConflictRecorder([])
+    update_table = MagicMock()
+    update_table.update.return_value.eq.return_value.execute.return_value = _mock_response(
+        [{"id": str(appointment_id), "scheduled_at": "x"}]
+    )
+    mock_scheduling_db.client.table.side_effect = [fetch_table, conflict, update_table]
+
+    future_target = datetime(2026, 6, 10, 17, 0)  # after frozen 12:00 "now"
+    result = await scheduling_service.reschedule_appointment(
+        appointment_id,
+        new_scheduled_at=future_target,
+        organization_id="org-1",
+    )
+    assert result["id"] == str(appointment_id)
 
 
 @pytest.mark.asyncio
