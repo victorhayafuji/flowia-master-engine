@@ -1284,7 +1284,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | Anamnese / NPS | Parte VIII §42–§43 | **DEFERIDO** — schema only |
 | Pagamentos | `packages/integrations/payments` | **STUB** — contrato + NoOp + schema; execução deferida (Fase 2) |
 | `org_today()` faz `SELECT organizations.timezone` a cada parse de data | `packages/scheduling/timezone_utils.py` (`resolve_org_timezone`) | **Aberto (perf)** — uma query por parse, e há vários parses por turno; follow-up: cachear a tz por org (TTL) ou resolver 1× por turno e threadar pelo state |
-| `conversation_metrics.sender_id` persiste o telefone cru (não mascarado) | `packages/engine/metrics/service.py` | **Aberto (LGPD)** — só os logs são mascarados; a coluna grava o telefone do cliente em claro; follow-up: mascarar/hashear antes de persistir (decisão de modelo de dado + ROPA) |
+| `conversation_metrics.sender_id` persistia o telefone cru (não mascarado) | `packages/engine/metrics/service.py` | **Resolvido (LGPD)** — `save_conversation_metric` minimiza na fonte via `mask_sender_id` (`***1234`); correlação de DSAR/retenção é por `thread_id` (não por `sender_id`), então mascarar é lossless. ROPA #6 atualizado. Linhas antigas (pré-fix) expiram via retenção 365d — backfill one-time opcional |
 
 ## 40. Manutenção da fonte da verdade
 

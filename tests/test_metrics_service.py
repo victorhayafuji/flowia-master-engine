@@ -32,6 +32,38 @@ def test_save_conversation_metric_includes_observability_fields(mocker):
     assert payload["tools_called"] == []
 
 
+def test_save_conversation_metric_masks_sender_id(mocker):
+    """LGPD: sender_id é minimizado na fonte — persiste mascarado, não cru.
+
+    Correlação de DSAR/retention é por thread_id (não por sender_id), então
+    mascarar é lossless para export/erase/purge. Telefone 5511999998888 -> ***8888.
+    """
+    mock_table = mocker.Mock()
+    mock_table.insert.return_value.execute.return_value = mocker.Mock()
+    mock_client = mocker.Mock()
+    mock_client.table.return_value = mock_table
+    mocker.patch("packages.engine.metrics.service.db.client", mock_client)
+
+    save_conversation_metric(
+        thread_id="22222222-2222-2222-2222-222222222222:5511999998888",
+        sender_id="5511999998888",
+        agent_type="scheduling",
+        messages_count=2,
+        tokens_in=0,
+        tokens_out=0,
+        tokens_total=0,
+        organization_id="22222222-2222-2222-2222-222222222222",
+        channel="whatsapp",
+    )
+
+    payload = mock_table.insert.call_args[0][0]
+    # sender_id minimizado: nunca o telefone cru.
+    assert payload["sender_id"] == "***8888"
+    assert "5511999998888" not in payload["sender_id"]
+    # thread_id (chave de correlação) permanece intacto.
+    assert payload["thread_id"] == "22222222-2222-2222-2222-222222222222:5511999998888"
+
+
 def test_get_scheduling_observability_counts_paths(mocker):
     rows = [
         {"scheduling_path": "deterministic", "channel": "chat_test", "tokens_total": 0, "agent_type": "scheduling"},
