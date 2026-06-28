@@ -39,7 +39,7 @@ def export_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
     # Anamnesis responses (sensitive health PII) — filed directly against the patient.
     anamnesis_q = (
         db.client.table("anamnesis_responses")
-        .select("id, appointment_id, answers, status, created_at, updated_at")
+        .select("id, appointment_id, answers, created_at, updated_at")
         .eq("patient_id", pid)
     )
     if org_id and org_id != "ALL":
