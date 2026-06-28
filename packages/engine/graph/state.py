@@ -9,7 +9,7 @@ try:
 except ImportError:
     from typing import Annotated
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.message import add_messages
@@ -141,6 +141,41 @@ def _normalize_agent(agent: str | None) -> str:
     if agent == "lakehouse_query":
         return "receptionist"
     return agent or "receptionist"
+
+
+# Teto de mensagens de conversa enviadas ao LLM com tools (bound).
+# Igual ao default do triage (`get_safe_context` usa 50): a janela cobre com folga
+# qualquer fluxo multi-turno real do MVP (booking, handoff, suporte) e ainda
+# limita o custo de token a O(janela) em vez de O(thread inteira).
+AGENT_HISTORY_CAP = 50
+
+
+def cap_agent_history(messages: Sequence[BaseMessage], max_messages: int = AGENT_HISTORY_CAP) -> list:
+    """Limita o histórico de conversa enviado a um agente LLM **com tools bound**.
+
+    Por que existe (e por que NÃO é o `get_safe_context`):
+    - `get_safe_context` é o sanitizador do roteador de triagem, que usa `llm_base`
+      SEM tools. Ele funde papéis consecutivos e reescreve AIMessages com `tool_calls`
+      em texto plano. Para um agente **com tools**, isso quebraria o pareamento
+      `AIMessage(tool_calls=…)` → `ToolMessage(tool_call_id=…)` que a OpenAI exige no
+      loop de ferramentas (agente ↔ run_tools ↔ agente).
+    - Aqui só **capamos a janela** preservando as mensagens intactas e reparamos a
+      borda: se o corte deixar um `ToolMessage` órfão no início (sem o AIMessage com
+      `tool_calls` que o originou), removemos esses órfãos até uma fronteira limpa.
+
+    Por que capar é seguro: o estado de booking é reconciliado fora do LLM
+    (`sync_booking_state` re-parseia o thread a cada turno); o LLM precisa apenas do
+    contexto recente da conversa, não da thread inteira persistida no checkpointer.
+    """
+    if not messages:
+        return []
+    window = list(messages[-max_messages:])
+    # Repara a borda: descarta ToolMessages órfãos no começo da janela (cujo
+    # AIMessage com tool_calls ficou de fora do corte) — a OpenAI rejeita
+    # ToolMessage sem o assistant tool_calls correspondente.
+    while window and isinstance(window[0], ToolMessage):
+        window.pop(0)
+    return window
 
 
 def get_safe_context(messages: list, max_messages: int = 50) -> list:

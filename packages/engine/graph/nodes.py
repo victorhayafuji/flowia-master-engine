@@ -19,6 +19,7 @@ from packages.engine.graph.state import (
     _build_agent_llm,
     _normalize_agent,
     _org_id_from_config,
+    cap_agent_history,
     get_safe_context,
     llm_base,
 )
@@ -235,7 +236,9 @@ def _invoke_agent(state: AgentState, config: RunnableConfig, agent: str):
     org_id = _require_org_id(config)
     salon_name = get_salon_name(org_id)
     llm = _build_agent_llm(salon_name, agent)
-    messages: Sequence[BaseMessage] = state["messages"]
+    # Capa SÓ o histórico de conversa (custo O(thread) → O(janela)); os SystemMessages
+    # de contexto/data são reanexados depois do corte, sempre presentes.
+    messages: Sequence[BaseMessage] = cap_agent_history(state["messages"])
     if agent == "scheduling":
         messages = [*_scheduling_context_messages(state["messages"], org_id), *messages]
     response = llm.invoke({"messages": messages})
@@ -630,8 +633,10 @@ def support_node(state: AgentState, config: RunnableConfig):
     org_id = _org_id_from_config(config)
     salon_name = get_salon_name(org_id)
     llm = _build_agent_llm(salon_name, "support")
-    messages: list[BaseMessage] = list(state["messages"])
-    hint = _support_reference_date_hint(messages, org_id)
+    # Mesma janela do triage/_invoke_agent: capa o histórico, mantém o hint de data
+    # (SystemMessage) fora do corte. O scanner do hint usa o thread completo.
+    hint = _support_reference_date_hint(state["messages"], org_id)
+    messages: list[BaseMessage] = cap_agent_history(state["messages"])
     if hint:
         messages = [hint, *messages]
     response = llm.invoke({"messages": messages})
