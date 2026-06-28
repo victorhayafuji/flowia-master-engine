@@ -11,7 +11,7 @@
 | 3 | WhatsApp inbound/outbound | Mensagens, telefone | Cliente | Atendimento IA | Contrato + consentimento aviso | Checkpoints 90d; metrics 365d | Log mask, dedup 7d |
 | 4 | Chat test (dev) | Mensagens, thread UUID | Operador dev | Testes | Legítimo interesse interno | Idem #3 | AdminDevRoute |
 | 5 | LangGraph checkpoints | Histórico conversa | Cliente | Contexto IA | Contrato | 90 dias (purge job) | Internal RLS, backend-only |
-| 6 | conversation_metrics | thread_id, sender_id, tokens | Cliente | Telemetria | Legítimo interesse | 365 dias | RLS tenant |
+| 6 | conversation_metrics | thread_id (`org:telefone`), sender_id **mascarado** (`***1234`), tokens | Cliente | Telemetria | Legítimo interesse | 365 dias | RLS tenant; `sender_id` minimizado na fonte (`mask_sender_id`); `thread_id` carrega `org:telefone` como **chave de correlação** do DSAR (export/erase/purge filtram por `thread_id`) — pseudônimo, eliminável via DSAR/retenção |
 | 7 | Dashboard auth | E-mail, hash senha | Funcionário salão | Acesso painel | Contrato | Conta ativa | JWT HttpOnly, bcrypt |
 | 8 | Data Lake upload | Docs KB | Salão | RAG | Contrato | Contrato tenant | PII mask query, sem anon browser |
 | 9 | Lembretes WhatsApp | Tel, horário consulta | Cliente | Lembrete | Contrato | Até envio + logs | Scheduler tenant |

@@ -5,6 +5,7 @@ from typing import Any
 from packages.auth_core.config import settings
 from packages.auth_core.database import db
 from packages.auth_core.finance import get_usd_to_brl
+from packages.compliance.logging_utils import mask_sender_id
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +85,11 @@ def save_conversation_metric(
     try:
         client = db.client
         data: dict[str, Any] = {
+            # thread_id ({org_id}:{telefone}) é a chave de correlação do DSAR/retention
+            # (export/erase/purge filtram .eq("thread_id", ...)); permanece intacto.
+            # sender_id é telemetria redundante — minimizado (LGPD): persiste mascarado.
             "thread_id": thread_id,
-            "sender_id": sender_id,
+            "sender_id": mask_sender_id(sender_id),
             "agent_type": agent_type,
             "messages_count": messages_count,
             "tokens_in": tokens_in,
