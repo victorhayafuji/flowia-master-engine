@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -222,18 +222,25 @@ def install_agent_flow_mocks(mocker, config: AgentFlowConfig) -> None:
         side_effect=_availability_side_effect,
     )
 
+    # nodes/intent_extractor no longer import `date` (they anchor "today" in the
+    # tenant tz via org_today()), so they're frozen through now_local_naive below.
     fixed = _fixed_date_cls(config.reference_date)
     for target in (
         "packages.scheduling.booking_executor.date",
         "packages.scheduling.guardrails.date",
         "packages.engine.response_composer.date",
-        "packages.engine.graph.nodes.date",
-        "packages.engine.intent_extractor.date",
         "packages.engine.support_executor.date",
         "packages.scheduling.date_parsing.resolve.date",
         "packages.scheduling.date_parsing.normalize.date",
     ):
         mocker.patch(target, fixed)
+
+    # Production now anchors "today" in the tenant timezone via org_today() ->
+    # timezone_utils.now_local_naive(). Freeze that clock too so colloquial date
+    # parsing resolves against the fixed reference, not the real wall clock.
+    fixed_now = datetime.combine(config.reference_date, time(12, 0))
+    mocker.patch("packages.scheduling.timezone_utils.now_local_naive", return_value=fixed_now)
+    mocker.patch("packages.scheduling.guardrails.now_local_naive", return_value=fixed_now)
 
     mocker.patch.object(settings, "SCHEDULING_DETERMINISTIC_ENABLED", True)
     mocker.patch.object(settings, "INTENT_EXTRACTOR_ENABLED", False)

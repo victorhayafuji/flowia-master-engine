@@ -13,6 +13,7 @@ from packages.engine.routing import has_support_intent, message_text
 from packages.engine.tools import search_kb
 from packages.scheduling.date_parsing import DateParseMode, format_date_label_pt, resolve_date_detailed
 from packages.scheduling.guardrails import extract_reference_date_from_text
+from packages.scheduling.timezone_utils import org_today
 
 _ABSENCE_HINTS = (
     "faltei",
@@ -53,7 +54,9 @@ def has_cancel_and_reschedule_intent(text: str) -> bool:
     return any(hint in t for hint in _RESCHEDULE_HINTS)
 
 
-def should_run_deterministic_support(messages: Sequence[BaseMessage]) -> bool:
+def should_run_deterministic_support(
+    messages: Sequence[BaseMessage], *, reference: date | None = None
+) -> bool:
     human = [m for m in messages if getattr(m, "type", None) == "human"]
     if not human:
         return False
@@ -62,10 +65,11 @@ def should_run_deterministic_support(messages: Sequence[BaseMessage]) -> bool:
         return False
     if has_cancel_and_reschedule_intent(last):
         return True
-    detailed = resolve_date_detailed(last, reference=date.today(), mode=DateParseMode.REFERENCE)
+    ref = reference or date.today()
+    detailed = resolve_date_detailed(last, reference=ref, mode=DateParseMode.REFERENCE)
     if detailed and (detailed.iso or detailed.needs_clarification):
         return True
-    return extract_reference_date_from_text(last) is not None
+    return extract_reference_date_from_text(last, reference=ref) is not None
 
 
 def _compose_support_reply(kb_result: str, *, date_iso: str, user_message: str) -> str:
@@ -135,7 +139,7 @@ def run_support_turn(
     if has_cancel_and_reschedule_intent(last):
         return SupportTurnResult(message=_multi_date_handoff_message())
 
-    ref = date.today()
+    ref = org_today(org_id)
     detailed = resolve_date_detailed(last, reference=ref, mode=DateParseMode.REFERENCE)
     date_iso = extract_reference_date_from_text(last, reference=ref)
 

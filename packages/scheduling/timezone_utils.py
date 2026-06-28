@@ -58,6 +58,41 @@ def now_local_naive(tzname: str | None = None) -> datetime:
     return datetime.now(resolve_zone(tzname)).replace(tzinfo=None)
 
 
+def resolve_org_timezone(org_id: str | None) -> str:
+    """Read ``organizations.timezone`` for the tenant (single source of truth).
+
+    Fail-soft: any error / missing org / ``ALL`` falls back to ``DEFAULT_TIMEZONE``
+    (Brasília). Used at the agent edges so colloquial date parsing anchors "today"
+    in the tenant's wall clock, never the server clock (Render runs UTC).
+    """
+    if not org_id or org_id == "ALL":
+        return DEFAULT_TIMEZONE
+    try:
+        from packages.auth_core.database import db
+
+        res = (
+            db.client.table("organizations")
+            .select("timezone")
+            .eq("id", org_id)
+            .maybe_single()
+            .execute()
+        )
+        row = (res.data if res else None) or {}
+        return row.get("timezone") or DEFAULT_TIMEZONE
+    except Exception:
+        return DEFAULT_TIMEZONE
+
+
+def org_today(org_id: str | None) -> date:
+    """Tenant-local calendar 'today' — replaces server ``date.today()``.
+
+    Anchors PT-BR colloquial date parsing (hoje/amanhã/ontem) in the org timezone
+    so late-night bookings (≈21h–24h Brasília, already next day in UTC) resolve the
+    correct day.
+    """
+    return now_local_naive(resolve_org_timezone(org_id)).date()
+
+
 def strip_timezone_suffix(dt_str: str) -> str:
     """Agent inputs must be org-local wall clock — drop accidental Z/offsets."""
     cleaned = dt_str.strip()

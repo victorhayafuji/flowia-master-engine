@@ -28,6 +28,21 @@ def _mock_catalog(mocker):
     )
 
 
+@pytest.fixture(autouse=True)
+def _follow_today_clock(mocker):
+    """org_today() anchors "today" via now_local_naive(); make that clock follow
+    whatever booking_executor.date is patched to (real today when unpatched)."""
+    from datetime import datetime as _dt
+    from datetime import time as _time
+
+    import packages.scheduling.booking_executor as _be
+
+    mocker.patch(
+        "packages.scheduling.timezone_utils.now_local_naive",
+        side_effect=lambda *a, **k: _dt.combine(_be.date.today(), _time(12, 0)),
+    )
+
+
 def test_clear_booking_state_zeros_all_slots():
     cleared = clear_booking_state()
     assert all(v is None for v in cleared.values())

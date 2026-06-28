@@ -63,6 +63,7 @@ from packages.scheduling.timezone_utils import (
     build_local_datetime,
     extract_booking_time_from_text,
     format_local_datetime_label,
+    org_today,
     parse_booking_datetime,
 )
 
@@ -242,7 +243,7 @@ def resolve_booking_context(
     texts = _human_texts(messages)
     combined = " ".join(texts)
     last = texts[-1] if texts else ""
-    ref = date.today()
+    ref = org_today(org_id)
 
     date_iso, clarification = _resolve_booking_date_turn(
         last,
@@ -276,7 +277,8 @@ def _past_booking_date_message(text: str, *, reference: date | None = None) -> s
 async def format_availability_reply(service_query: str, date_iso: str, config: RunnableConfig) -> str:
     from packages.engine.response_composer import format_date_label_pt
 
-    coerced = _coerce_booking_date(date_iso)
+    org_id = (config.get("configurable") or {}).get("org_id")
+    coerced = _coerce_booking_date(date_iso, reference=org_today(org_id) if org_id else None)
     if not coerced:
         return (
             "Data inválida para agendamento. "
@@ -303,10 +305,10 @@ def extract_patient_name(text: str) -> str | None:
     return None
 
 
-def is_date_reaffirmation(text: str, date_iso: str | None) -> bool:
+def is_date_reaffirmation(text: str, date_iso: str | None, *, reference: date | None = None) -> bool:
     if not date_iso:
         return False
-    extracted = extract_booking_date_from_text(text, reference=date.today())
+    extracted = extract_booking_date_from_text(text, reference=reference or date.today())
     return extracted == date_iso and len(text.strip()) < 48
 
 
@@ -411,7 +413,7 @@ def collect_booking_intent(
 
     combined = " ".join(texts)
     last = texts[-1]
-    ref = date.today()
+    ref = org_today(org_id)
 
     ctx_date, ctx_service, _clarification = resolve_booking_context(
         messages, org_id, booking_date=booking_date, booking_service=booking_service
@@ -671,7 +673,7 @@ async def run_scheduling_turn(
 
         texts = _human_texts(messages)
         last = texts[-1] if texts else ""
-        ref = date.today()
+        ref = org_today(org_id)
 
         if not texts:
             return None
@@ -743,7 +745,7 @@ async def run_scheduling_turn(
             and service_query
             and not time_hhmm
             and offered_times
-            and is_date_confirmation_without_new_time(last, date_iso)
+            and is_date_confirmation_without_new_time(last, date_iso, reference=ref)
         ):
             return SchedulingTurnResult(
                 message=build_date_confirmed_prompt(date_iso, service_query),
@@ -755,7 +757,7 @@ async def run_scheduling_turn(
             _is_catalog_service_reply(last, org_id)
             or _is_date_clarification_question(last)
             or is_availability_followup(last, has_time_in_message=time_in_last)
-            or is_date_reaffirmation(last, date_iso)
+            or is_date_reaffirmation(last, date_iso, reference=ref)
             or (
                 not time_hhmm
                 and (

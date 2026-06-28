@@ -24,6 +24,7 @@ from packages.scheduling.eligibility import (
     _SERVICE_SEARCH_SYNONYMS,
     list_catalog_services,
 )
+from packages.scheduling.timezone_utils import now_local_naive
 
 # Re-export date parsing API for backward compatibility.
 __all_date_exports__ = (
@@ -266,6 +267,9 @@ def validate_date(
 def validate_datetime(
     dt_str: str,
     org_settings: dict[str, Any] | None = None,
+    *,
+    reference: date | None = None,
+    tzname: str | None = None,
 ) -> tuple[datetime | None, str | None]:
     cleaned, err = sanitize_text_field(dt_str, 32)
     if err or not cleaned:
@@ -276,11 +280,13 @@ def validate_datetime(
         return None, "datetime_format"
     if parsed.tzinfo is not None:
         parsed = parsed.replace(tzinfo=None)
-    date_ok, date_err = validate_date(parsed.date().isoformat(), org_settings)
+    date_ok, date_err = validate_date(parsed.date().isoformat(), org_settings, reference=reference)
     if date_err:
         return None, date_err
     cfg = _scheduling_settings(org_settings)
-    if cfg["min_notice_hours"] > 0 and parsed < datetime.now() + timedelta(hours=cfg["min_notice_hours"]):
+    # Compare against the tenant-local wall clock, never the server clock (Render=UTC).
+    now_local = now_local_naive(tzname)
+    if cfg["min_notice_hours"] > 0 and parsed < now_local + timedelta(hours=cfg["min_notice_hours"]):
         return None, "min_notice"
     return parsed, None
 
