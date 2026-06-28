@@ -1,4 +1,6 @@
 """Organization CRUD and WhatsApp credentials."""
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from apps.salon.domain.catalog.helpers import (
@@ -17,6 +19,8 @@ from packages.auth_core.database import SupabaseHandler
 from packages.auth_core.dependencies import admin_required, get_db, tenant_context
 from packages.auth_core.exceptions import BusinessLogicError
 from packages.integrations.webhook.whatsapp import WhatsAppService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -47,7 +51,8 @@ async def create_organization(org: OrganizationBase, db: SupabaseHandler = Depen
         raise
     except Exception as e:
         raise_on_whatsapp_phone_conflict(e)
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Erro ao criar organização")
+        raise HTTPException(status_code=400, detail="Erro ao criar organização.") from e
 
 
 @router.patch("/{organization_id}/whatsapp", dependencies=[Depends(admin_required)])
@@ -75,7 +80,10 @@ async def update_organization_whatsapp(
         raise
     except Exception as e:
         raise_on_whatsapp_phone_conflict(e)
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Erro ao atualizar WhatsApp da organização %s", organization_id)
+        raise HTTPException(
+            status_code=400, detail="Erro ao atualizar credenciais WhatsApp."
+        ) from e
 
 
 # --- Self-service WhatsApp config (org_admin configura a própria organização) ---
@@ -139,7 +147,10 @@ async def update_my_whatsapp(
         raise
     except Exception as e:
         raise_on_whatsapp_phone_conflict(e)
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Erro ao atualizar WhatsApp da própria org (org=%s)", org_id)
+        raise HTTPException(
+            status_code=400, detail="Erro ao atualizar credenciais WhatsApp."
+        ) from e
 
 
 @router.post("/whatsapp/test")
@@ -180,4 +191,5 @@ async def list_organizations(db: SupabaseHandler = Depends(get_db)):
         )
         return {"status": "success", "data": result.data}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Erro ao listar organizações")
+        raise HTTPException(status_code=400, detail="Erro ao listar organizações.") from e
