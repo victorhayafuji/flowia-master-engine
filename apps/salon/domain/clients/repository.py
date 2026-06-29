@@ -32,7 +32,13 @@ class PatientRepository:
             payload = {"handoff_requested_at": now, "handoff_reason": reason}
 
             if existing.data:
-                db.client.table("patients").update(payload).eq("id", existing.data[0]["id"]).execute()
+                # Scope the write by org too (not just the org-scoped SELECT): the
+                # patient already belongs to org_id (ALL short-circuited above), so
+                # for a legitimate call this is a no-op, but isolation holds by
+                # construction rather than by the SELECT-then-UPDATE sequence.
+                db.client.table("patients").update(payload).eq(
+                    "id", existing.data[0]["id"]
+                ).eq("organization_id", org_id).execute()
             else:
                 phone = "".join(filter(str.isdigit, sender_id)) or sender_id
                 db.client.table("patients").insert(
