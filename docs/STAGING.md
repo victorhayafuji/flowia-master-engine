@@ -80,7 +80,7 @@ Cadência recomendada enquanto WhatsApp Meta estiver pendente (~1–2h/semana):
 |--------|------|
 | Após cada merge em `main` | `smoke_prod.py` + `smoke_hybrid_prod.py` — ver [`PRODUCTION.md`](PRODUCTION.md) |
 | Semanal | Checklist manual #7 e #8 (agenda CRUD + Chat Test/Observability DEV) |
-| Semanal | `list_db_migrations.py` — confirmar 21 migrations no remoto |
+| Semanal | `list_db_migrations.py` — confirmar 24 migrations no remoto |
 | Opcional local | `simulate_whatsapp_webhook.py` — validar motor híbrido sem Meta |
 | CI | Backend pytest + dashboard E2E (`auth-nav`, `agenda`, `chat-test-scheduling`) |
 

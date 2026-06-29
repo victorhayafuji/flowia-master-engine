@@ -94,7 +94,7 @@ WhatsApp: webhook pronto; aguardando credenciais Meta por org.
 | RAG / Data Lake (dev) | Site Gaussix |
 | Landing marketing | Pagamentos Fase 2 |
 
-21 migrations Supabase aplicadas.
+24 migrations Supabase aplicadas.
 
 ---
 

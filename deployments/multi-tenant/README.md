@@ -44,4 +44,4 @@ supabase db push
 # ou: python scripts/apply_migrations.py
 ```
 
-17 migrations em [`supabase/migrations/`](../../supabase/migrations/) — ordem em [`CLAUDE.md`](../../CLAUDE.md) §15.
+24 migrations em [`supabase/migrations/`](../../supabase/migrations/) — ordem em [`CLAUDE.md`](../../CLAUDE.md) §15.
