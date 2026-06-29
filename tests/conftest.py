@@ -15,6 +15,9 @@ from packages.auth_core.auth_service import create_access_token
 ORG_A = "22222222-2222-2222-2222-222222222222"
 ORG_B = "33333333-3333-3333-3333-333333333333"
 
+# Stable professional id bound to the professional-role fixtures below.
+PROFESSIONAL_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
 
 @pytest.fixture
 def mock_db(mocker):
@@ -83,6 +86,22 @@ def user_token_org_b():
         data={"sub": "user_org_b"},
         role="org_admin",
         org_id=ORG_B,
+    )
+
+
+@pytest.fixture
+def professional_token():
+    """JWT for a role=professional user in ORG_A, bound to PROFESSIONAL_A.
+
+    Used to prove employee scoping: agenda/overview filtered to the own
+    professional_id, and org_admin-only routes (Patients/Catalog) stay reachable
+    at the auth layer but data is scoped (nav-hiding is frontend-only).
+    """
+    return create_access_token(
+        data={"sub": "pro@salao.com"},
+        role="professional",
+        org_id=ORG_A,
+        professional_id=PROFESSIONAL_A,
     )
 
 
