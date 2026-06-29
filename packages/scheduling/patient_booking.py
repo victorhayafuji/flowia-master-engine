@@ -82,9 +82,15 @@ def upsert_patient_by_phone(org_id: str, name: str, phone: str) -> str | None:
             )
             if existing.data:
                 patient_id = existing.data[0]["id"]
-                db.client.table("patients").update(
+                # Scope the fallback write by org too (the SELECT above is already
+                # org-scoped, so this is a no-op for a valid call) — keeps tenant
+                # isolation by construction, matching the upsert's org constraint.
+                update_q = db.client.table("patients").update(
                     {"name": payload["name"], "is_active": True}
-                ).eq("id", patient_id).execute()
+                ).eq("id", patient_id)
+                if org_id and org_id != "ALL":
+                    update_q = update_q.eq("organization_id", org_id)
+                update_q.execute()
                 return patient_id
         except Exception as fallback_exc:
             logger.warning("Patient upsert fallback also failed: %s", fallback_exc)

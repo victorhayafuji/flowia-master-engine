@@ -134,7 +134,10 @@ def erase_patient_data(org_id: str, patient_id: str) -> dict[str, Any]:
         "privacy_consent_channel": None,
         "privacy_declined_at": None,
     }
-    db.client.table("patients").update(update_payload).eq("id", patient_id).execute()
+    pq = db.client.table("patients").update(update_payload).eq("id", patient_id)
+    if org_id and org_id != "ALL":
+        pq = pq.eq("organization_id", org_id)
+    pq.execute()
 
     return {
         "status": "erased",
