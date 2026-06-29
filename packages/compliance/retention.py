@@ -45,7 +45,9 @@ def purge_checkpoints_for_threads(thread_ids: list[str]) -> int:
             with conn.cursor() as cur:
                 for tid in thread_ids:
                     for table in tables:
-                        cur.execute(f"DELETE FROM {table} WHERE thread_id = %s", (tid,))
+                        # nosec B608 - `table` é nome literal da tupla fixa `tables` (checkpoint_*),
+                        # sem input de usuário; `tid` é parametrizado (%s). Sem injeção.
+                        cur.execute(f"DELETE FROM {table} WHERE thread_id = %s", (tid,))  # nosec B608
                         total += cur.rowcount
     except Exception as exc:
         logger.warning("[compliance] checkpoint purge by thread failed: %s", exc)

@@ -22,6 +22,27 @@ jobs:
       - name: Ruff lint
         run: ruff check packages apps/salon tests main.py
 
+      - name: Bandit SAST (fail on Medium+)
+        # -ll reporta/falha em Medium+ (exit!=0). 2 FPs B608 (DELETE de nome de tabela
+        # literal, sem input de usuário) suprimidos via `# nosec B608` na fonte.
+        run: bandit -r packages apps -ll
+
+      - name: pip-audit (supply-chain)
+        # Ignores = dívida rastreada (degrau-3-fase-2): bump do core LLM exige regressão
+        # completa do motor (booking/RAG/triage) e vira onda dedicada.
+        #   langgraph-checkpoint 2.x  -> CVE-2025-64439 / CVE-2026-27794 / CVE-2026-48775
+        #   langchain <1.3 (fix 1.3.9 arrasta checkpoint 4.x) -> GHSA-gr75-jv2w-4656
+        #   langchain-openai <1.0 -> PYSEC-2026-76
+        #   pytest <9 (dev-only; 9.x regride pytest-asyncio) -> CVE-2025-71176
+        run: |
+          pip-audit -r requirements.txt \
+            --ignore-vuln CVE-2025-64439 \
+            --ignore-vuln CVE-2026-27794 \
+            --ignore-vuln CVE-2026-48775 \
+            --ignore-vuln GHSA-gr75-jv2w-4656 \
+            --ignore-vuln PYSEC-2026-76 \
+            --ignore-vuln CVE-2025-71176
+
       - name: Tenant-scoped writes guard
         run: python scripts/check_tenant_scoped_writes.py
 

@@ -30,7 +30,9 @@ def purge_checkpoints(thread_id: str) -> int:
         with psycopg.connect(settings.SUPABASE_DB_URL, autocommit=True) as conn:
             with conn.cursor() as cur:
                 for table in tables:
-                    cur.execute(f"DELETE FROM {table} WHERE thread_id = %s", (thread_id,))
+                    # nosec B608 - `table` é nome literal da tupla fixa `tables` (checkpoint_*),
+                    # sem input de usuário; `thread_id` é parametrizado (%s). Sem injeção.
+                    cur.execute(f"DELETE FROM {table} WHERE thread_id = %s", (thread_id,))  # nosec B608
                     total += cur.rowcount
     except Exception as exc:
         logger.warning("purge_checkpoints failed for thread %s: %s", thread_id[:8], exc)
