@@ -220,6 +220,35 @@ class TestRateLimit:
         assert not ok
         assert err == "rate_limit"
 
+    def test_book_time_blocks_after_three(self):
+        # book_time limit is (3, 3600): 3 ok, 4th blocked.
+        for _ in range(3):
+            ok, _ = check_rate_limit("sender1", "book_time")
+            assert ok
+        ok, err = check_rate_limit("sender1", "book_time")
+        assert not ok
+        assert err == "rate_limit"
+
+    def test_book_time_limit_is_per_sender(self):
+        # sender1 exhausts its book_time bucket...
+        for _ in range(3):
+            assert check_rate_limit("sender1", "book_time")[0]
+        assert check_rate_limit("sender1", "book_time") == (False, "rate_limit")
+        # ...but a different sender is unaffected (isolation by sender_id).
+        ok, err = check_rate_limit("sender2", "book_time")
+        assert ok
+        assert err is None
+
+    def test_book_time_and_check_availability_buckets_are_independent(self):
+        # Exhausting book_time must not consume the check_availability budget
+        # (buckets are keyed by f"{sender}:{action}").
+        for _ in range(3):
+            assert check_rate_limit("sender1", "book_time")[0]
+        assert check_rate_limit("sender1", "book_time") == (False, "rate_limit")
+        ok, err = check_rate_limit("sender1", "check_availability")
+        assert ok
+        assert err is None
+
 
 class TestGenericMessage:
     def test_constant(self):
