@@ -39,6 +39,8 @@ class GoldLayer:
         text = doc.get("cleaned_text") or ""
         org_id = doc.get("organization_id")
 
+        # tenant-scope-exempt: Medallion pipeline status flip keyed by the doc's
+        # own PK; the sync job processes pending docs across all orgs by design.
         await asyncio.to_thread(
             self.service.supabase.table("docs_silver").update({"status": "CHUNKING"}).eq("id", silver_id).execute
         )
@@ -46,11 +48,13 @@ class GoldLayer:
         try:
             chunks = chunk_text(text)
             if not chunks:
+                # tenant-scope-exempt: pipeline status flip keyed by the doc's own PK.
                 await asyncio.to_thread(
                     self.service.supabase.table("docs_silver").update({"status": "COMPLETED"}).eq("id", silver_id).execute
                 )
                 return
 
+            # tenant-scope-exempt: re-vectorize clears stale chunks by silver_id (FK to the doc being processed).
             await asyncio.to_thread(
                 self.service.supabase.table("docs_gold_vectors").delete().eq("silver_id", silver_id).execute
             )
@@ -71,12 +75,14 @@ class GoldLayer:
                     self.service.supabase.table("docs_gold_vectors").insert(records).execute
                 )
 
+            # tenant-scope-exempt: pipeline status flip keyed by the doc's own PK.
             await asyncio.to_thread(
                 self.service.supabase.table("docs_silver").update({"status": "COMPLETED"}).eq("id", silver_id).execute
             )
             logger.info("[GOLD] %s vetorizado em %d chunks.", silver_id, len(chunks))
 
         except Exception as e:
+            # tenant-scope-exempt: pipeline error flip keyed by the doc's own PK.
             await asyncio.to_thread(
                 self.service.supabase.table("docs_silver").update({
                     "status": "ERROR",

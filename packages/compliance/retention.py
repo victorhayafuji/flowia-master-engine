@@ -60,6 +60,8 @@ def purge_stale_metrics(retention_days: int | None = None) -> int:
         return 0
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     try:
+        # tenant-scope-exempt: LGPD retention purge is platform-wide by design,
+        # deleting metrics across all orgs strictly by the created_at cutoff.
         result = db.client.table("conversation_metrics").delete().lt("created_at", cutoff).execute()
         removed = len(result.data or [])
         if removed:

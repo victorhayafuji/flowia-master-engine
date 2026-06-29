@@ -43,6 +43,8 @@ class SilverLayer:
         mime_type = doc.get("mime_type", "image/png")
         org_id = doc.get("organization_id")
 
+        # tenant-scope-exempt: Medallion pipeline status flip keyed by the doc's
+        # own PK; the OCR job processes pending docs across all orgs by design.
         await asyncio.to_thread(
             self.service.supabase.table("docs_bronze").update({"status": "PROCESSING"}).eq("id", bronze_id).execute
         )
@@ -70,6 +72,7 @@ class SilverLayer:
                     "organization_id": org_id,
                 }
                 if existing_silver.data:
+                    # tenant-scope-exempt: pipeline upsert keyed by the silver doc's own PK.
                     await asyncio.to_thread(
                         self.service.supabase.table("docs_silver")
                         .update(silver_payload)
@@ -83,6 +86,7 @@ class SilverLayer:
                             **silver_payload,
                         }).execute
                     )
+                # tenant-scope-exempt: pipeline status flip keyed by the doc's own PK.
                 await asyncio.to_thread(
                     self.service.supabase.table("docs_bronze").update({"status": "COMPLETED"}).eq("id", bronze_id).execute
                 )
@@ -99,6 +103,7 @@ class SilverLayer:
         return clean_text(raw or f"[Sem texto extraído de {file_name}]")
 
     async def _mark_bronze_error(self, bronze_id: str, message: str) -> None:
+        # tenant-scope-exempt: pipeline error flip keyed by the doc's own PK.
         await asyncio.to_thread(
             self.service.supabase.table("docs_bronze").update({
                 "status": "ERROR",

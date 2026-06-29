@@ -105,7 +105,11 @@ def record_notice_shown(org_id: str, sender_id: str, channel: str) -> None:
     }
     try:
         if patient:
-            db.client.table("patients").update(payload).eq("id", patient["id"]).execute()
+            # Scope the write by org too (not just the org-scoped lookup) so tenant
+            # isolation holds by construction. The patient already belongs to org_id.
+            db.client.table("patients").update(payload).eq("id", patient["id"]).eq(
+                "organization_id", org_id
+            ).execute()
         else:
             phone = _phone_from_sender(sender_id)
             db.client.table("patients").insert(
@@ -139,7 +143,9 @@ def record_consent(org_id: str, sender_id: str, channel: str) -> None:
         if patient:
             if not patient.get("privacy_notice_shown_at"):
                 payload["privacy_notice_shown_at"] = now
-            db.client.table("patients").update(payload).eq("id", patient["id"]).execute()
+            db.client.table("patients").update(payload).eq("id", patient["id"]).eq(
+                "organization_id", org_id
+            ).execute()
         else:
             phone = _phone_from_sender(sender_id)
             db.client.table("patients").insert(
@@ -174,7 +180,9 @@ def record_decline(org_id: str, sender_id: str, channel: str) -> None:
     }
     try:
         if patient:
-            db.client.table("patients").update(payload).eq("id", patient["id"]).execute()
+            db.client.table("patients").update(payload).eq("id", patient["id"]).eq(
+                "organization_id", org_id
+            ).execute()
         else:
             phone = _phone_from_sender(sender_id)
             db.client.table("patients").insert(
