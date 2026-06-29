@@ -789,10 +789,23 @@ Documentar novas limitações nesta seção ao descobri-las.
 
 | Job | Gates |
 |-----|-------|
-| backend | ruff check · pytest --cov-fail-under=50 |
+| backend | ruff check · **bandit -ll (SAST, fail Medium+)** · **pip-audit (supply-chain)** · tenant-scoped writes guard · pytest --cov-fail-under=50 |
 | frontend | ESLint · vitest · vite build |
 
 **Env CI:** `CHECKPOINTER_BACKEND=memory`, `SCHEDULER_ENABLED=false`, secrets placeholder
+
+**SAST / supply-chain (degrau 3 — fase 1):**
+
+- **bandit** (`bandit -r packages apps -ll`) — falha em severidade Medium+. 2 FPs B608 suprimidos com `# nosec B608` na fonte (`compliance/erasure.py`, `compliance/retention.py`: `DELETE FROM {table}` interpola nome de tabela **literal** de tupla fixa `checkpoint_*`, valor parametrizado `%s`, sem input de usuário).
+- **pip-audit** (`pip-audit -r requirements.txt --ignore-vuln ...`) — sem CVE fora da allowlist. **Allowlist = dívida rastreada (fase 2)**: o fix dos CVEs do **core LLM** exige bump major que arrasta o motor LangGraph (booking/RAG/triage) e vira **onda dedicada com regressão completa**:
+  - `langgraph-checkpoint` 2.x → CVE-2025-64439 / CVE-2026-27794 / CVE-2026-48775 (fix 3.x/4.x; pinado `<3.0.0`)
+  - `langchain` → GHSA-gr75-jv2w-4656 (fix 1.3.9 exige `langchain-core>=1.4.7` → checkpoint 4.x; por isso pinado `<1.3.0`)
+  - `langchain-openai` → PYSEC-2026-76 (fix 1.1.14; cap `<1.0.0`)
+  - `pytest` → CVE-2025-71176 (**dev-only**; fix 9.x regride `pytest-asyncio`; cap `<9.0.0`)
+- **`requirements.lock`** regenerado coerente com o requirements (pillow 12.2.0, checkpoint 2.x congelado) — não confundir com o stale anterior (que pinava pillow 11.3.0 vulnerável + checkpoint 4.1.1).
+- **CVEs corrigidos nesta fase:** `pillow` 11.3.0 → **12.2.0** (7 CVEs: PYSEC-2026-165, CVE-2026-25990/40192/42309/42310/42311) — bump contido, fora do core LLM.
+
+**Dependabot:** `.github/dependabot.yml` — ecossistemas `pip` (raiz), `npm` (`apps/salon/dashboard`) e `github-actions`, schedule semanal.
 
 **Testes E2E:** Playwright em `apps/salon/dashboard/e2e/` (auth, professional-nav, agenda, catalog, patients, chat-test-rag, chat-test-scheduling)
 
