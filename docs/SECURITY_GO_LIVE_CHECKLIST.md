@@ -130,7 +130,7 @@ Executar **após** Trilha A; **não** reutilizar secrets pessoais.
 - [ ] Projeto **`flowia-prod`** (separado do dev)
 - [ ] Plano **Pro**
 - [ ] pgvector habilitado
-- [ ] `py scripts/apply_migrations.py` → **22 migrations**
+- [ ] `py scripts/apply_migrations.py` → **24 migrations**
 - [ ] `py scripts/generate_prod_secrets.py` → secrets novos
 - [ ] Security Advisors no Dashboard Supabase
 

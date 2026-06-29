@@ -175,12 +175,14 @@ Sintoma: login 401/403 ou CORS no browser.
 
 ## Supabase migrations (aplicadas)
 
-**22 migrations** sincronizadas via `scripts/apply_migrations.py` (Jun/2026), incluindo:
+**24 migrations** no repositório, sincronizadas via `scripts/apply_migrations.py` (Jun/2026), incluindo as mais recentes:
 
-- `20260610050000_conversation_metrics_sender_text.sql`
-- `20260610060000_lgpd_consent.sql` — colunas `patients.privacy_*`
+- `20260612000000_knowledge_gaps_capture.sql` — captura de lacunas RAG
+- `20260613000000_patient_privacy_declined.sql` — `patients.privacy_declined_at` (recusa LGPD persistida)
 
-Verificar: `python scripts/list_db_migrations.py` → **Total: 22**
+> ⚠️ A 24ª (`patient_privacy_declined`) deve ser aplicada **antes** do próximo deploy — sem ela o consent gate / erase rodam em fail-soft.
+
+Verificar: `python scripts/list_db_migrations.py` → **Total: 24**
 
 Colunas LGPD confirmadas: `privacy_notice_version`, `privacy_notice_shown_at`, `privacy_consent_at`, `privacy_consent_channel`.
 
