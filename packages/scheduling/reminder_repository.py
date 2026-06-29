@@ -56,6 +56,8 @@ class ReminderRepository:
         if not self.db.client:
             return
         now = datetime.utcnow().isoformat()
+        # tenant-scope-exempt: scheduler-driven write keyed by the reminder's own
+        # PK (id), which was selected by the platform-wide reminder cron.
         self.db.client.table("reminders").update(
             {"status": ReminderStatus.SENT.value, "sent_at": now}
         ).eq("id", reminder_id).execute()
@@ -63,6 +65,7 @@ class ReminderRepository:
     def mark_failed(self, reminder_id: str, error_message: str) -> None:
         if not self.db.client:
             return
+        # tenant-scope-exempt: scheduler-driven write keyed by the reminder's own PK.
         self.db.client.table("reminders").update(
             {"status": ReminderStatus.FAILED.value, "error_message": error_message}
         ).eq("id", reminder_id).execute()
@@ -71,6 +74,8 @@ class ReminderRepository:
         if not self.db.client:
             return 0
 
+        # tenant-scope-exempt: keyed by appointment_id (FK), which the caller
+        # already resolved within the org; reminder lifecycle follows the appt.
         response = (
             self.db.client.table("reminders")
             .update({"status": ReminderStatus.CANCELLED.value})

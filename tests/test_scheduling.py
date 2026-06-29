@@ -369,8 +369,12 @@ async def test_reschedule_appointment_updates_duration(scheduling_service, mock_
         _mock_response([])
     )
 
+    # The update now scopes by org too: .update().eq("id").eq("organization_id").
+    # Make .eq chainable so any number of filters resolves to the same execute().
     update_table = MagicMock()
-    update_table.update.return_value.eq.return_value.execute.return_value = _mock_response(
+    update_chain = update_table.update.return_value
+    update_chain.eq.return_value = update_chain
+    update_chain.execute.return_value = _mock_response(
         [{"id": str(appointment_id), "duration_minutes": 60}]
     )
 
@@ -539,8 +543,11 @@ async def test_reschedule_future_is_allowed(scheduling_service, mock_scheduling_
         _mock_response(existing_row)
     )
     conflict = _ConflictRecorder([])
+    # Org-scoped update → .eq chainable (id + organization_id).
     update_table = MagicMock()
-    update_table.update.return_value.eq.return_value.execute.return_value = _mock_response(
+    update_chain = update_table.update.return_value
+    update_chain.eq.return_value = update_chain
+    update_chain.execute.return_value = _mock_response(
         [{"id": str(appointment_id), "scheduled_at": "x"}]
     )
     mock_scheduling_db.client.table.side_effect = [fetch_table, conflict, update_table]

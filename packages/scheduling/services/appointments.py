@@ -226,12 +226,18 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
         if not update_payload:
             raise BusinessLogicError("Nada para atualizar.")
 
-        result = (
+        update_query = (
             self.db.client.table("appointments")
             .update(update_payload)
             .eq("id", str(appointment_id))
-            .execute()
         )
+        # Scope the write by org as well (not just the SELECT above): the row is
+        # already guaranteed by the scoped fetch, so for a legitimate call this is
+        # a no-op — but it makes tenant isolation hold by construction, not by the
+        # SELECT-then-UPDATE sequence. super_admin (ALL/None) stays cross-tenant.
+        if organization_id and organization_id != "ALL":
+            update_query = update_query.eq("organization_id", organization_id)
+        result = update_query.execute()
         if not result.data:
             raise BusinessLogicError("Erro ao reagendar.")
         updated = {**row, **result.data[0]}
@@ -297,12 +303,17 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
                 f"O status {new_status.value} não pode ser definido manualmente."
             )
 
-        result = (
+        update_query = (
             self.db.client.table("appointments")
             .update({"status": new_status.value})
             .eq("id", str(appointment_id))
-            .execute()
         )
+        # Scope the write by org as well as the SELECT — no-op for a legitimate
+        # call (the row is already scoped at fetch) but enforces isolation by
+        # construction. super_admin (ALL/None) keeps cross-tenant access.
+        if organization_id and organization_id != "ALL":
+            update_query = update_query.eq("organization_id", organization_id)
+        result = update_query.execute()
 
         if not result.data:
             raise ResourceNotFoundError(f"Agendamento {appointment_id} não encontrado.")
@@ -314,10 +325,14 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
         # mistaken no_show is corrected to any other status.
         patient_id = row.get("patient_id")
         if patient_id:
+            # The patient belongs to the same org as the appointment (already
+            # scoped at fetch); thread that org into the count adjustment so the
+            # patients read/write is org-scoped too (by construction).
+            patient_org_id = row.get("organization_id") or organization_id
             if new_status == AppointmentStatus.NO_SHOW and current != AppointmentStatus.NO_SHOW:
-                self._adjust_patient_no_show_count(patient_id, +1)
+                self._adjust_patient_no_show_count(patient_id, +1, patient_org_id)
             elif current == AppointmentStatus.NO_SHOW and new_status != AppointmentStatus.NO_SHOW:
-                self._adjust_patient_no_show_count(patient_id, -1)
+                self._adjust_patient_no_show_count(patient_id, -1, patient_org_id)
 
         if new_status == AppointmentStatus.CANCELLED:
             try:
@@ -329,20 +344,33 @@ class SchedulingAppointmentsMixin(SchedulingConfigMixin):
 
         return updated
 
-    def _adjust_patient_no_show_count(self, patient_id: str, delta: int) -> None:
-        """Adjust patients.no_show_count by delta (floored at 0) so manual changes stay consistent."""
-        current = (
+    def _adjust_patient_no_show_count(
+        self, patient_id: str, delta: int, organization_id: str | None = None
+    ) -> None:
+        """Adjust patients.no_show_count by delta (floored at 0) so manual changes stay consistent.
+
+        Both the read and the write are scoped by org when available (super_admin
+        ALL/None stays cross-tenant) — the patient is always in the same org as
+        the appointment that triggered this, so for a legitimate call it is a no-op.
+        """
+        select_query = (
             self.db.client.table("patients")
             .select("no_show_count")
             .eq("id", patient_id)
-            .maybe_single()
-            .execute()
         )
+        if organization_id and organization_id != "ALL":
+            select_query = select_query.eq("organization_id", organization_id)
+        current = select_query.maybe_single().execute()
         count = (current.data or {}).get("no_show_count") or 0
         new_count = max(0, count + delta)
-        self.db.client.table("patients").update({"no_show_count": new_count}).eq(
-            "id", patient_id
-        ).execute()
+        update_query = (
+            self.db.client.table("patients")
+            .update({"no_show_count": new_count})
+            .eq("id", patient_id)
+        )
+        if organization_id and organization_id != "ALL":
+            update_query = update_query.eq("organization_id", organization_id)
+        update_query.execute()
 
     async def get_agenda(self, start_date: date, end_date: date) -> list[dict[str, Any]]:
         tzname = self._get_org_config()["timezone"]
