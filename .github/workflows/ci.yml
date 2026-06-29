@@ -22,6 +22,9 @@ jobs:
       - name: Ruff lint
         run: ruff check packages apps/salon tests main.py
 
+      - name: Tenant-scoped writes guard
+        run: python scripts/check_tenant_scoped_writes.py
+
       - name: Run tests with coverage
         env:
           OPENAI_API_KEY: test-key
