@@ -23,16 +23,32 @@ psycopg-pool>=3.2.0,<4.0.0
 APScheduler>=3.10.0,<4.0.0
 
 # AI / LangChain
+# NOTE(degrau-3-fase-2): core LLM congelado em 2.x/1.2.x. Subir langchain p/ >=1.3.9
+# (fix do GHSA-gr75-jv2w-4656) ARRASTA langgraph-checkpoint p/ 4.x (langchain 1.3.x
+# exige langchain-core>=1.4.7 -> checkpoint>=4.1). Esse major do grafo exige regressão
+# completa do motor (booking/RAG/triage) e vira onda dedicada. Por isso:
+#   - langchain pinado <1.3.0 (mantém checkpoint 2.x), GHSA em allowlist do pip-audit
+#   - langgraph-checkpoint pinado <3.0.0 explícito (transitivo; sem pin saltaria p/ 4.x
+#     num install fresco do CI/Render), 3 CVEs em allowlist do pip-audit
+#   - langchain-openai cap mantido <1.0.0, PYSEC-2026-76 em allowlist do pip-audit
 langgraph>=1.0.0,<2.0.0
+langgraph-checkpoint>=2.1.0,<3.0.0
 langgraph-checkpoint-postgres>=2.0.0,<3.0.0
-langchain>=1.0.0,<2.0.0
+langchain>=1.0.0,<1.3.0
 langchain-openai>=0.3.0,<1.0.0
 openai>=1.40.0,<2.0.0
-pillow>=10.2.0,<12.0.0
+pillow>=12.2.0,<13.0.0
 
 # Linting & Testing
 ruff>=0.3.0,<1.0.0
+# NOTE(degrau-3-fase-2): pytest pinado <9 (CVE-2025-71176, dev-only). Subir p/ 9.x
+# regride pytest-asyncio (0.26 exige pytest<9; o cap <1.0.0 cairia p/ 0.23.x), o que
+# desestabiliza a suíte async. Bump do pytest+plugins vira onda dedicada; CVE em allowlist.
 pytest>=8.0.0,<9.0.0
 pytest-asyncio>=0.23.0,<1.0.0
 pytest-mock>=3.12.0,<4.0.0
 pytest-cov>=4.1.0,<6.0.0
+
+# Security tooling (SAST + supply-chain audit) — dev/CI deps
+bandit>=1.7,<2.0
+pip-audit>=2.7,<3.0
