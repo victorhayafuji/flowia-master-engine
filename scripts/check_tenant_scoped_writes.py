@@ -6,27 +6,41 @@ The backend talks to Supabase with SERVICE_ROLE, which BYPASSES Postgres RLS.
 So multi-tenant no-leak does NOT come from the database — it comes from every
 business query carrying an `.eq("organization_id", ...)` filter in code. This
 linter is an anti-regression net: it flags `.update(...)` / `.delete(...)` on a
-business table that has no organization_id filter in the same function.
+business table that has no organization_id filter on the same query object.
 
 WHAT IT CHECKS (AST, best-effort)
 ---------------------------------
 For each chained call that includes `.update(...)` or `.delete(...)` and whose
 chain root is `<...>.table("<T>")` where <T> is a business table, it requires
-that the SAME ENCLOSING FUNCTION contains at least one `.eq("organization_id", ...)`
-call. The org filter is often applied on a separate statement via a query
-variable (`q = ...table(...); q = q.update(...); q = q.eq("organization_id", ...)`),
-so a strict same-chain check would produce false positives. We therefore use a
-FUNCTION-SCOPE heuristic.
+that the SAME QUERY OBJECT carrying the write also carries an
+`.eq("organization_id", ...)` filter. Two shapes are recognized:
+
+  1. Inline chain:
+       table("X").update(...).eq("id", i).eq("organization_id", org)
+     — the org `.eq` is collected straight from the write's own chain.
+
+  2. Query variable:
+       q = table("X").update(...).eq("id", i)
+       if org and org != "ALL":
+           q = q.eq("organization_id", org)   # extends the SAME object q
+       q.execute()
+     — we collect the `.eq` filters from every assignment to `q` whose RHS chains
+     from `table(<business>)` or from `q` itself.
+
+Crucially, an org filter applied to a DIFFERENT variable (e.g. the preceding
+SELECT's `query`/`select_query`) does NOT credit the write. That is the exact
+regression this guard exists to catch: if someone removes the org `.eq` from the
+UPDATE while the SELECT above it still has one, the write is flagged.
 
 LIMITATIONS (this is a net, NOT a proof)
 ----------------------------------------
-- Function-scope, not data-flow: a function that scopes one write by org and
-  leaves another business-table write unscoped can slip through if the first
-  write supplies the `.eq("organization_id")`. The real guarantees are the
-  explicit per-write scoping (Task 1) and the cross-tenant test matrix (Wave 2).
-- It does not understand conditional filters (`if org and org != "ALL"`). A
-  conditional `.eq("organization_id", ...)` counts as present — which matches the
-  super_admin (ALL/None) convention used across the codebase.
+- Object-scope via syntactic variable tracking, not full data-flow: it follows
+  `V = V.eq(...)`-style reassignment within one function, not aliasing across
+  helpers or through containers. The real guarantees are the explicit per-write
+  scoping (Task 1) and the cross-tenant test matrix (Wave 2).
+- It does not evaluate conditional filters (`if org and org != "ALL"`). A
+  conditional `.eq("organization_id", ...)` on the write's object counts as
+  present — which matches the super_admin (ALL/None) convention in the codebase.
 - Table name must be a string literal in `.table("...")`. Dynamic table names
   are not analyzed (and are not used for business tables today).
 
@@ -115,6 +129,25 @@ def _chain_calls(node: ast.Call) -> list[ast.Call]:
     return calls
 
 
+def _chain_top(node: ast.Call, parents: dict[int, ast.AST]) -> ast.Call:
+    """Ascend from a write Call to the OUTERMOST Call of its fluent chain.
+
+    Filters applied AFTER the write (`.update(...).eq("organization_id", ...)`)
+    are ancestors of the write node, so `_chain_calls(write)` alone misses them.
+    Walking up while the parent keeps the chain going (Attribute access or a Call
+    whose function is the current node's attribute) yields the full chain top.
+    """
+    cur: ast.Call = node
+    while True:
+        parent = parents.get(id(cur))
+        if isinstance(parent, ast.Attribute) and parent.value is cur:
+            grand = parents.get(id(parent))
+            if isinstance(grand, ast.Call) and grand.func is parent:
+                cur = grand
+                continue
+        return cur
+
+
 def _attr_name(call: ast.Call) -> str | None:
     """Method name of a chained call, e.g. `.update(...)` -> 'update'."""
     if isinstance(call.func, ast.Attribute):
@@ -152,9 +185,118 @@ def _enclosing_function(node: ast.AST, parents: dict[int, ast.AST]) -> ast.AST |
     return None
 
 
-def _function_has_org_eq(func: ast.AST) -> bool:
+def _chain_root(node: ast.AST) -> ast.AST:
+    """Walk to the bottom of an attribute/call chain and return the root expr.
+
+    For `db.client.table("x").update(...).eq(...)` the root is `db` (a Name);
+    for `q.update(...).eq(...)` the root is the Name `q`.
+    """
+    cur = node
+    while True:
+        if isinstance(cur, ast.Call):
+            cur = cur.func
+        elif isinstance(cur, ast.Attribute):
+            cur = cur.value
+        else:
+            return cur
+
+
+def _root_var_name(node: ast.AST) -> str | None:
+    """If the chain rooted at `node` starts from a bare Name (a query variable),
+    return that name; otherwise None (e.g. roots at `db`/`self`)."""
+    root = _chain_root(node)
+    return root.id if isinstance(root, ast.Name) else None
+
+
+def _chain_starts_from(expr: ast.AST, var_names: set[str]) -> bool:
+    """True if the attribute/call chain `expr` is rooted at `table(<business>)`
+    or at one of the given query-variable names."""
+    cur = expr
+    while isinstance(cur, (ast.Call, ast.Attribute)):
+        if isinstance(cur, ast.Call) and (tbl := _table_literal(cur)) is not None:
+            return tbl in BUSINESS_TABLES
+        cur = cur.func if isinstance(cur, ast.Call) else cur.value
+    return isinstance(cur, ast.Name) and cur.id in var_names
+
+
+def _eq_calls_in(expr: ast.AST) -> list[ast.Call]:
+    """All `.eq(...)` Call nodes within an expression."""
+    return [
+        sub
+        for sub in ast.walk(expr)
+        if isinstance(sub, ast.Call) and _attr_name(sub) == "eq"
+    ]
+
+
+def _contains(outer: ast.AST, target: ast.AST) -> bool:
+    """True if `target` is `outer` or nested anywhere inside it."""
+    return any(sub is target for sub in ast.walk(outer))
+
+
+def _chain_has_table(chain: list[ast.Call]) -> bool:
+    """True if the write's full inline chain freshly builds from a `table(...)`."""
+    return any(_table_literal(c) is not None for c in chain)
+
+
+def _query_var_for_write(top: ast.Call, chain: list[ast.Call], func: ast.AST) -> str | None:
+    """Find the query variable the write's chain is bound to, if any.
+
+    `top` is the outermost Call of the write's fluent chain; `chain` its calls.
+
+    Two bindings:
+      - The chain is built fresh from `table(...)` (rooted at `self`/`db`) and
+        assigned to a variable: `V = ...table(X).update(...).eq("id", i)`. We
+        resolve `V` from the enclosing assignment so later `V = V.eq(...)`
+        reassignments can be tracked.
+      - The chain is applied to an existing query variable: `V.update(...)` /
+        `V = V.update(...)` — the chain root is the bare Name `V`.
+    """
+    if _chain_has_table(chain):
+        # Freshly-built chain — its result lives in the assignment target (if any).
+        for sub in ast.walk(func):
+            if isinstance(sub, ast.Assign) and _contains(sub.value, top):
+                names = [t.id for t in sub.targets if isinstance(t, ast.Name)]
+                if names:
+                    return names[0]
+        return None
+    # No table() in the chain → it is rooted at a query variable.
+    return _root_var_name(top)
+
+
+def _write_query_has_org_eq(top: ast.Call, chain: list[ast.Call], func: ast.AST) -> bool:
+    """True iff the org filter lives on the SAME query object as the write.
+
+    `top`/`chain` describe the write's full fluent chain (filters applied AFTER
+    the write included). Two cases:
+      1. Inline chain — the chain carries `.eq("organization_id", ...)`.
+      2. Query variable — the write builds/extends a variable `V`
+         (`V = ...table(X).update(...).eq("id", i); ...; V = V.eq("organization_id",
+         org)`). We collect the org `.eq` from every assignment to `V` whose RHS
+         chains from `table(<business>)` or from `V`. A filter applied to a
+         DIFFERENT variable (e.g. the preceding SELECT's `query`/`select_query`)
+         does NOT count — that is exactly the false-negative this guard must catch.
+    """
+    # Case 1: inline chain on the write itself (full chain, incl. post-write .eq).
+    for call in chain:
+        if _is_org_eq(call):
+            return True
+
+    # Case 2: track the org filter through the write's query variable.
+    var = _query_var_for_write(top, chain, func)
+    if var is None:
+        return False
+
     for sub in ast.walk(func):
-        if isinstance(sub, ast.Call) and _is_org_eq(sub):
+        if not isinstance(sub, ast.Assign):
+            continue
+        targets = {t.id for t in sub.targets if isinstance(t, ast.Name)}
+        if var not in targets:
+            continue
+        # Only assignments that build/extend this same query object count: the RHS
+        # must chain from a business table() or from the variable V itself.
+        if not _chain_starts_from(sub.value, {var}):
+            continue
+        if any(_is_org_eq(c) for c in _eq_calls_in(sub.value)):
             return True
     return False
 
@@ -203,7 +345,11 @@ def scan_source(source: str, filename: str) -> list[Finding]:
         if method not in WRITE_METHODS:
             continue
 
-        chain = _chain_calls(node)
+        # Full fluent chain incl. filters applied AFTER the write
+        # (`.update(...).eq("organization_id", ...)`): ascend to the chain top,
+        # then collect every Call from there down.
+        top = _chain_top(node, parents)
+        chain = _chain_calls(top)
         table = next((t for c in chain if (t := _table_literal(c)) is not None), None)
         if table is None or table not in BUSINESS_TABLES:
             continue
@@ -225,7 +371,7 @@ def scan_source(source: str, filename: str) -> list[Finding]:
             continue
 
         func = _enclosing_function(node, parents)
-        if func is not None and _function_has_org_eq(func):
+        if func is not None and _write_query_has_org_eq(top, chain, func):
             continue
 
         findings.append(Finding(file=filename, line=line, table=table, method=method))

@@ -235,6 +235,37 @@ def purge(db, tid):
     return db.client.table("webhook_message_dedup").delete().eq("message_id", tid).execute()
 '''
 
+# Codex false-negative: the SELECT is org-scoped on variable `query`, but the
+# UPDATE on a DIFFERENT variable `update_query` has no org filter. The old
+# function-scope heuristic credited the write with the SELECT's org `.eq` and let
+# this pass. The redesigned object-scope analysis must FLAG it.
+_CROSS_VAR_LEAK_SRC = '''
+def update_status(db, appt_id, organization_id):
+    query = db.client.table("appointments").select("*").eq("id", appt_id)
+    if organization_id and organization_id != "ALL":
+        query = query.eq("organization_id", organization_id)
+    existing = query.maybe_single().execute()
+
+    update_query = db.client.table("appointments").update({"status": "x"}).eq("id", appt_id)
+    return update_query.execute()
+'''
+
+# Positive twin: same shape, but the org filter is applied to the WRITE's own
+# query variable. This must PASS — proving the redesign credits same-object
+# scoping (inline or via variable reassignment) without crediting cross-variable.
+_VAR_SCOPED_SRC = '''
+def update_status(db, appt_id, organization_id):
+    query = db.client.table("appointments").select("*").eq("id", appt_id)
+    if organization_id and organization_id != "ALL":
+        query = query.eq("organization_id", organization_id)
+    existing = query.maybe_single().execute()
+
+    update_query = db.client.table("appointments").update({"status": "x"}).eq("id", appt_id)
+    if organization_id and organization_id != "ALL":
+        update_query = update_query.eq("organization_id", organization_id)
+    return update_query.execute()
+'''
+
 
 def test_guard_flags_unscoped_business_write(tmp_path):
     guard = _load_guard()
@@ -278,6 +309,27 @@ def test_guard_main_exit_codes(tmp_path):
     assert guard.main(["prog", str(good)]) == 0
 
 
+def test_guard_flags_cross_variable_org_filter(tmp_path):
+    """The Codex false-negative: an org filter on the SELECT's variable must NOT
+    credit a write on a different variable. The guard must flag the unscoped
+    UPDATE."""
+    guard = _load_guard()
+    f = tmp_path / "leak.py"
+    f.write_text(_CROSS_VAR_LEAK_SRC, encoding="utf-8")
+    findings = guard.scan_paths([f])
+    assert len(findings) == 1
+    assert findings[0].table == "appointments"
+    assert findings[0].method == "update"
+
+
+def test_guard_passes_variable_scoped_write(tmp_path):
+    """Positive twin: org filter applied to the write's own query variable passes."""
+    guard = _load_guard()
+    f = tmp_path / "scoped.py"
+    f.write_text(_VAR_SCOPED_SRC, encoding="utf-8")
+    assert guard.scan_paths([f]) == []
+
+
 def test_guard_clean_on_current_codebase():
     """Sanity net: the live tree must pass (Task 1 + exemptions in place)."""
     guard = _load_guard()
@@ -285,3 +337,73 @@ def test_guard_clean_on_current_codebase():
     assert findings == [], "unexpected unscoped business writes:\n" + "\n".join(
         str(f) for f in findings
     )
+
+
+# --------------------------------------------------------------------------- #
+# 3. Mutation check on the REAL hardened sites: removing the org `.eq` line from
+#    the live appointments service must make the guard fire. This proves the
+#    guard has teeth for the exact functions Wave 1 blindou.
+# --------------------------------------------------------------------------- #
+_APPOINTMENTS_SRC = ROOT / "packages" / "scheduling" / "services" / "appointments.py"
+
+_ORG_EQ_LINE = '            update_query = update_query.eq("organization_id", organization_id)'
+_ORG_IF_LINE = '        if organization_id and organization_id != "ALL":'
+
+
+def _mutate_remove_org_eq(source: str, occurrence: int) -> str:
+    """Remove the Nth (1-based) conditional org-scoping block
+    (`if organization_id ... :` + `update_query = update_query.eq("organization_id",
+    ...)`) from the appointments service, simulating the exact regression. Both
+    lines are dropped so the result stays syntactically valid (a dangling `if`
+    would raise SyntaxError, which scan_source swallows — masking the test)."""
+    lines = source.splitlines(keepends=True)
+    out: list[str] = []
+    hits = 0
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].rstrip("\n")
+        is_block = (
+            stripped == _ORG_IF_LINE
+            and i + 1 < len(lines)
+            and lines[i + 1].rstrip("\n") == _ORG_EQ_LINE
+        )
+        if is_block:
+            hits += 1
+            if hits == occurrence:
+                i += 2  # drop both the `if` and the org-eq line
+                continue
+        out.append(lines[i])
+        i += 1
+    assert hits >= occurrence, f"expected ≥{occurrence} org-scoping blocks, found {hits}"
+    return "".join(out)
+
+
+def test_guard_catches_regression_in_reschedule(tmp_path):
+    """Remove the org filter from reschedule_appointment's UPDATE → guard fires."""
+    guard = _load_guard()
+    source = _APPOINTMENTS_SRC.read_text(encoding="utf-8")
+    # Sanity: the unmutated source passes.
+    clean = tmp_path / "appointments_clean.py"
+    clean.write_text(source, encoding="utf-8")
+    assert guard.scan_paths([clean]) == []
+
+    # reschedule_appointment is the FIRST occurrence of the org-eq write line.
+    mutated = _mutate_remove_org_eq(source, occurrence=1)
+    bad = tmp_path / "appointments_reschedule_regression.py"
+    bad.write_text(mutated, encoding="utf-8")
+    findings = guard.scan_paths([bad])
+    tables = {(f.table, f.method) for f in findings}
+    assert ("appointments", "update") in tables
+
+
+def test_guard_catches_regression_in_update_status(tmp_path):
+    """Remove the org filter from update_appointment_status's UPDATE → guard fires."""
+    guard = _load_guard()
+    source = _APPOINTMENTS_SRC.read_text(encoding="utf-8")
+    # update_appointment_status is the SECOND occurrence of the org-eq write line.
+    mutated = _mutate_remove_org_eq(source, occurrence=2)
+    bad = tmp_path / "appointments_status_regression.py"
+    bad.write_text(mutated, encoding="utf-8")
+    findings = guard.scan_paths([bad])
+    tables = {(f.table, f.method) for f in findings}
+    assert ("appointments", "update") in tables
