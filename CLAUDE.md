@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.28)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.29)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -658,6 +658,7 @@ Aplicar em ordem via `supabase db push`, SQL Editor ou `python scripts/apply_mig
 | `20260610050000_conversation_metrics_sender_text.sql` | `conversation_metrics.sender_id` → TEXT (telefone WhatsApp / thread chat, não só UUID) |
 | `20260610060000_lgpd_consent.sql` | `patients.privacy_*` (consentimento LGPD) + índice org/legacy_sender |
 | `20260613000000_patient_privacy_declined.sql` | `patients.privacy_declined_at` (recusa LGPD persistida; reapresenta aviso, sem consent tácito) |
+| `20260629000000_kiosk_devices.sql` | Tabela interna `kiosk_devices` (provisionamento de totem): `token_hash` SHA-256, RLS sem policies + REVOKE anon/authenticated (resolvido server-side via service_role) |
 
 **Requisito Data Lake:** extensão **pgvector** habilitada no Supabase Dashboard.
 
@@ -1144,7 +1145,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 
 Checklist: [`docs/STAGING.md`](docs/STAGING.md)
 
-1. Supabase prod + `supabase db push` (**24 migrations**) + pgvector
+1. Supabase prod + `supabase db push` (**25 migrations**) + pgvector
 2. Secrets novos: `python scripts/generate_prod_secrets.py`
 3. Render API: `uvicorn main:app --host 0.0.0.0 --port $PORT`, health `/health`, scale=1
 4. Render Static Site: `apps/salon/dashboard`, `VITE_API_URL=https://API.onrender.com/api/v1`
@@ -1379,6 +1380,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.25 | Jun/2026 | **Lacunas de conhecimento**: migration `knowledge_gaps_capture` (schema + upsert `record_knowledge_gap`), captura fail-soft no `search_kb` atrás de `KNOWLEDGE_GAP_CAPTURE_ENABLED`, endpoint `/metrics/knowledge-gaps` e painel em `AgentObservability` (§13/§15/§27/§33/§39) |
 | 1.26 | Jun/2026 | **Reagendar/cancelar pelo agente (§49 F3) + hardening**: tools `reschedule_time` (scheduling) e `cancel_appointment` (support) + `list_my_appointments`, vinculadas ao sender (anti-injeção §52); `run_tools` agora fail-safe (try/except por tool); fix de vazamento de `str(e)` no `/chat/test`; routing `reagendar/remarcar/desmarcar`→scheduling (cancelar segue em support); §23/§39/§7 atualizados |
 | 1.27 | Jun/2026 | **Follow-up auditoria P0 (governança)**: fix de fuso (`org_today()` ancora datas coloquiais em `organizations.timezone`) e mascaramento de PII em logs (handoff Slack, auth, webhook, dispatch). Doc: contagem de migrations 22→23 (§34); 2 dívidas abertas em §39 (perf `org_today` por parse; `conversation_metrics.sender_id` cru); Slack como subprocessador (telefone mascarado) em `SUBPROCESSORS.md`; ROPA +handoff Slack, `whatsapp_inbound_jobs`, `knowledge_gaps` (retenção **a definir**) |
+| 1.29 | Jun/2026 | **Sync migrations (canal totem)**: registra `20260629000000_kiosk_devices.sql` na tabela §15 (tabela interna `kiosk_devices`, RLS sem policies + token hash) e atualiza a contagem do deploy §34 (24→25). Drift puro de documentação — a feature totem/kiosk já estava documentada (§10/§13); só a tabela de migrações e a contagem haviam ficado para trás |
 | 1.28 | Jun/2026 | **Cluster LGPD (auditoria)**: DSAR completo — export+erase de `anamnesis_responses` (saúde, anonimização de `answers`) e `appointment_payments` (financeiro, anonimização de `external_id`/`metadata` via `appointment_id` do paciente), fail-soft; **recusa de consentimento persistida** — migration `20260613000000_patient_privacy_declined.sql` (§15, contagem 23→24 §34) + `record_decline` + ramo no `evaluate_consent_gate` que reapresenta o aviso (recusa nunca vira consent tácito; saída só via "Concordo"), ligado nos handlers de decline chat dev/WhatsApp; §20 "Discordo" de limitação aberta → resolvida; ROPA atualizado |
 
 ---
