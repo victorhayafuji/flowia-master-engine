@@ -32,5 +32,33 @@
       "Bash(rm -rf*)",
       "Bash(git config*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py -3.12 .claude/hooks/guard_migrations.py",
+            "timeout": 10,
+            "statusMessage": "Checando guard de migrations"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py -3.12 .claude/hooks/post_edit_ruff.py",
+            "timeout": 40,
+            "statusMessage": "ruff fix+format"
+          }
+        ]
+      }
+    ]
   }
 }
