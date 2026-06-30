@@ -9,6 +9,20 @@ updates:
     labels:
       - "dependencies"
       - "backend"
+    ignore:
+      # Core LLM congelado (degrau 3 fase-2 — bump major arrasta o motor
+      # LangGraph e exige onda dedicada com regressão completa). Patches OK.
+      - dependency-name: "langchain"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "langchain-openai"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "langgraph-checkpoint"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "langgraph-checkpoint-postgres"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # pytest 9.x regride pytest-asyncio (dev-only) — adiado
+      - dependency-name: "pytest"
+        update-types: ["version-update:semver-major"]
 
   # Frontend npm deps (dashboard)
   - package-ecosystem: "npm"
@@ -19,6 +33,20 @@ updates:
     labels:
       - "dependencies"
       - "frontend"
+    ignore:
+      # React 19 adiado de propósito (CLAUDE.md §48.4 — produto em React 18.3).
+      # Migração para React 19 será onda própria. Minor/patch seguem.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      # plugin de lint atrelado a React 19 / config nova
+      - dependency-name: "eslint-plugin-react-hooks"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
