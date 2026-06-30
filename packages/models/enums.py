@@ -21,6 +21,7 @@ class AppointmentSource(str, Enum):
     DASHBOARD = "dashboard"
     API = "api"
     PHONE = "phone"
+    TOTEM = "totem"
 
 class ReminderType(str, Enum):
     CONFIRMATION_24H = "confirmation_24h"

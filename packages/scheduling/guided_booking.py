@@ -39,6 +39,13 @@ from packages.scheduling.timezone_utils import now_local_naive
 DATE_WINDOW_DAYS = 5  # how many upcoming days to offer in the date step
 _PT_WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 
+# Conversation channel → appointment source (single source of truth for this mapping).
+_CHANNEL_TO_SOURCE = {
+    "whatsapp": AppointmentSource.WHATSAPP,
+    "totem": AppointmentSource.TOTEM,
+    "chat_test": AppointmentSource.DASHBOARD,
+}
+
 CONFIRM_ID = "confirm"
 CANCEL_ID = "cancel"
 BACK_ID = "back"
@@ -511,7 +518,7 @@ async def _create_appointment(session: GuidedSession) -> BookingOutcome:
                 scheduled_at=scheduled_at,
                 duration_minutes=session.service_duration or 30,
                 status=AppointmentStatus.CONFIRMED,
-                source=AppointmentSource.WHATSAPP if session.channel == "whatsapp" else AppointmentSource.DASHBOARD,
+                source=_CHANNEL_TO_SOURCE.get(session.channel, AppointmentSource.DASHBOARD),
             )
             result = await SchedulingService().create_appointment(appointment)
         except Exception as exc:  # noqa: BLE001 — friendly message, detail logged upstream

@@ -54,6 +54,11 @@ class WhatsAppTestResponse(BaseModel):
     error: str | None = None
 
 
+class KioskDeviceCreate(BaseModel):
+    """Provision a new totem (kiosk) device. The token is returned once, then only its hash is stored."""
+    label: str
+
+
 class ServiceCatalogBase(BaseModel):
     name: str
     description: str | None = None

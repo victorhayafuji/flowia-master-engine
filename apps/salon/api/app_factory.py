@@ -104,12 +104,14 @@ def _register_routers(app: FastAPI) -> None:
     from packages.engine.chat_router import router as chat_router
     from packages.engine.metrics_router import router as metrics_router
     from packages.integrations.payments.router import router as payments_router
+    from packages.integrations.totem.router import router as totem_router
     from packages.integrations.webhook.router import router as webhook_router
     from packages.lakehouse.router import router as lakehouse_router
     from packages.scheduling.router import router as scheduling_router
 
     api = "/api/v1"
     app.include_router(webhook_router, prefix=api)
+    app.include_router(totem_router, prefix=api)
     app.include_router(auth_router, prefix=api)
     app.include_router(chat_router, prefix=api)
     app.include_router(lakehouse_router, prefix=api)

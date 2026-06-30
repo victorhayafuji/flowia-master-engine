@@ -313,12 +313,13 @@ flowia-master-engine/
 │   ├── engine/                  # LangGraph, chat, metrics, checkpointer, prompts
 │   │   ├── graph/               # state, nodes, edges, compile (facade: engine.py)
 │   │   └── engine.py            # Re-export API pública do grafo
-│   └── integrations/            # webhook/ (WhatsApp), payments/ (stub NoOp)
+│   └── integrations/            # webhook/ (WhatsApp), totem/ (kiosk), payments/ (stub NoOp)
 ├── apps/
 │   ├── salon/                   # Produto ativo
 │   │   ├── api/                 # app_factory, dashboard router
 │   │   ├── domain/              # catalog (routers/), clients (patients)
-│   │   ├── dashboard/           # SPA React
+│   │   ├── dashboard/           # SPA React (painel admin)
+│   │   ├── totem/               # PWA standalone do kiosk (Vite próprio, manifest + SW)
 │   │   ├── prompts.py           # Prompts white-label salão
 │   │   └── seeds/               # vertical_orgs.py, datalake_mocks/
 │   └── clinic/                  # Stub futuro
@@ -443,6 +444,9 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 | POST/GET | `/professionals` | CRUD profissionais |
 | PUT | `/professionals/{professional_id}` | Atualizar profissional (inclui `working_hours`, `break_times`) |
 | DELETE | `/professionals/{professional_id}` | Desativar profissional (soft delete) |
+| GET | `/kiosk-devices` | Listar totems da própria org (tenant_context; só metadados, nunca o token) |
+| POST | `/kiosk-devices` | Provisionar totem (tenant_context; **retorna o token uma única vez**; persiste só o hash) |
+| DELETE | `/kiosk-devices/{device_id}` | Revogar totem (tenant_context; `is_active=false`) |
 
 ### Lakehouse — `packages/lakehouse/router.py`
 
@@ -477,6 +481,15 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 |--------|------|-----------|
 | GET | `/whatsapp` | Verificação webhook Meta |
 | POST | `/whatsapp` | Mensagens inbound |
+
+### Totem / Kiosk — `packages/integrations/totem/router.py`
+
+Terceiro canal (`channel="totem"`): autoatendimento em tablet. Auth por **device token** (`x-device-token` → `resolve_kiosk_tenant`, fail-closed 403), sem pessoa logada. Reusa o booking guiado, o consent gate e o check-in (status `ARRIVED`). Telas e identidade espelham o WhatsApp (thread `{org}:{telefone}`).
+
+| Método | Path | Descrição |
+|--------|------|-----------|
+| POST | `/kiosk/session` | Inicia atendimento; retorna o passo de identificação (nome+telefone) |
+| POST | `/kiosk/advance` | Aplica seleção/input; identificação→consent→menu→booking/check-in/FAQ; retorna `StructuredStep` ou resultado terminal |
 
 ### Payments (stub) — `packages/integrations/payments/router.py`
 
@@ -591,7 +604,7 @@ Todos os routers usam paths **relativos**; montados com `prefix="/api/v1"`.
 ### LangGraph
 
 - Tabelas checkpoint criadas automaticamente por `PostgresSaver.setup()`
-- `conversation_metrics` — telemetria tokens/custo por thread; campos `organization_id`, `scheduling_path` (deterministic|llm), `triage_source` (keyword|conversation|sticky|llm), `channel` (chat_test|whatsapp), `tools_called` (JSONB)
+- `conversation_metrics` — telemetria tokens/custo por thread; campos `organization_id`, `scheduling_path` (deterministic|llm), `triage_source` (keyword|conversation|sticky|llm), `channel` (chat_test|whatsapp|totem; texto livre, sem CHECK), `tools_called` (JSONB)
 
 ### Relacionamentos chave
 
