@@ -1,59 +1,69 @@
 version: 2
+# Atualizações AGRUPADAS e MENSAIS — desenhado para baixo ruído de PRs.
+# - Minor/patch chegam juntos numa única PR por ecossistema, 1x/mês.
+# - Majors NÃO são automáticos em pip/npm (só sob demanda, em onda dedicada);
+#   risco de CVE já é coberto por pip-audit + bandit no CI.
+# - GitHub Actions agrupa tudo numa PR (majors de actions são baixo risco).
+# - Core LLM congelado (degrau 3 fase-2): sem minor também.
 updates:
   # Backend Python deps (raiz)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "backend"
+    groups:
+      backend-minor-patch:
+        patterns: ["*"]
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
-      # Core LLM congelado (degrau 3 fase-2 — bump major arrasta o motor
-      # LangGraph e exige onda dedicada com regressão completa). Patches OK.
-      - dependency-name: "langchain"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      - dependency-name: "langchain-openai"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      - dependency-name: "langgraph-checkpoint"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      - dependency-name: "langgraph-checkpoint-postgres"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      # pytest 9.x regride pytest-asyncio (dev-only) — adiado
-      - dependency-name: "pytest"
+      # Majors nunca automáticos — abrir sob demanda em onda dedicada.
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Core LLM congelado: também sem minor (bump arrasta o motor LangGraph).
+      - dependency-name: "langchain"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "langchain-openai"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "langgraph-checkpoint"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "langgraph-checkpoint-postgres"
+        update-types: ["version-update:semver-minor"]
 
   # Frontend npm deps (dashboard)
   - package-ecosystem: "npm"
     directory: "/apps/salon/dashboard"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "frontend"
+    groups:
+      frontend-minor-patch:
+        patterns: ["*"]
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
-      # React 19 adiado de propósito (CLAUDE.md §48.4 — produto em React 18.3).
-      # Migração para React 19 será onda própria. Minor/patch seguem.
-      - dependency-name: "react"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "react-dom"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@types/react"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@types/react-dom"
-        update-types: ["version-update:semver-major"]
-      # plugin de lint atrelado a React 19 / config nova
-      - dependency-name: "eslint-plugin-react-hooks"
+      # Majors nunca automáticos (React 19, TS 6, ESLint 10 = ondas próprias).
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
-  # GitHub Actions
+  # GitHub Actions (majors são baixo risco; agrupa tudo numa PR)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "ci"
+    groups:
+      github-actions:
+        patterns: ["*"]
