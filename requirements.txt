@@ -40,7 +40,7 @@ openai>=1.40.0,<2.0.0
 pillow>=12.2.0,<13.0.0
 
 # Linting & Testing
-ruff>=0.3.0,<1.0.0
+ruff>=0.15.20,<1.0.0
 # NOTE(degrau-3-fase-2): pytest pinado <9 (CVE-2025-71176, dev-only). Subir p/ 9.x
 # regride pytest-asyncio (0.26 exige pytest<9; o cap <1.0.0 cairia p/ 0.23.x), o que
 # desestabiliza a suíte async. Bump do pytest+plugins vira onda dedicada; CVE em allowlist.
