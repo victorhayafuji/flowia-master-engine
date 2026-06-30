@@ -124,10 +124,16 @@ async def dispatch_chat_test(
     org_id: str | None = None,
     guided_enabled: bool = False,
     patient_id: str | None = None,
+    channel: str = "chat_test",
 ) -> dict[str, Any]:
     """
     Orchestrates the chat test invocation to the master engine,
     extracts the response, calculates tokens, and saves metrics.
+
+    ``channel`` defaults to ``chat_test`` (the dashboard test page). The totem
+    (kiosk) FAQ path reuses this same engine with ``channel="totem"`` so the
+    LLM+RAG answer logic stays single-sourced; the value flows into the consent
+    record and the conversation metric.
     """
     thread_id = thread_id or str(uuid.uuid4())
 
@@ -157,7 +163,7 @@ async def dispatch_chat_test(
         config = {
             "configurable": {
                 "thread_id": thread_id,
-                "channel": "chat_test",
+                "channel": channel,
                 "org_id": effective_org,
                 # Cliente simulado pelo seletor da tela de teste (espelha o sender do WhatsApp)
                 # para tools que agem sobre o próprio agendamento (reschedule/cancel).
@@ -192,7 +198,7 @@ async def dispatch_chat_test(
 
         with set_tenant_context(effective_org):
             consent_action, notice_msg, lgpd_shown = evaluate_consent_gate(
-                effective_org, thread_id, "chat_test"
+                effective_org, thread_id, channel
             )
 
         if consent_action == ConsentAction.SEND_NOTICE and notice_msg:

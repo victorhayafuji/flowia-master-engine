@@ -4,5 +4,8 @@ export {
   getWhatsAppConfig,
   updateWhatsAppConfig,
   testWhatsAppConfig,
+  listKioskDevices,
+  createKioskDevice,
+  revokeKioskDevice,
 } from "../../lib/api"
-export type { WhatsAppConfigPayload } from "../../lib/api"
+export type { WhatsAppConfigPayload, KioskDevice } from "../../lib/api"

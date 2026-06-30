@@ -1,0 +1,19 @@
+{
+  "name": "Atendimento",
+  "short_name": "Totem",
+  "description": "Autoatendimento: agende, faça check-in e tire dúvidas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0d0b1a",
+  "theme_color": "#0d0b1a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

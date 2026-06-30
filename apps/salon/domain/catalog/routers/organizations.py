@@ -10,6 +10,7 @@ from apps.salon.domain.catalog.helpers import (
     verticals_for_product_line,
 )
 from apps.salon.domain.catalog.schemas import (
+    KioskDeviceCreate,
     OrganizationBase,
     OrganizationWhatsAppUpdate,
     WhatsAppTestRequest,
@@ -18,6 +19,7 @@ from packages.auth_core.config import settings
 from packages.auth_core.database import SupabaseHandler
 from packages.auth_core.dependencies import admin_required, get_db, tenant_context
 from packages.auth_core.exceptions import BusinessLogicError
+from packages.integrations.totem.tokens import generate_device_token, hash_device_token
 from packages.integrations.webhook.whatsapp import WhatsAppService
 
 logger = logging.getLogger(__name__)
@@ -177,6 +179,90 @@ async def test_my_whatsapp(
         token = token or (row.get("whatsapp_access_token") or "").strip()
     result = await WhatsAppService().verify_credentials(phone_id, token)
     return {"status": "success", "data": result}
+
+
+# --- Self-service Totem (kiosk) device provisioning (org_admin manages own org) ---
+# Scoped to the caller's tenant via tenant_context. The device token is the kiosk's
+# credential: shown once on creation, stored only as a SHA-256 hash, revocable.
+
+
+@router.get("/kiosk-devices")
+async def list_kiosk_devices(
+    org_id: str = Depends(tenant_context),
+    db: SupabaseHandler = Depends(get_db),
+):
+    """List the caller org's kiosk devices (never the token — only metadata)."""
+    _require_concrete_org(org_id)
+    res = (
+        db.client.table("kiosk_devices")
+        .select("id, label, is_active, created_at, last_seen_at")
+        .eq("organization_id", org_id)
+        .order("created_at")
+        .execute()
+    )
+    return {"status": "success", "data": res.data or []}
+
+
+@router.post("/kiosk-devices")
+async def create_kiosk_device(
+    payload: KioskDeviceCreate,
+    org_id: str = Depends(tenant_context),
+    db: SupabaseHandler = Depends(get_db),
+):
+    """Provision a new kiosk device. Returns the token ONCE — it cannot be retrieved again."""
+    _require_concrete_org(org_id)
+    label = (payload.label or "").strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="Informe um nome para o dispositivo.")
+
+    token = generate_device_token()
+    try:
+        res = (
+            db.client.table("kiosk_devices")
+            .insert(
+                {
+                    "organization_id": org_id,
+                    "label": label[:80],
+                    "token_hash": hash_device_token(token),
+                    "is_active": True,
+                }
+            )
+            .execute()
+        )
+        if not res.data:
+            raise HTTPException(status_code=400, detail="Erro ao criar dispositivo.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Erro ao criar dispositivo de totem (org=%s)", org_id)
+        raise HTTPException(status_code=400, detail="Erro ao criar dispositivo.") from e
+
+    device = res.data[0]
+    # The raw token is returned exactly once; only its hash is persisted.
+    return {
+        "status": "success",
+        "data": {"id": device["id"], "label": device["label"], "token": token},
+    }
+
+
+@router.delete("/kiosk-devices/{device_id}")
+async def revoke_kiosk_device(
+    device_id: str,
+    org_id: str = Depends(tenant_context),
+    db: SupabaseHandler = Depends(get_db),
+):
+    """Revoke (deactivate) a kiosk device. The token stops resolving immediately."""
+    _require_concrete_org(org_id)
+    res = (
+        db.client.table("kiosk_devices")
+        .update({"is_active": False})
+        .eq("id", device_id)
+        .eq("organization_id", org_id)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Dispositivo não encontrado.")
+    return {"status": "success", "data": {"revoked": True}}
 
 
 @router.get("/", dependencies=[Depends(admin_required)])

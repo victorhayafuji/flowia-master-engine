@@ -13,6 +13,7 @@ import { useAuth } from "@/features/auth/AuthContext"
 import { PageHeader } from "@/components/PageHeader"
 import { getWhatsAppConfig, testWhatsAppConfig, updateWhatsAppConfig } from "@/shared/lib/api"
 import { buildWebhookUrl } from "./lib/webhookUrl"
+import { TotemDevices } from "./TotemDevices"
 
 // The webhook URL must always point at the public API (Meta can't reach localhost).
 // The backend is the source of truth (GET → webhook_url); this is only a non-localhost fallback.
@@ -170,7 +171,7 @@ export function Settings() {
 
   return (
     <div className="page-shell">
-      <PageHeader title="Configurações" subtitle="Integração WhatsApp" />
+      <PageHeader title="Configurações" subtitle="Integrações" />
 
       {loading ? (
         <div className="card-brutal flex-1 min-h-[200px] flex items-center justify-center">
@@ -309,6 +310,9 @@ export function Settings() {
                 </p>
               )}
             </form>
+
+            {/* Totem (kiosk) self-service device provisioning */}
+            <TotemDevices />
           </div>
         </div>
       )}
