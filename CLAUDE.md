@@ -2,7 +2,7 @@
 
 > **Este documento é a fonte canônica do projeto.** Em caso de divergência com outros arquivos em `docs/`, prevalece o `CLAUDE.md`.
 >
-> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jun/2026 (doc v1.29)
+> **Produto ativo:** MVP salão (`PRODUCT_LINE=salon`) · **Versão API:** 1.2.0 · **Última revisão doc:** Jul/2026 (doc v1.30)
 >
 > **Escopo de implementação:** Partes I–VII descrevem o **MVP ativo**. A [Parte VIII — Futuras implementações](#parte-viii--futuras-implementações-não-mvp) é **somente visão estratégica** — agentes e devs **não devem implementar** sem pedido explícito do usuário.
 
@@ -766,7 +766,7 @@ Ver detalhes: [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md)
 - Service role **nunca** no frontend
 - **Consentimento:** aviso no 1º contato WhatsApp/chat (`packages/compliance/consent.py`); campos `patients.privacy_*`; `lgpd_shown` no grafo
 - **DSAR:** `GET /compliance/patients/{id}/export`, `POST /compliance/patients/{id}/erase` — `packages/compliance/`
-- **Retenção:** `CHECKPOINT_RETENTION_DAYS` (90), `CONVERSATION_METRICS_RETENTION_DAYS` (365), purge APScheduler em `packages/compliance/retention.py`
+- **Retenção:** `CHECKPOINT_RETENTION_DAYS` (90), `CONVERSATION_METRICS_RETENTION_DAYS` (365), `KNOWLEDGE_GAPS_RETENTION_DAYS` (365, desde `last_seen_at`), purge APScheduler em `packages/compliance/retention.py`
 - **Env:** `PRIVACY_CONTACT_EMAIL`, `PRIVACY_POLICY_URL`
 
 **Nova feature:** consultar [`docs/legal/LGPD_FEATURE_CHECKLIST.md`](docs/legal/LGPD_FEATURE_CHECKLIST.md) e rule `.cursor/rules/06-lgpd-compliance.mdc`.
@@ -1110,6 +1110,7 @@ Referência completa: `.env.example` (copiar para `.env` — **nunca commitar**)
 | `RESPONSE_POLISH_ENABLED` | Opcional | Polish LLM pós-composer (default **false**; A/B staging — ver §33.1) |
 | `GUIDED_BOOKING_WHATSAPP_ENABLED` | Opcional | Fluxo guiado por seleção (interativo) no WhatsApp (default **false** — texto livre de produção inalterado) |
 | `KNOWLEDGE_GAP_CAPTURE_ENABLED` | Opcional | Captura fail-soft de perguntas sem resposta na base RAG (default **true**; fire-and-forget no `search_kb`) |
+| `KNOWLEDGE_GAPS_RETENTION_DAYS` | Opcional | Retenção LGPD de `knowledge_gaps` desde `last_seen_at` (default **365**; purge diário APScheduler — §19) |
 | `SIM_WHATSAPP_ORG_ID` | Dev only | Bypass tenant resolver em simulação local — **nunca produção** |
 | `SIM_WHATSAPP_PHONE_ID` | Dev only | Default `123456789`; parear com simulate script |
 | `PROD_SMOKE_PASSWORD` | Dev/smoke | Senha piloto para `smoke_hybrid_prod.py` — não commitar |
@@ -1313,7 +1314,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | Anamnese / NPS | Parte VIII §42–§43 | **DEFERIDO** — schema only |
 | Pagamentos | `packages/integrations/payments` | **STUB** — contrato + NoOp + schema; execução deferida (Fase 2) |
 | `org_today()` faz `SELECT organizations.timezone` a cada parse de data | `packages/scheduling/timezone_utils.py` (`resolve_org_timezone`) | **Resolvido (perf)** — cache process-local TTL (`_TZ_CACHE`, 5 min, `time.monotonic()`) keyed por `org_id`; hit válido evita a query. Só cacheia no caminho de sucesso (fallback `DEFAULT` do `except` **nunca** é cacheado, para não fixar tz errada durante falha transitória de DB); `None`/`ALL` curto-circuitam sem consultar. In-process aceitável (igual rate-limit/cooldown §20, MVP scale=1); mudança de tz propaga em ≤5 min sem invalidação explícita |
-| `conversation_metrics.sender_id` persistia o telefone cru (não mascarado) | `packages/engine/metrics/service.py` | **Resolvido (LGPD)** — `save_conversation_metric` minimiza na fonte via `mask_sender_id` (`***1234`); correlação de DSAR/retenção é por `thread_id` (não por `sender_id`), então mascarar é lossless. ROPA #6 atualizado. Linhas antigas (pré-fix) expiram via retenção 365d — backfill one-time opcional |
+| `conversation_metrics.sender_id` persistia o telefone cru (não mascarado) | `packages/engine/metrics/service.py` | **Resolvido (LGPD)** — `save_conversation_metric` minimiza na fonte via `mask_sender_id` (`***1234`); correlação de DSAR/retenção é por `thread_id` (não por `sender_id`), então mascarar é lossless. ROPA #6 atualizado. Backfill one-time verificado **desnecessário** (Jul/2026): auditoria no Supabase piloto (`vwhsivwo...`) encontrou 252/252 linhas já mascaradas, 0 cruas — dívida encerrada |
 
 ## 40. Manutenção da fonte da verdade
 
@@ -1380,6 +1381,7 @@ Todas as skills carregam sob demanda via `@nome` no chat (`disable-model-invocat
 | 1.25 | Jun/2026 | **Lacunas de conhecimento**: migration `knowledge_gaps_capture` (schema + upsert `record_knowledge_gap`), captura fail-soft no `search_kb` atrás de `KNOWLEDGE_GAP_CAPTURE_ENABLED`, endpoint `/metrics/knowledge-gaps` e painel em `AgentObservability` (§13/§15/§27/§33/§39) |
 | 1.26 | Jun/2026 | **Reagendar/cancelar pelo agente (§49 F3) + hardening**: tools `reschedule_time` (scheduling) e `cancel_appointment` (support) + `list_my_appointments`, vinculadas ao sender (anti-injeção §52); `run_tools` agora fail-safe (try/except por tool); fix de vazamento de `str(e)` no `/chat/test`; routing `reagendar/remarcar/desmarcar`→scheduling (cancelar segue em support); §23/§39/§7 atualizados |
 | 1.27 | Jun/2026 | **Follow-up auditoria P0 (governança)**: fix de fuso (`org_today()` ancora datas coloquiais em `organizations.timezone`) e mascaramento de PII em logs (handoff Slack, auth, webhook, dispatch). Doc: contagem de migrations 22→23 (§34); 2 dívidas abertas em §39 (perf `org_today` por parse; `conversation_metrics.sender_id` cru); Slack como subprocessador (telefone mascarado) em `SUBPROCESSORS.md`; ROPA +handoff Slack, `whatsapp_inbound_jobs`, `knowledge_gaps` (retenção **a definir**) |
+| 1.30 | Jul/2026 | **Retenção LGPD de `knowledge_gaps`**: fecha o "a definir" do ROPA #14 — novo `KNOWLEDGE_GAPS_RETENTION_DAYS` (default 365, desde `last_seen_at`) + `purge_stale_knowledge_gaps()` no cron diário de retenção (`packages/compliance/retention.py`, 04:45); §19/§33 atualizados, ROPA #14 com prazo definido. Bônus: backfill do `sender_id` mascarado verificado **desnecessário** (0 linhas cruas no banco piloto; §39 encerrado) |
 | 1.29 | Jun/2026 | **Sync migrations (canal totem)**: registra `20260629000000_kiosk_devices.sql` na tabela §15 (tabela interna `kiosk_devices`, RLS sem policies + token hash) e atualiza a contagem do deploy §34 (24→25). Drift puro de documentação — a feature totem/kiosk já estava documentada (§10/§13); só a tabela de migrações e a contagem haviam ficado para trás |
 | 1.28 | Jun/2026 | **Cluster LGPD (auditoria)**: DSAR completo — export+erase de `anamnesis_responses` (saúde, anonimização de `answers`) e `appointment_payments` (financeiro, anonimização de `external_id`/`metadata` via `appointment_id` do paciente), fail-soft; **recusa de consentimento persistida** — migration `20260613000000_patient_privacy_declined.sql` (§15, contagem 23→24 §34) + `record_decline` + ramo no `evaluate_consent_gate` que reapresenta o aviso (recusa nunca vira consent tácito; saída só via "Concordo"), ligado nos handlers de decline chat dev/WhatsApp; §20 "Discordo" de limitação aberta → resolvida; ROPA atualizado |
 

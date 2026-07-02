@@ -1,4 +1,3 @@
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -63,7 +62,12 @@ class Settings(BaseSettings):
     LANGCHAIN_API_KEY: str = ""
 
     # Security: CORS & Trusted Hosts
-    ALLOWED_ORIGINS: list[str] = ["http://localhost:8000", "http://127.0.0.1:8000", "http://localhost:5173", "http://127.0.0.1:5173"]
+    ALLOWED_ORIGINS: list[str] = [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
     ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1"]
 
     # Security: Dashboard
@@ -85,8 +89,10 @@ class Settings(BaseSettings):
     PRIVACY_POLICY_URL: str = "https://www.gaussix.com/privacidade"
     CONVERSATION_METRICS_RETENTION_DAYS: int = 365
     CHECKPOINT_RETENTION_DAYS: int = 90
+    KNOWLEDGE_GAPS_RETENTION_DAYS: int = 365
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
 
 # Initialize global settings
 settings = Settings()
