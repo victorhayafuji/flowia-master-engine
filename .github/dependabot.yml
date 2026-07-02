@@ -26,6 +26,10 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
       # Core LLM congelado: também sem minor (bump arrasta o motor LangGraph).
+      # langgraph incluso: 1.2.x exige checkpoint >=3.x -> ResolutionImpossible
+      # com o pin <3.0.0 (PR #92 fechado por isso em Jul/2026).
+      - dependency-name: "langgraph"
+        update-types: ["version-update:semver-minor"]
       - dependency-name: "langchain"
         update-types: ["version-update:semver-minor"]
       - dependency-name: "langchain-openai"
