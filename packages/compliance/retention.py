@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 METRICS_PURGE_JOB_ID = "cron_purge_conversation_metrics"
 CHECKPOINT_PURGE_JOB_ID = "cron_purge_checkpoints"
+KNOWLEDGE_GAPS_PURGE_JOB_ID = "cron_purge_knowledge_gaps"
 
 
 def _stale_thread_ids(cutoff_iso: str) -> list[str]:
@@ -86,6 +87,27 @@ def purge_stale_checkpoints(retention_days: int | None = None) -> int:
     return removed
 
 
+def purge_stale_knowledge_gaps(retention_days: int | None = None) -> int:
+    """Purge knowledge_gaps não vistos há mais de N dias (pergunta pode conter PII livre)."""
+    if not db.client:
+        return 0
+    days = retention_days if retention_days is not None else settings.KNOWLEDGE_GAPS_RETENTION_DAYS
+    if days <= 0:
+        return 0
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    try:
+        # tenant-scope-exempt: LGPD retention purge is platform-wide by design,
+        # deleting gaps across all orgs strictly by the last_seen_at cutoff.
+        result = db.client.table("knowledge_gaps").delete().lt("last_seen_at", cutoff).execute()
+        removed = len(result.data or [])
+        if removed:
+            logger.info("[compliance] Purged %s knowledge_gaps older than %s days", removed, days)
+        return removed
+    except Exception as exc:
+        logger.warning("[compliance] knowledge_gaps purge failed: %s", exc)
+        return 0
+
+
 def register_retention_jobs(scheduler: BackgroundScheduler) -> None:
     scheduler.add_job(
         purge_stale_checkpoints,
@@ -101,6 +123,14 @@ def register_retention_jobs(scheduler: BackgroundScheduler) -> None:
         hour=4,
         minute=30,
         id=METRICS_PURGE_JOB_ID,
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        purge_stale_knowledge_gaps,
+        "cron",
+        hour=4,
+        minute=45,
+        id=KNOWLEDGE_GAPS_PURGE_JOB_ID,
         replace_existing=True,
     )
     logger.info("[compliance] Registered retention purge jobs")
