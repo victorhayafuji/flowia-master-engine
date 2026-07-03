@@ -3,12 +3,15 @@
 // (e.g. undo a wrongly-marked no_show). Any operational status can be set; only
 // `pending` (initial) and `rescheduled` (system) are not manual targets.
 
-/** State display names (used in timeline tooltip / badges). */
+/** State display names (used in timeline tooltip / badges).
+ * "Atendendo" (not "Em atendimento") to stay consistent with Overview's board
+ * badge — same status, same copy across screens, and it's the one label that
+ * used to force wrapping/truncation in the dense mobile badge. */
 export const STATUS_LABEL: Record<string, string> = {
   pending: "Pendente",
   confirmed: "Confirmado",
   arrived: "Chegou",
-  in_progress: "Em atendimento",
+  in_progress: "Atendendo",
   completed: "Concluído",
   no_show: "Falta",
   cancelled: "Cancelado",

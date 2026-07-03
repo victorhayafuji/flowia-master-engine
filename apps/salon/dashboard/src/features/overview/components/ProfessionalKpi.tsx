@@ -46,6 +46,11 @@ function DayCell({ label, counts, highlight = false }: { label: string; counts: 
   )
 }
 
+// Column headers ("Anterior"/"Selecionado"/"Próximo") live above the 3-cell row
+// instead of prefixed onto each cell's label — frees ~15-20px per cell so the date
+// itself ("01/07") doesn't get squeezed at 360-412px widths.
+const COLUMN_HEADERS = ["Anterior", "Selecionado", "Próximo"] as const
+
 function ProfessionalRow({ row, dates }: { row: ProfKpiRow; dates: ProfessionalKpiData["dates"] }) {
   return (
     <div className="space-y-2">
@@ -57,10 +62,20 @@ function ProfessionalRow({ row, dates }: { row: ProfKpiRow; dates: ProfessionalK
         </span>
         <Delta current={row.current.appointments} prev={row.prev.appointments} />
       </div>
+      <div className="flex gap-2 text-center">
+        {COLUMN_HEADERS.map((h) => (
+          <span
+            key={h}
+            className="flex-1 text-[9px] uppercase font-bold text-[var(--foreground)]/40 tracking-wide truncate"
+          >
+            {h}
+          </span>
+        ))}
+      </div>
       <div className="flex gap-2">
-        <DayCell label={`Ant. ${ddmm(dates.prev)}`} counts={row.prev} />
-        <DayCell label={`Sel. ${ddmm(dates.current)}`} counts={row.current} highlight />
-        <DayCell label={`Próx. ${ddmm(dates.next)}`} counts={row.next} />
+        <DayCell label={ddmm(dates.prev)} counts={row.prev} />
+        <DayCell label={ddmm(dates.current)} counts={row.current} highlight />
+        <DayCell label={ddmm(dates.next)} counts={row.next} />
       </div>
     </div>
   )

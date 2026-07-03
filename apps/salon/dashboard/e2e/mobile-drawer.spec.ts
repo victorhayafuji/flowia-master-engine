@@ -91,4 +91,17 @@ test.describe('Mobile drawer (412×890 viewport)', () => {
 
     await expect(page.getByTestId('mobile-drawer-backdrop')).toHaveCount(0)
   })
+
+  test('main content is inert while the drawer is open (native focus trap)', async ({ page }) => {
+    await loginAsOrgAdmin(page)
+
+    await page.getByRole('button', { name: 'Abrir menu' }).click()
+
+    // `inert` makes descendants unfocusable/unclickable for assistive tech — a link
+    // in the page behind the drawer must not be reachable while the drawer is open.
+    await expect(page.locator('main')).toHaveJSProperty('inert', true)
+
+    await page.getByRole('button', { name: 'Fechar menu' }).click()
+    await expect(page.locator('main')).toHaveJSProperty('inert', false)
+  })
 })
