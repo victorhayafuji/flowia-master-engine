@@ -114,7 +114,7 @@ export function Overview() {
             <CardTitle>Quadro de Hoje</CardTitle>
             <CardDescription>Quem atende, qual serviço e quando.</CardDescription>
           </CardHeader>
-          <CardContent className="panel-scroll max-h-[26rem] pr-2">
+          <CardContent className="panel-scroll max-h-[60vh] sm:max-h-[26rem] pr-2">
             {stats.board.length === 0 ? (
               <EmptyState text="Nenhum profissional ou agendamento para hoje." />
             ) : (
@@ -135,19 +135,19 @@ export function Overview() {
                         {item.appointments.map((appt) => (
                           <div
                             key={appt.id}
-                            className="flex items-center gap-3 p-2 bg-[var(--background)] border-2 border-[var(--border)]"
+                            className="flex items-center gap-3 p-2 bg-[var(--background)] border border-[var(--border)]"
                           >
                             <div className="font-mono font-bold text-xs whitespace-nowrap">
                               {hhmm(appt.scheduled_at)}
                               {appt.ends_at ? `–${hhmm(appt.ends_at)}` : ""}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="font-bold text-sm truncate">{appt.patient?.name || "Cliente"}</p>
+                              <p className="font-bold text-sm line-clamp-2">{appt.patient?.name || "Cliente"}</p>
                               <p className="text-xs text-[var(--foreground)]/60 font-mono truncate">
                                 {appt.service?.name || "Serviço"}
                               </p>
                             </div>
-                            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 border-2 border-[var(--border)] whitespace-nowrap">
+                            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 border border-[var(--border)] whitespace-nowrap">
                               {STATUS_LABELS[appt.status || ""] || appt.status}
                             </span>
                             {allowedTransitions(appt.status || "").length > 0 && (
@@ -177,7 +177,7 @@ export function Overview() {
             <CardTitle>Próximos Horários</CardTitle>
             <CardDescription>Agenda dos próximos dias.</CardDescription>
           </CardHeader>
-          <CardContent className="panel-scroll max-h-[26rem] pr-2">
+          <CardContent className="panel-scroll max-h-[60vh] sm:max-h-[26rem] pr-2">
             {stats.upcoming.length === 0 ? (
               <EmptyState text="Nenhum agendamento próximo." />
             ) : (
@@ -185,16 +185,16 @@ export function Overview() {
                 {stats.upcoming.map((appt) => (
                   <div
                     key={appt.id}
-                    className="flex items-center gap-4 p-3 bg-[var(--background)] border-2 border-[var(--border)]"
+                    className="flex items-center gap-4 p-3 bg-[var(--background)] border border-[var(--border)]"
                   >
-                    <div className="bg-[var(--accent)]/10 text-[var(--accent)] p-2 font-mono font-bold border-2 border-[var(--border)] text-center">
+                    <div className="bg-[var(--accent)]/10 text-[var(--accent)] p-1.5 font-mono font-bold border border-[var(--border)] text-center">
                       <div className="text-[10px] uppercase leading-tight">
                         {format(new Date(appt.scheduled_at), "EEE dd/MM", { locale: ptBR })}
                       </div>
                       <div>{hhmm(appt.scheduled_at)}</div>
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold uppercase tracking-tight text-sm truncate">{appt.patient?.name || "Cliente"}</p>
+                      <p className="font-bold uppercase tracking-tight text-sm line-clamp-2">{appt.patient?.name || "Cliente"}</p>
                       <p className="text-xs text-[var(--foreground)]/60 font-mono truncate">
                         {appt.service?.name || "Serviço"}
                         {appt.professional?.name ? ` · ${appt.professional.name}` : ""}

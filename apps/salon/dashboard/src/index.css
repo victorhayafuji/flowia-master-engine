@@ -32,6 +32,7 @@
   --background: #0c0a12;        /* Softened near-black (GAUSSIX bg is #06050A) */
   --surface: #14111c;          /* Lifted solid panel */
   --surface-glass: rgba(255, 255, 255, 0.045); /* Translucent glass over the dark bg */
+  --surface-overlay: rgba(20, 17, 28, 0.97); /* Near-opaque surface for modal/drawer overlays — see glass-overlay */
   --foreground: #eceaf2;       /* GAUSSIX ink */
   --muted: rgba(236, 234, 242, 0.55);          /* Secondary text */
   --border: rgba(236, 234, 242, 0.12);         /* Subtle light hairline on dark */
@@ -102,6 +103,25 @@ body {
   @apply spring-transition;
 }
 
+/*
+ * Surface convention (3 tiers — pick the right one, don't mix):
+ *   1. glass-panel   → decorative glass that COEXISTS with the page background
+ *                      (StatCard, FinanceCard, any GlassCard living in normal flow).
+ *   2. card-brutal    → solid surface for stable-contrast content (inputs, table rows).
+ *   3. glass-overlay  → near-opaque surface for anything that BLOCKS and REPLACES the
+ *                      user's attention (mobile drawer, modal, bottom sheet, popover
+ *                      stacked over dense/textual content). Never use glass-panel as
+ *                      the body of a fixed nav/modal overlay — its ~4.5% opacity is
+ *                      meant to be seen through, which reads as "broken glass" once
+ *                      there's real text behind it.
+ *
+ * z-index scale (named, keep in sync with usages):
+ *   z-10 → in-flow elevated content (inline dropdowns, tooltips)
+ *   z-40 → backdrop/scrim (blocks clicks on whatever is behind it)
+ *   z-50 → overlay/drawer/modal panel itself
+ *   z-60 → toasts/alerts (always above any modal)
+ */
+
 /* Translucent glass surface (GAUSSIX glass/depth motif) */
 @utility glass-panel {
   background-color: var(--surface-glass);
@@ -110,6 +130,16 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.75);
+}
+
+/* Near-opaque overlay surface — drawer/modal/sheet. Blur stays purely cosmetic
+   on the border since opacity alone already isolates readability underneath. */
+@utility glass-overlay {
+  background-color: var(--surface-overlay);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.85);
 }
 
 /* Purple glow halo for accent surfaces */

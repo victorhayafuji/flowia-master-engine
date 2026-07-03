@@ -52,8 +52,15 @@ export function Layout() {
 
       <div className="flex flex-1 min-h-0 flex-col md:flex-row">
 
-      {/* Mobile top bar with hamburger — hidden on md+. */}
-      <header className="md:hidden shrink-0 h-14 flex items-center gap-3 px-4 border-b border-[var(--border)] glass-panel rounded-none">
+      {/* Mobile top bar with hamburger — hidden on md+.
+          Hidden (not unmounted) while the drawer is open: without this, the header's
+          own "FlowIA" wordmark stays mounted behind the drawer and — since the old
+          glass-panel background was translucent — rendered as a duplicated wordmark. */}
+      <header
+        className={`md:hidden shrink-0 h-14 flex items-center gap-3 px-4 pt-[env(safe-area-inset-top)] border-b border-[var(--border)] glass-panel rounded-none ${
+          navOpen ? "invisible" : ""
+        }`}
+      >
         <button
           type="button"
           aria-label="Abrir menu"
@@ -65,27 +72,30 @@ export function Layout() {
         <Wordmark size="sm" />
       </header>
 
-      {/* Backdrop behind the mobile drawer. */}
+      {/* Backdrop behind the mobile drawer — opaque + blurred enough to read as
+          "content is blocked", not just decoratively tinted. */}
       {navOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm md:hidden"
           onClick={() => setNavOpen(false)}
           aria-hidden="true"
+          data-testid="mobile-drawer-backdrop"
         />
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 max-w-[85%] glass-panel rounded-none border-r border-[var(--border)] flex-shrink-0 flex flex-col transform transition-transform duration-200 md:translate-x-0 ${
+        data-testid="mobile-drawer"
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 max-w-[85%] glass-overlay rounded-none border-r border-[var(--border)] flex-shrink-0 flex flex-col transform transition-transform duration-200 md:translate-x-0 ${
           navOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-16 flex items-center justify-between px-6 border-b border-[var(--border)]">
+        <div className="h-16 flex items-center justify-between px-6 pt-[env(safe-area-inset-top)] border-b border-[var(--border)]">
           <Wordmark size="md" />
           <button
             type="button"
             aria-label="Fechar menu"
             onClick={() => setNavOpen(false)}
-            className="md:hidden flex items-center justify-center w-9 h-9 -mr-2 text-[var(--foreground)]"
+            className="md:hidden flex items-center justify-center w-11 h-11 -mr-2 text-[var(--foreground)]"
           >
             <X className="w-6 h-6" />
           </button>
@@ -122,7 +132,7 @@ export function Layout() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-[var(--border)]">
+        <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-[var(--border)]">
           <div className="mb-4 px-3">
             <p className="text-sm font-medium truncate">{user?.username}</p>
             <p className="text-xs text-[var(--muted)]">{roleLabel}</p>
