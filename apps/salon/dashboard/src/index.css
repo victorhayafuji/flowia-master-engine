@@ -59,6 +59,59 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/*
+ * Modern scrollbar (GAUSSIX) — thin, near-invisible thumb that only asserts itself
+ * on hover/drag, in the Linear/Vercel vein. Replaces the default browser chrome
+ * (light track + square gray thumb) that reads as "Windows 95" against the dark UI.
+ *
+ * Standard props (Chrome 121+, Firefox, Safari 18.2+) come first and are what most
+ * users will actually see today. The ::-webkit-scrollbar block below is a fallback
+ * for engines that don't yet support `scrollbar-color`/`scrollbar-width` — modern
+ * Chrome ignores ::-webkit-scrollbar once the standard props apply, so the two
+ * blocks don't fight each other, they cover different engine versions.
+ *
+ * scrollbar-color only accepts a solid color (no gradient), so the thumb is a flat
+ * translucent tint of --foreground/--accent rather than the brand's tri-color grad
+ * — consistent between the standard and webkit paths. Colors are derived from the
+ * existing tokens via color-mix() (mirrors the FinanceCard border-color pattern in
+ * Overview.tsx) instead of a hardcoded rgba() duplicating --foreground/--accent's RGB.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+}
+
+*:hover {
+  scrollbar-color: color-mix(in srgb, var(--accent) 55%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--foreground) 18%, transparent);
+  border-radius: 999px;
+  /* Padding-box + transparent border insets the visible fill from the track edge,
+     giving the thumb a floating pill look instead of touching the scrollbar walls. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Micro-interactions & Physics */
 @utility spring-transition {
   transition-property: all;
