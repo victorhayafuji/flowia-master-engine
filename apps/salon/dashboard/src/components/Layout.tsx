@@ -1,14 +1,38 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Outlet, Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { LayoutDashboard, Calendar, Settings, LogOut, Users, Database, MessageSquare, MessageCircle, Activity, Menu, X } from "lucide-react"
 import { Wordmark } from "@/components/ui/Wordmark"
+
+/**
+ * Sets/clears the native `inert` DOM attribute on a ref'd element via direct node
+ * manipulation. `inert` is a standard boolean attribute supported by all evergreen
+ * browsers, but React 18's reconciler doesn't recognize it as a JSX attribute (that
+ * lands in React 19) — passing it as a prop is silently dropped. Setting `el.inert`
+ * directly bypasses the reconciler and works on any React 18 DOM node.
+ */
+function useInert<T extends HTMLElement>(active: boolean) {
+  const ref = useRef<T>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.inert = active
+  }, [active])
+  return ref
+}
 
 export function Layout() {
   const { signOut, user, organizations, organizationId, setSelectedOrgId } = useAuth()
   const location = useLocation()
   const isDev = import.meta.env.DEV
   const [navOpen, setNavOpen] = useState(false)
+  const headerRef = useInert<HTMLElement>(navOpen)
+  const mainRef = useInert<HTMLElement>(navOpen)
+  // Keeps the backdrop mounted through its fade-out transition (see onTransitionEnd
+  // below) instead of unmounting the instant navOpen flips to false.
+  const [backdropVisible, setBackdropVisible] = useState(false)
+
+  useEffect(() => {
+    if (navOpen) setBackdropVisible(true)
+  }, [navOpen])
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {
@@ -55,8 +79,10 @@ export function Layout() {
       {/* Mobile top bar with hamburger — hidden on md+.
           Hidden (not unmounted) while the drawer is open: without this, the header's
           own "FlowIA" wordmark stays mounted behind the drawer and — since the old
-          glass-panel background was translucent — rendered as a duplicated wordmark. */}
+          glass-panel background was translucent — rendered as a duplicated wordmark.
+          `inert` also pulls its hamburger button out of the tab order while hidden. */}
       <header
+        ref={headerRef}
         className={`md:hidden shrink-0 h-14 flex items-center gap-3 px-4 pt-[env(safe-area-inset-top)] border-b border-[var(--border)] glass-panel rounded-none ${
           navOpen ? "invisible" : ""
         }`}
@@ -73,11 +99,18 @@ export function Layout() {
       </header>
 
       {/* Backdrop behind the mobile drawer — opaque + blurred enough to read as
-          "content is blocked", not just decoratively tinted. */}
-      {navOpen && (
+          "content is blocked", not just decoratively tinted. Kept mounted through
+          the fade-out (mirrors the drawer's own transition) instead of vanishing
+          the instant navOpen flips, so opening/closing reads as one motion. */}
+      {(navOpen || backdropVisible) && (
         <div
-          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm md:hidden"
+          className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm md:hidden spring-transition ${
+            navOpen ? "opacity-100" : "opacity-0"
+          }`}
           onClick={() => setNavOpen(false)}
+          onTransitionEnd={() => {
+            if (!navOpen) setBackdropVisible(false)
+          }}
           aria-hidden="true"
           data-testid="mobile-drawer-backdrop"
         />
@@ -85,7 +118,7 @@ export function Layout() {
 
       <aside
         data-testid="mobile-drawer"
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 max-w-[85%] glass-overlay rounded-none border-r border-[var(--border)] flex-shrink-0 flex flex-col transform transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 max-w-[85%] glass-overlay rounded-none border-r border-[var(--border)] flex-shrink-0 flex flex-col transform spring-transition md:translate-x-0 ${
           navOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -123,7 +156,7 @@ export function Layout() {
             const isActive = location.pathname === item.path
             return (
               <Link key={item.path} to={item.path} onClick={() => setNavOpen(false)}>
-                <span className={`flex items-center gap-3 px-3 py-3 rounded-[var(--radius-md)] border text-sm font-bold uppercase tracking-wide transition-all ${isActive ? "border-transparent bg-[image:var(--grad)] text-white glow-accent" : "border-[var(--border)] bg-[var(--surface-glass)] text-[var(--foreground)] hover:border-[var(--accent)] hover:-translate-y-0.5"}`}>
+                <span className={`flex items-center gap-3 px-3 py-3 rounded-[var(--radius-md)] border border-l-4 text-sm font-bold uppercase tracking-wide transition-all ${isActive ? "border-transparent border-l-[var(--accent-2)] bg-[image:var(--grad)] text-white glow-accent" : "border-[var(--border)] border-l-[var(--border)] bg-[var(--surface-glass)] text-[var(--foreground)] hover:border-[var(--accent)] hover:-translate-y-0.5"}`}>
                   <item.icon className="w-4 h-4" />
                   {item.label}
                 </span>
@@ -180,7 +213,10 @@ export function Layout() {
         </div>
       </aside>
 
-      <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      {/* `inert` keeps the page behind the drawer out of the tab order and out of
+          reach for assistive tech while the drawer is open — a native, dependency-free
+          focus trap (no manual tabindex bookkeeping). */}
+      <main ref={mainRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <Outlet />
       </main>
 

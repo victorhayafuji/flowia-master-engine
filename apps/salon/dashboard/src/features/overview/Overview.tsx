@@ -27,11 +27,14 @@ function hhmm(iso: string): string {
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
 }
 
+// "Em atendimento" was the one label wide enough to force truncation/wrap in the
+// dense mobile board row — shortened to "Atendendo" (same meaning, fits one line)
+// at the source so every screen using STATUS_LABELS benefits, not just Overview.
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendente",
   confirmed: "Confirmado",
   arrived: "Aguardando",
-  in_progress: "Em atendimento",
+  in_progress: "Atendendo",
   completed: "Concluído",
   no_show: "Falta",
   cancelled: "Cancelado",
@@ -42,6 +45,9 @@ export function Overview() {
   const stats = useOverviewStats(user, orgHeader)
   const showAgentSummary = user?.role !== "professional"
   const [kpiDate, setKpiDate] = useState(() => new Date().toISOString().slice(0, 10))
+  // Brief success-border flash on the board row whose status was just changed —
+  // otherwise the status swap is silent (only a reflow), easy to miss on mobile.
+  const [justUpdatedId, setJustUpdatedId] = useState<string | null>(null)
 
   const handleKpiDateChange = (date: string) => {
     setKpiDate(date)
@@ -52,6 +58,8 @@ export function Overview() {
     try {
       await updateAppointmentStatus(appointmentId, status, orgHeader)
       await stats.refreshBoard()
+      setJustUpdatedId(appointmentId)
+      window.setTimeout(() => setJustUpdatedId((current) => (current === appointmentId ? null : current)), 400)
     } catch (err) {
       alert(err instanceof Error ? err.message : "Erro ao atualizar status.")
     }
@@ -135,7 +143,9 @@ export function Overview() {
                         {item.appointments.map((appt) => (
                           <div
                             key={appt.id}
-                            className="flex items-center gap-3 p-2 bg-[var(--background)] border border-[var(--border)]"
+                            className={`flex items-center gap-3 p-2 bg-[var(--background)] border transition-colors duration-300 ${
+                              justUpdatedId === appt.id ? "border-[var(--success)]" : "border-[var(--border)]"
+                            }`}
                           >
                             <div className="font-mono font-bold text-xs whitespace-nowrap">
                               {hhmm(appt.scheduled_at)}
@@ -249,7 +259,8 @@ function StatCard({
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-[var(--muted)]">
+    <div className="flex flex-col items-center justify-center gap-2 py-16 text-[var(--muted)]">
+      <Calendar className="w-8 h-8 opacity-30" aria-hidden="true" />
       <p>{text}</p>
     </div>
   )
@@ -283,7 +294,7 @@ function FinancialBlock({ financial }: { financial: FinancialByPeriod }) {
               key={tab.key}
               type="button"
               onClick={() => setPeriod(tab.key)}
-              className={`px-3 py-1 border-2 font-mono text-xs font-bold uppercase tracking-wide transition-colors ${
+              className={`px-3 py-1 border sm:border-2 font-mono text-xs font-bold uppercase tracking-wide transition-colors ${
                 period === tab.key
                   ? "border-[var(--accent)] text-[var(--accent)] bg-[var(--surface-glass)]"
                   : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
