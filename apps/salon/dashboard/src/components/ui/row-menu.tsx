@@ -39,7 +39,7 @@ export function RowMenu({ items, label = "Ações" }: { items: RowMenuItem[]; la
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-center w-10 h-10 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-glass)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+        className="flex items-center justify-center w-11 h-11 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-glass)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
         data-testid="row-menu-trigger"
       >
         <MoreHorizontal className="w-5 h-5" />
