@@ -16,7 +16,7 @@ bcrypt>=4.0.0,<5.0.0
 PyJWT>=2.13.0,<3.0.0
 requests>=2.34.2,<3.0.0
 psycopg2-binary>=2.9.9,<3.0.0
-psycopg[binary]>=3.1.0,<4.0.0
+psycopg[binary]>=3.3.4,<4.0.0
 psycopg-pool>=3.2.0,<4.0.0
 
 # Background jobs
